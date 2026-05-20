@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meeting Notes AI</title>
+<style>
+  :root {
+    --dark:    #0D2137;
+    --mid:     #1A5276;
+    --accent:  #2E86C1;
+    --light:   #D6EAF8;
+    --bg:      #F4F6F9;
+    --white:   #FFFFFF;
+    --grey:    #AEB6BF;
+    --green:   #1E8449;
+    --orange:  #CA6F1E;
+    --red:     #C0392B;
+    --text:    #1C2833;
+    --radius:  10px;
+    --shadow:  0 4px 20px rgba(0,0,0,0.10);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, var(--dark) 0%, var(--mid) 100%);
+    color: #fff;
+    padding: 1.4rem 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+  }
+  header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.3px; }
+  header p  { font-size: 0.85rem; opacity: 0.75; margin-top: 2px; }
+  .logo { font-size: 2rem; }
+
+  /* ── Status bar ── */
+  #status-bar {
+    background: var(--dark);
+    color: #fff;
+    font-size: 0.78rem;
+    padding: 0.35rem 2rem;
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .dot.green  { background: #2ECC71; box-shadow: 0 0 6px #2ECC71; }
+  .dot.red    { background: #E74C3C; }
+  .dot.yellow { background: #F39C12; }
+
+  /* ── Layout ── */
+  main {
+    max-width: 1100px;
+    margin: 2rem auto;
+    padding: 0 1rem 4rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+  @media (max-width: 780px) {
+    main { grid-template-columns: 1fr; }
+  }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--white);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .card-head {
+    background: var(--mid);
+    color: #fff;
+    padding: 0.85rem 1.2rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .card-body { padding: 1.2rem; }
+
+  /* ── Form elements ── */
+  label { font-size: 0.82rem; font-weight: 600; color: var(--mid); display: block; margin-bottom: 0.3rem; }
+  input[type="text"], input[type="date"], textarea, select {
+    width: 100%;
+    padding: 0.6rem 0.8rem;
+    border: 1.5px solid #D5D8DC;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    color: var(--text);
+    transition: border-color 0.2s;
+    background: #FDFEFE;
+  }
+  input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--white);
+  }
+  textarea { resize: vertical; min-height: 200px; font-family: 'Consolas', monospace; font-size: 0.85rem; }
+  .field { margin-bottom: 1rem; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+
+  /* ── Buttons ── */
+  button {
+    cursor: pointer;
+    border: none;
+    border-radius: 7px;
+    font-family: inherit;
+    font-weight: 600;
+    padding: 0.7rem 1.4rem;
+    font-size: 0.9rem;
+    transition: all 0.15s;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--mid));
+    color: #fff;
+    width: 100%;
+    margin-top: 0.5rem;
+  }
+  .btn-primary:hover { filter: brightness(1.12); transform: translateY(-1px); }
+  .btn-primary:disabled { filter: grayscale(0.6); cursor: not-allowed; transform: none; }
+  .btn-green  { background: var(--green); color: #fff; }
+  .btn-green:hover { filter: brightness(1.1); }
+  .btn-small {
+    padding: 0.4rem 0.9rem;
+    font-size: 0.8rem;
+    background: var(--light);
+    color: var(--mid);
+  }
+  .btn-small:hover { background: var(--accent); color: #fff; }
+
+  /* ── Drop zone ── */
+  .drop-zone {
+    border: 2.5px dashed var(--accent);
+    border-radius: var(--radius);
+    padding: 2rem;
+    text-align: center;
+    color: var(--grey);
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .drop-zone:hover, .drop-zone.dragover {
+    background: var(--light);
+    border-color: var(--mid);
+    color: var(--mid);
+  }
+  .drop-zone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  }
+  .drop-zone .icon { font-size: 2.2rem; display: block; margin-bottom: 0.5rem; }
+
+  /* ── Result panel ── */
+  #result-panel {
+    display: none;
+    grid-column: 1 / -1;
+  }
+  #result-panel.visible { display: block; }
+
+  .result-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+    padding: 1.2rem;
+  }
+  .result-section { background: var(--bg); border-radius: 8px; padding: 0.9rem; }
+  .result-section h3 {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--mid);
+    margin-bottom: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .result-section ul { padding-left: 1.1rem; }
+  .result-section li { font-size: 0.87rem; margin-bottom: 0.3rem; line-height: 1.4; }
+  .summary-box {
+    background: var(--light);
+    border-left: 4px solid var(--accent);
+    padding: 0.9rem;
+    border-radius: 0 8px 8px 0;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin: 0 1.2rem;
+  }
+
+  .task-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .task-table th {
+    background: var(--orange);
+    color: #fff;
+    padding: 0.5rem 0.7rem;
+    text-align: left;
+  }
+  .task-table td { padding: 0.45rem 0.7rem; border-bottom: 1px solid #EEE; }
+  .task-table tr:nth-child(even) td { background: #FEF9F0; }
+
+  /* ── Image result ── */
+  #image-result { display: none; }
+  #image-result.visible { display: block; }
+  #preview-img { max-width: 100%; max-height: 300px; border-radius: 8px; margin-bottom: 1rem; }
+  #analysis-text {
+    background: var(--bg);
+    border-radius: 8px;
+    padding: 0.9rem;
+    font-size: 0.88rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+
+  /* ── Download banner ── */
+  #download-banner {
+    display: none;
+    background: linear-gradient(135deg, var(--green), #27AE60);
+    color: #fff;
+    padding: 1rem 1.5rem;
+    border-radius: var(--radius);
+    margin: 0 1.2rem 1.2rem;
+    display: none;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  #download-banner.visible {
+    display: flex;
+  }
+  #download-banner span { flex: 1; font-size: 0.9rem; }
+
+  /* ── Spinner ── */
+  .spinner {
+    display: inline-block;
+    width: 18px; height: 18px;
+    border: 3px solid rgba(255,255,255,0.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed; bottom: 1.5rem; right: 1.5rem;
+    background: var(--dark); color: #fff;
+    padding: 0.8rem 1.2rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s;
+    z-index: 999;
+    max-width: 320px;
+  }
+  #toast.show { opacity: 1; pointer-events: auto; }
+  #toast.error { background: var(--red); }
+
+  /* ── Tabs ── */
+  .tabs { display: flex; border-bottom: 2px solid var(--light); margin-bottom: 1rem; }
+  .tab {
+    padding: 0.6rem 1.1rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--grey);
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.15s;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">📝</span>
+  <div>
+    <h1>Meeting Notes AI</h1>
+    <p>Lokale KI &bull; PDF-Export &bull; Bildanalyse</p>
+  </div>
+</header>
+
+<div id="status-bar">
+  <span><span class="dot" id="ollama-dot"></span> &nbsp;Ollama: <span id="ollama-status">Prüfe...</span></span>
+  <span>Modell (Text): <strong id="text-model">—</strong></span>
+  <span>Modell (Vision): <strong id="vision-model">—</strong></span>
+  <span style="margin-left:auto; font-size:0.72rem; opacity:0.6">Alle Daten bleiben lokal auf deinem Gerät</span>
+</div>
+
+<main>
+
+  <!-- ── Notizen-Karte ── -->
+  <div class="card">
+    <div class="card-head">✏️ Meeting-Notizen eingeben</div>
+    <div class="card-body">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('notes')">Notizen</div>
+        <div class="tab" onclick="switchTab('settings')">Einstellungen</div>
+      </div>
+
+      <div class="tab-pane active" id="tab-notes">
+        <div class="field">
+          <label>Meeting-Titel</label>
+          <input type="text" id="title" value="Wöchentliches Team-Meeting" placeholder="z.B. Sprint Planning Q1">
+        </div>
+        <div class="grid2">
+          <div class="field">
+            <label>Datum</label>
+            <input type="date" id="date">
+          </div>
+          <div class="field">
+            <label>Sprache</label>
+            <select id="language">
+              <option value="de">Deutsch</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Teilnehmer (kommagetrennt)</label>
+          <input type="text" id="attendees" placeholder="Anna Müller, Max Schreiber, Julia Braun">
+        </div>
+        <div class="field">
+          <label>Rohe Meeting-Notizen</label>
+          <textarea id="raw-notes" placeholder="Füge deine Meeting-Notizen hier ein... Stichpunkte, Sätze oder roher Text — die KI strukturiert alles automatisch.
+
+Beispiel:
+- Sprint Review besprochen
+- Deployment auf Freitag verschoben wegen DB-Migration
+- Lisa kümmert sich um die Doku bis Ende der Woche
+- Offene Frage: Wer übernimmt das neue Kundenprojekt?"></textarea>
+        </div>
+        <button class="btn-primary" id="process-btn" onclick="processNotes()">
+          Notizen aufbereiten &amp; PDF erstellen
+        </button>
+      </div>
+
+      <div class="tab-pane" id="tab-settings">
+        <div class="field">
+          <label>Ollama URL</label>
+          <input type="text" id="ollama-url" value="http://localhost:11434" placeholder="http://localhost:11434">
+        </div>
+        <div class="field">
+          <label>Text-Modell</label>
+          <input type="text" id="txt-model-input" value="llama3.2" placeholder="llama3.2, mistral, gemma2...">
+        </div>
+        <div class="field">
+          <label>Vision-Modell</label>
+          <input type="text" id="vis-model-input" value="llava" placeholder="llava, llava-phi3...">
+        </div>
+        <p style="font-size:0.8rem; color:var(--grey); margin-top:0.5rem; line-height:1.5">
+          Starte Ollama: <code>ollama serve</code><br>
+          Modell laden: <code>ollama pull llama3.2</code><br>
+          Vision laden: <code>ollama pull llava</code>
+        </p>
+        <button class="btn-small" style="margin-top:1rem" onclick="checkStatus()">Verbindung testen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Bildanalyse-Karte ── -->
+  <div class="card">
+    <div class="card-head">🖼️ Bildanalyse</div>
+    <div class="card-body">
+      <div class="field">
+        <label>Bild hochladen (Whiteboard, Diagramm, Screenshot…)</label>
+        <div class="drop-zone" id="drop-zone">
+          <input type="file" id="image-file" accept="image/*" onchange="previewImage(event)">
+          <span class="icon">📷</span>
+          <strong>Bild hier ablegen oder klicken</strong>
+          <br><small>JPG, PNG, GIF, WebP</small>
+        </div>
+      </div>
+      <div class="field">
+        <label>Frage / Aufgabe für die KI</label>
+        <input type="text" id="image-question"
+          value="Was siehst du auf diesem Bild? Beschreibe alle wichtigen Punkte detailliert."
+          placeholder="Was steht auf dem Whiteboard?">
+      </div>
+      <button class="btn-primary" id="analyze-btn" onclick="analyzeImage()" style="background: linear-gradient(135deg, #8E44AD, #6C3483)">
+        Bild analysieren
+      </button>
+
+      <div id="image-result">
+        <hr style="margin: 1.2rem 0; border-color: var(--light)">
+        <img id="preview-img" src="" alt="Vorschau">
+        <div id="analysis-text"></div>
+        <button class="btn-small" style="margin-top:0.8rem" onclick="copyAnalysis()">📋 Analyse kopieren</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Ergebnis-Panel ── -->
+  <div id="result-panel" class="card">
+    <div class="card-head">📊 Aufbereitetes Meeting</div>
+    <div id="download-banner">
+      <span>✅ PDF erfolgreich erstellt!</span>
+      <a id="pdf-link" href="#" download>
+        <button class="btn-small" style="background:#fff; color:var(--green); font-weight:700">⬇️ PDF herunterladen</button>
+      </a>
+      <a id="pdf-view-link" href="#" target="_blank">
+        <button class="btn-small" style="background:rgba(255,255,255,0.2); color:#fff">🔍 Vorschau</button>
+      </a>
+    </div>
+    <div class="result-grid" id="result-grid"></div>
+  </div>
+
+</main>
+
+<div id="toast"></div>
+
+<script>
+const API = '';
+let currentPdfFilename = '';
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+document.getElementById('date').value = new Date().toISOString().split('T')[0];
+
+// Drag & drop
+const dz = document.getElementById('drop-zone');
+dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('dragover'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  if (f) { document.getElementById('image-file').files = e.dataTransfer.files; previewImageFile(f); }
+});
+
+checkStatus();
+
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ── Status check ─────────────────────────────────────────────────────────────
+async function checkStatus() {
+  const dot = document.getElementById('ollama-dot');
+  const statusEl = document.getElementById('ollama-status');
+  dot.className = 'dot yellow';
+  statusEl.textContent = 'Prüfe...';
+  try {
+    const r = await fetch('/api/models');
+    const d = await r.json();
+    if (d.connected) {
+      dot.className = 'dot green';
+      statusEl.textContent = 'Verbunden';
+      document.getElementById('text-model').textContent =
+        document.getElementById('txt-model-input').value;
+      document.getElementById('vision-model').textContent =
+        document.getElementById('vis-model-input').value;
+    } else throw new Error();
+  } catch {
+    dot.className = 'dot red';
+    statusEl.textContent = 'Nicht verbunden';
+  }
+}
+
+// ── Process notes ─────────────────────────────────────────────────────────────
+async function processNotes() {
+  const btn  = document.getElementById('process-btn');
+  const notes = document.getElementById('raw-notes').value.trim();
+  if (!notes) { toast('Bitte gib Meeting-Notizen ein.', true); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> KI verarbeitet...';
+
+  const fd = new FormData();
+  fd.append('raw_notes',  notes);
+  fd.append('title',      document.getElementById('title').value || 'Meeting');
+  fd.append('attendees',  document.getElementById('attendees').value);
+  fd.append('date',       document.getElementById('date').value);
+  fd.append('language',   document.getElementById('language').value);
+
+  try {
+    const r = await fetch('/api/process-notes', { method: 'POST', body: fd });
+    if (!r.ok) {
+      const err = await r.json();
+      throw new Error(err.detail || 'Fehler');
+    }
+    const data = await r.json();
+    renderResult(data.structured);
+    showDownloadBanner(data.pdf_url, data.pdf_filename);
+    toast('Meeting aufbereitet & PDF erstellt!');
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Notizen aufbereiten & PDF erstellen';
+  }
+}
+
+function renderResult(s) {
+  const panel = document.getElementById('result-panel');
+  const grid  = document.getElementById('result-grid');
+  panel.classList.add('visible');
+  grid.innerHTML = '';
+
+  if (s.zusammenfassung) {
+    const div = document.createElement('div');
+    div.style.gridColumn = '1/-1';
+    div.innerHTML = `<div class="summary-box">${s.zusammenfassung}</div>`;
+    grid.appendChild(div);
+  }
+
+  if (s.themen?.length) appendList(grid, '🗂️ Themen', s.themen);
+  if (s.beschluesse?.length) appendList(grid, '✅ Beschlüsse', s.beschluesse);
+  if (s.naechste_schritte?.length) appendList(grid, '🚀 Nächste Schritte', s.naechste_schritte);
+  if (s.offene_fragen?.length) appendList(grid, '❓ Offene Fragen', s.offene_fragen);
+
+  if (s.aufgaben?.length) {
+    const div = document.createElement('div');
+    div.style.gridColumn = '1/-1';
+    div.className = 'result-section';
+    div.innerHTML = `<h3>📌 Aufgaben</h3>
+      <table class="task-table">
+        <thead><tr><th>Aufgabe</th><th>Verantwortlich</th><th>Frist</th></tr></thead>
+        <tbody>${s.aufgaben.map(a => `
+          <tr>
+            <td>${a.aufgabe || a}</td>
+            <td>${a.verantwortlich || '—'}</td>
+            <td>${a.frist || 'offen'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+    grid.appendChild(div);
+  }
+
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function appendList(parent, title, items) {
+  const div = document.createElement('div');
+  div.className = 'result-section';
+  div.innerHTML = `<h3>${title}</h3><ul>${items.map(i =>
+    `<li>${typeof i === 'object' ? i.aufgabe || JSON.stringify(i) : i}</li>`
+  ).join('')}</ul>`;
+  parent.appendChild(div);
+}
+
+function showDownloadBanner(url, filename) {
+  const banner = document.getElementById('download-banner');
+  banner.classList.add('visible');
+  document.getElementById('pdf-link').href      = url;
+  document.getElementById('pdf-link').download  = filename;
+  document.getElementById('pdf-view-link').href = url;
+}
+
+// ── Image analysis ────────────────────────────────────────────────────────────
+function previewImage(e) { previewImageFile(e.target.files[0]); }
+
+function previewImageFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('preview-img').src = ev.target.result;
+    document.getElementById('image-result').classList.add('visible');
+    document.getElementById('analysis-text').textContent = '';
+  };
+  reader.readAsDataURL(file);
+  dz.querySelector('strong').textContent = file.name;
+}
+
+async function analyzeImage() {
+  const file = document.getElementById('image-file').files[0];
+  if (!file) { toast('Bitte zuerst ein Bild auswählen.', true); return; }
+
+  const btn = document.getElementById('analyze-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> KI analysiert Bild...';
+
+  const fd = new FormData();
+  fd.append('file',     file);
+  fd.append('question', document.getElementById('image-question').value);
+
+  try {
+    const r = await fetch('/api/analyze-image', { method: 'POST', body: fd });
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail); }
+    const d = await r.json();
+    document.getElementById('analysis-text').textContent = d.analysis;
+    document.getElementById('image-result').classList.add('visible');
+    toast('Bildanalyse abgeschlossen!');
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Bild analysieren';
+  }
+}
+
+function copyAnalysis() {
+  const text = document.getElementById('analysis-text').textContent;
+  navigator.clipboard.writeText(text).then(() => toast('Analyse kopiert!'));
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function toast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = (isError ? '⚠️ ' : '✅ ') + msg;
+  el.className   = 'show' + (isError ? ' error' : '');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.className = '', 4000);
+}
+</script>
+</body>
+</html>
