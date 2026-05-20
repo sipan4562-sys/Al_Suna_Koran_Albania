@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meeting Notes AI</title>
+<!-- jsPDF für clientseitige PDF-Generierung -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ══ TOKENS ══════════════════════════════════════════════════════════════ */
+:root {
+  --bg:        #0F1117;
+  --surf:      #1A1D27;
+  --surf2:     #22263A;
+  --bdr:       rgba(255,255,255,0.07);
+  --bdr2:      rgba(255,255,255,0.13);
+  --txt:       #E8EAF0;
+  --dim:       #8B91A8;
+  --dimmer:    #555A70;
+  --acc:       #6366F1;
+  --acc2:      #818CF8;
+  --acc-d:     rgba(99,102,241,0.15);
+  --green:     #10B981;
+  --green-d:   rgba(16,185,129,0.12);
+  --orange:    #F59E0B;
+  --orange-d:  rgba(245,158,11,0.12);
+  --purple:    #A855F7;
+  --purple-d:  rgba(168,85,247,0.12);
+  --red:       #EF4444;
+  --red-d:     rgba(239,68,68,0.12);
+  --blue:      #3B82F6;
+  --blue-d:    rgba(59,130,246,0.12);
+  --sw:        240px;
+  --r:         12px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;display:flex}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:var(--surf2);border-radius:3px}
+::selection{background:var(--acc);color:#fff}
+
+/* ══ SIDEBAR ═════════════════════════════════════════════════════════════ */
+#sb{
+  width:var(--sw);min-height:100vh;
+  background:var(--surf);border-right:1px solid var(--bdr);
+  display:flex;flex-direction:column;
+  position:fixed;left:0;top:0;bottom:0;z-index:100;
+  transition:transform .2s ease;
+}
+.sb-logo{padding:1.4rem 1.2rem 1rem;border-bottom:1px solid var(--bdr)}
+.sb-mark{
+  width:38px;height:38px;border-radius:10px;
+  background:linear-gradient(135deg,var(--acc),var(--purple));
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.2rem;margin-bottom:.7rem;
+  box-shadow:0 4px 14px rgba(99,102,241,.4);
+}
+.sb-logo h2{font-size:.95rem;font-weight:700}
+.sb-logo p{font-size:.7rem;color:var(--dim);margin-top:2px}
+.nav-sec{padding:.9rem .8rem .3rem}
+.nav-lbl{font-size:.62rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--dimmer);padding:0 .4rem;margin-bottom:.4rem}
+.nav-it{
+  display:flex;align-items:center;gap:.6rem;
+  padding:.58rem .75rem;border-radius:8px;cursor:pointer;
+  font-size:.84rem;font-weight:500;color:var(--dim);
+  transition:all .15s;user-select:none;position:relative;
+}
+.nav-it:hover{background:var(--surf2);color:var(--txt)}
+.nav-it.active{background:var(--acc-d);color:var(--acc2)}
+.nav-it.active::before{content:'';position:absolute;left:0;top:20%;bottom:20%;width:3px;background:var(--acc);border-radius:2px}
+.nav-icon{font-size:1rem;width:20px;text-align:center}
+.nav-badge{margin-left:auto;background:var(--acc);color:#fff;font-size:.62rem;font-weight:700;padding:1px 6px;border-radius:20px}
+.sb-status{margin-top:auto;padding:.9rem;border-top:1px solid var(--bdr)}
+.st-pill{display:flex;align-items:center;gap:.5rem;padding:.5rem .7rem;background:var(--surf2);border-radius:8px;font-size:.74rem;color:var(--dim)}
+.st-dot{width:7px;height:7px;border-radius:50%;background:var(--dimmer);flex-shrink:0;transition:all .3s}
+.st-dot.on{background:var(--green);box-shadow:0 0 8px var(--green)}
+.st-dot.off{background:var(--red)}
+.st-dot.chk{background:var(--orange);animation:pdot 1s infinite}
+@keyframes pdot{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ══ MAIN ════════════════════════════════════════════════════════════════ */
+#mw{margin-left:var(--sw);flex:1;min-height:100vh;display:flex;flex-direction:column}
+.topbar{
+  height:58px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;
+  padding:0 2rem;gap:1rem;position:sticky;top:0;
+  background:rgba(15,17,23,.88);backdrop-filter:blur(16px);z-index:50;
+}
+.topbar-title{font-size:.92rem;font-weight:600}
+.topbar-sub{font-size:.76rem;color:var(--dim)}
+.topbar-act{margin-left:auto;display:flex;gap:.5rem}
+
+/* ══ PAGES ═══════════════════════════════════════════════════════════════ */
+.page{display:none;padding:1.8rem;max-width:900px;width:100%}
+.page.active{display:block}
+
+/* ══ HERO ════════════════════════════════════════════════════════════════ */
+.hero{
+  background:linear-gradient(135deg,rgba(99,102,241,.16) 0%,rgba(168,85,247,.09) 60%,rgba(59,130,246,.07) 100%);
+  border:1px solid rgba(99,102,241,.2);border-radius:18px;
+  padding:1.8rem;margin-bottom:1.8rem;position:relative;overflow:hidden;
+}
+.hero::before{content:'';position:absolute;top:-50px;right:-50px;width:180px;height:180px;background:radial-gradient(circle,rgba(99,102,241,.22),transparent 70%);pointer-events:none}
+.hero h1{font-size:1.55rem;font-weight:800;letter-spacing:-.4px;line-height:1.2}
+.hero h1 span{color:var(--acc2)}
+.hero p{color:var(--dim);margin-top:.5rem;font-size:.86rem;line-height:1.6}
+.hero-steps{display:flex;gap:.5rem;margin-top:1.1rem;flex-wrap:wrap}
+.hero-step{display:flex;align-items:center;gap:.35rem;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:.28rem .7rem;font-size:.73rem;color:var(--dim)}
+.hero-step span{color:var(--acc2);font-weight:700}
+
+/* ══ CARD ════════════════════════════════════════════════════════════════ */
+.card{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);overflow:hidden;margin-bottom:1.1rem}
+.card-hd{padding:.9rem 1.3rem;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:.6rem}
+.card-hd-icon{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0}
+.card-hd h3{font-size:.88rem;font-weight:600}
+.card-hd p{font-size:.73rem;color:var(--dim);margin-top:1px}
+.card-body{padding:1.3rem}
+
+/* ══ FORMS ═══════════════════════════════════════════════════════════════ */
+.field{margin-bottom:1rem}.field:last-child{margin-bottom:0}
+label{display:block;font-size:.76rem;font-weight:600;color:var(--dim);margin-bottom:.35rem;letter-spacing:.2px}
+input[type="text"],input[type="date"],select,textarea{
+  width:100%;background:var(--surf2);border:1.5px solid var(--bdr2);border-radius:8px;
+  padding:.62rem .85rem;font-size:.875rem;font-family:inherit;color:var(--txt);
+  outline:none;transition:border-color .15s,box-shadow .15s;-webkit-appearance:none;
+}
+input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+input::placeholder,textarea::placeholder{color:var(--dimmer)}
+select{cursor:pointer}select option{background:var(--surf2)}
+textarea{resize:vertical;min-height:175px;font-family:'Fira Code','Consolas',monospace;font-size:.82rem;line-height:1.65}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+
+/* Chip input */
+.chip-wrap{
+  display:flex;flex-wrap:wrap;gap:.35rem;
+  background:var(--surf2);border:1.5px solid var(--bdr2);border-radius:8px;
+  padding:.35rem;min-height:42px;cursor:text;transition:border-color .15s;
+}
+.chip-wrap:focus-within{border-color:var(--acc);box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+.chip{display:inline-flex;align-items:center;gap:.28rem;background:var(--acc-d);border:1px solid rgba(99,102,241,.25);border-radius:20px;padding:.18rem .45rem .18rem .55rem;font-size:.76rem;color:var(--acc2);animation:chip-in .15s ease}
+@keyframes chip-in{from{opacity:0;transform:scale(.8)}to{opacity:1;transform:scale(1)}}
+.chip-x{cursor:pointer;font-weight:700;transition:color .15s}.chip-x:hover{color:var(--red)}
+#chip-inp{border:none;outline:none;background:transparent;color:var(--txt);font-size:.84rem;font-family:inherit;flex:1;min-width:110px;padding:.13rem .18rem}
+
+/* ══ BUTTONS ═════════════════════════════════════════════════════════════ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;border:none;border-radius:8px;font-family:inherit;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none!important}
+.btn-primary{background:linear-gradient(135deg,var(--acc),#4F46E5);color:#fff;padding:.72rem 1.4rem;font-size:.88rem;box-shadow:0 4px 14px rgba(99,102,241,.32);width:100%}
+.btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 20px rgba(99,102,241,.48)}
+.btn-ghost{background:var(--surf2);color:var(--dim);border:1px solid var(--bdr2);padding:.5rem .9rem;font-size:.8rem}
+.btn-ghost:hover{background:var(--bdr2);color:var(--txt)}
+.btn-purple{background:linear-gradient(135deg,var(--purple),#7C3AED);color:#fff;padding:.72rem 1.4rem;font-size:.88rem;box-shadow:0 4px 14px rgba(168,85,247,.32);width:100%}
+.btn-purple:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 20px rgba(168,85,247,.46)}
+.btn-green{background:linear-gradient(135deg,var(--green),#059669);color:#fff;padding:.58rem 1.1rem;font-size:.83rem}
+.btn-green:hover{filter:brightness(1.08);transform:translateY(-1px)}
+
+/* ══ PROGRESS OVERLAY ════════════════════════════════════════════════════ */
+#prog-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);backdrop-filter:blur(10px);z-index:500;flex-direction:column;align-items:center;justify-content:center}
+#prog-ov.vis{display:flex}
+.prog-card{background:var(--surf);border:1px solid var(--bdr2);border-radius:18px;padding:2.5rem 2.8rem;text-align:center;max-width:360px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.prog-icon{font-size:2.4rem;display:block;margin-bottom:.9rem;animation:float 2s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.prog-card h3{font-size:1.02rem;font-weight:700;margin-bottom:.35rem}
+.prog-card p{font-size:.8rem;color:var(--dim);margin-bottom:1.4rem}
+.prog-bar-wrap{background:var(--surf2);border-radius:20px;height:6px;overflow:hidden}
+.prog-bar-fill{height:100%;background:linear-gradient(90deg,var(--acc),var(--purple));border-radius:20px;width:0%;transition:width .5s ease;position:relative}
+.prog-bar-fill::after{content:'';position:absolute;right:0;top:0;bottom:0;width:50px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35));animation:shim 1.5s infinite}
+@keyframes shim{0%{opacity:0}50%{opacity:1}100%{opacity:0}}
+.prog-steps{margin-top:.9rem;display:flex;flex-direction:column;gap:.35rem;text-align:left}
+.p-step{display:flex;align-items:center;gap:.55rem;font-size:.76rem;color:var(--dimmer);transition:color .3s}
+.p-step.done{color:var(--green)}.p-step.active{color:var(--txt)}
+.p-dot{width:15px;height:15px;flex-shrink:0;border-radius:50%;background:var(--surf2);border:1.5px solid var(--bdr2);display:flex;align-items:center;justify-content:center;font-size:.58rem;transition:all .3s}
+.p-step.done .p-dot{background:var(--green);border-color:var(--green);color:#fff}
+.p-step.active .p-dot{border-color:var(--acc);background:var(--acc-d);animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ══ RESULT ══════════════════════════════════════════════════════════════ */
+#res-panel{display:none}
+#res-panel.vis{display:block;animation:up .35s ease}
+@keyframes up{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+.res-hero{background:linear-gradient(135deg,rgba(16,185,129,.11),rgba(99,102,241,.07));border:1px solid rgba(16,185,129,.18);border-radius:var(--r);padding:1.3rem 1.5rem;display:flex;align-items:center;gap:1.1rem;margin-bottom:1.1rem;flex-wrap:wrap}
+.res-hero-icon{font-size:1.8rem}
+.res-hero-text h3{font-size:.97rem;font-weight:700;color:var(--green)}
+.res-hero-text p{font-size:.78rem;color:var(--dim);margin-top:1px}
+.res-hero-act{margin-left:auto;display:flex;gap:.5rem;flex-wrap:wrap}
+.sum-card{background:linear-gradient(135deg,rgba(99,102,241,.07),rgba(59,130,246,.05));border:1px solid rgba(99,102,241,.17);border-radius:var(--r);padding:1.1rem 1.3rem;margin-bottom:1.1rem;font-size:.88rem;line-height:1.7;color:var(--txt);position:relative}
+.sum-card::before{content:'"';position:absolute;top:-.2rem;left:.85rem;font-size:2.8rem;color:rgba(99,102,241,.18);line-height:1;font-family:Georgia,serif}
+.res-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:.9rem;margin-bottom:1.1rem}
+.res-card{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);padding:1rem;animation:up .35s ease both}
+.res-card:nth-child(2){animation-delay:.05s}.res-card:nth-child(3){animation-delay:.1s}.res-card:nth-child(4){animation-delay:.15s}
+.rch{display:flex;align-items:center;gap:.45rem;margin-bottom:.7rem;padding-bottom:.6rem;border-bottom:1px solid var(--bdr)}
+.rch-badge{width:25px;height:25px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.82rem;flex-shrink:0}
+.rch h4{font-size:.76rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--dim)}
+.res-card ul{list-style:none;display:flex;flex-direction:column;gap:.4rem}
+.res-card li{font-size:.82rem;line-height:1.45;display:flex;gap:.35rem}
+.res-card li::before{content:'·';color:var(--dimmer);flex-shrink:0}
+.task-sec{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r);overflow:hidden;margin-bottom:1.1rem}
+.task-sec-hd{padding:.8rem 1.1rem;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:.5rem;font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--orange)}
+.task-tbl{width:100%;border-collapse:collapse}
+.task-tbl th{font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--dimmer);padding:.6rem 1.1rem;text-align:left;border-bottom:1px solid var(--bdr)}
+.task-tbl td{padding:.65rem 1.1rem;font-size:.82rem;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top;line-height:1.4}
+.task-tbl tr:last-child td{border-bottom:none}.task-tbl tr:hover td{background:var(--surf2)}
+.badge{display:inline-block;padding:.12rem .5rem;border-radius:20px;font-size:.7rem;font-weight:600}
+.b-open{background:var(--red-d);color:var(--red)}.b-who{background:var(--blue-d);color:var(--blue)}.b-date{background:var(--orange-d);color:var(--orange)}
+
+/* ══ IMAGE PAGE ══════════════════════════════════════════════════════════ */
+.drop-z{border:2px dashed var(--bdr2);border-radius:var(--r);padding:2.3rem 2rem;text-align:center;cursor:pointer;transition:all .2s;position:relative;background:var(--surf2)}
+.drop-z:hover,.drop-z.dov{border-color:var(--acc);background:var(--acc-d)}
+.drop-z input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.drop-z .di{font-size:2.3rem;display:block;margin-bottom:.7rem}
+.drop-z strong{font-size:.88rem;display:block;margin-bottom:.25rem}.drop-z small{font-size:.75rem;color:var(--dimmer)}
+.img-prev{border-radius:var(--r);overflow:hidden;background:var(--surf2);text-align:center;margin-bottom:.9rem;position:relative}
+.img-prev img{max-width:100%;max-height:340px;border-radius:var(--r);display:block;margin:0 auto}
+.img-label{position:absolute;top:.55rem;right:.55rem;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);border-radius:20px;padding:.18rem .65rem;font-size:.7rem;color:rgba(255,255,255,.8)}
+.ana-txt{background:var(--surf2);border:1px solid var(--bdr2);border-radius:var(--r);padding:1.1rem;font-size:.85rem;line-height:1.7;white-space:pre-wrap;color:var(--txt);min-height:70px;max-height:380px;overflow-y:auto}
+
+/* ══ SETTINGS ════════════════════════════════════════════════════════════ */
+.set-row{display:flex;align-items:center;padding:.95rem 1.3rem;border-bottom:1px solid var(--bdr);gap:1rem}
+.set-row:last-child{border-bottom:none}
+.set-info{flex:1}.set-info label{color:var(--txt);font-size:.86rem;font-weight:600;margin-bottom:0}.set-info p{font-size:.73rem;color:var(--dim);margin-top:2px}
+.set-ctrl{width:210px;flex-shrink:0}
+.code-blk{background:var(--bg);border:1px solid var(--bdr);border-radius:8px;padding:.7rem .9rem;font-family:monospace;font-size:.78rem;color:var(--acc2);margin-top:.35rem}
+.code-blk span{color:var(--dim)}
+
+/* ══ TOAST ═══════════════════════════════════════════════════════════════ */
+#toast{position:fixed;bottom:1.4rem;right:1.4rem;padding:.7rem 1rem;border-radius:8px;font-size:.81rem;font-weight:500;box-shadow:0 8px 32px rgba(0,0,0,.4);z-index:999;max-width:320px;display:flex;align-items:center;gap:.55rem;opacity:0;transform:translateY(10px) scale(.95);pointer-events:none;transition:all .22s ease}
+#toast.show{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
+#toast.ok{background:var(--green-d);border:1px solid rgba(16,185,129,.3);color:var(--green)}
+#toast.err{background:var(--red-d);border:1px solid rgba(239,68,68,.3);color:var(--red)}
+#toast.info{background:var(--acc-d);border:1px solid rgba(99,102,241,.3);color:var(--acc2)}
+
+/* ══ MOBILE ══════════════════════════════════════════════════════════════ */
+#menu-btn{display:none;position:fixed;top:.9rem;left:.9rem;z-index:200;width:38px;height:38px;background:var(--surf);border:1px solid var(--bdr2);border-radius:8px;align-items:center;justify-content:center;cursor:pointer;font-size:1rem}
+#sb-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.58);z-index:99}
+@media(max-width:768px){
+  #sb{transform:translateX(-100%)}#sb.open{transform:translateX(0)}
+  #sb-ov.open{display:block}#mw{margin-left:0}#menu-btn{display:flex}
+  .topbar{padding-left:3.5rem}.page{padding:1rem}
+  .g2{grid-template-columns:1fr}.set-row{flex-direction:column;align-items:flex-start}
+  .set-ctrl{width:100%}.res-hero-act{width:100%}
+}
+</style>
+</head>
+<body>
+
+<div id="sb-ov" onclick="closeSb()"></div>
+
+<!-- ══ SIDEBAR ══════════════════════════════════════════════════════════ -->
+<aside id="sb">
+  <div class="sb-logo">
+    <div class="sb-mark">📝</div>
+    <h2>Meeting Notes AI</h2>
+    <p>Lokale KI &bull; 100 % privat</p>
+  </div>
+  <div class="nav-sec">
+    <div class="nav-lbl">Werkzeuge</div>
+    <div class="nav-it active" onclick="nav('notes',this)"><span class="nav-icon">✏️</span>Notizen eingeben</div>
+    <div class="nav-it" onclick="nav('image',this)"><span class="nav-icon">🖼️</span>Bildanalyse</div>
+    <div class="nav-it" id="nav-res" style="display:none" onclick="nav('result',this)">
+      <span class="nav-icon">📊</span>Ergebnis &amp; PDF
+      <span class="nav-badge">NEU</span>
+    </div>
+  </div>
+  <div class="nav-sec">
+    <div class="nav-lbl">System</div>
+    <div class="nav-it" onclick="nav('settings',this)"><span class="nav-icon">⚙️</span>Einstellungen</div>
+  </div>
+  <div class="sb-status">
+    <div class="st-pill">
+      <div class="st-dot chk" id="st-dot"></div>
+      <div>
+        <div id="st-lbl" style="font-weight:600">Verbinde…</div>
+        <div id="st-mdl" style="font-size:.65rem;opacity:.6;margin-top:1px">Ollama</div>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<div id="menu-btn" onclick="toggleSb()">☰</div>
+
+<!-- ══ MAIN ══════════════════════════════════════════════════════════════ -->
+<div id="mw">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="tb-title">Notizen eingeben</div>
+      <div class="topbar-sub"  id="tb-sub">KI strukturiert dein Meeting automatisch</div>
+    </div>
+    <div class="topbar-act">
+      <button class="btn btn-ghost" onclick="checkStatus()" style="font-size:.78rem;padding:.4rem .8rem">⟳ Status</button>
+    </div>
+  </div>
+
+  <!-- ─── NOTES ─────────────────────────────────────────────────────────── -->
+  <div class="page active" id="page-notes">
+    <div class="hero">
+      <h1>Meeting-Notizen<br><span>in Sekunden aufbereiten</span></h1>
+      <p>Wirf deine rohen Notizen hinein — Stichpunkte, Chaos, kurze Sätze.<br>
+         Die lokale KI strukturiert alles und erstellt ein professionelles PDF.</p>
+      <div class="hero-steps">
+        <div class="hero-step"><span>1</span>Notizen einfügen</div>
+        <div class="hero-step"><span>2</span>KI verarbeitet</div>
+        <div class="hero-step"><span>3</span>PDF herunterladen</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-hd-icon" style="background:var(--acc-d)">📋</div>
+        <div><h3>Meeting-Details</h3><p>Titel, Datum und Teilnehmer</p></div>
+      </div>
+      <div class="card-body">
+        <div class="field">
+          <label>Meeting-Titel</label>
+          <input type="text" id="title" value="Wöchentliches Team-Meeting" placeholder="z.B. Sprint Planning Q1 2026">
+        </div>
+        <div class="g2">
+          <div class="field">
+            <label>Datum</label>
+            <input type="date" id="date">
+          </div>
+          <div class="field">
+            <label>Ausgabesprache</label>
+            <select id="lang">
+              <option value="de">🇩🇪  Deutsch</option>
+              <option value="en">🇬🇧  English</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Teilnehmer — Enter drücken zum Hinzufügen</label>
+          <div class="chip-wrap" id="chip-wrap" onclick="document.getElementById('chip-inp').focus()">
+            <input id="chip-inp" placeholder="Name + Enter…" onkeydown="chipKey(event)">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-hd-icon" style="background:rgba(16,185,129,.13)">✏️</div>
+        <div><h3>Rohe Meeting-Notizen</h3><p>Beliebiges Format — die KI versteht alles</p></div>
+      </div>
+      <div class="card-body">
+        <div class="field">
+          <textarea id="raw" placeholder="Hier deine Notizen eingeben…
+
+Beispiel:
+— Sprint Review: Backend fertig, Frontend 80%
+— DB-Migration blockt Deployment, verschoben auf Freitag
+— Lisa: Dokumentation bis EoW
+— Max und Tim übernehmen neues Kundenprojekt
+— Offen: Wer macht Code-Review für PR #42?
+— Nächstes Meeting: Montag 10:00 Uhr"></textarea>
+        </div>
+        <button class="btn btn-primary" id="proc-btn" onclick="processNotes()">
+          ✨ Notizen aufbereiten &amp; PDF erstellen
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── IMAGE ──────────────────────────────────────────────────────────── -->
+  <div class="page" id="page-image">
+    <div class="hero" style="background:linear-gradient(135deg,rgba(168,85,247,.16),rgba(99,102,241,.09))">
+      <h1>Bilder <span style="color:var(--purple)">analysieren</span></h1>
+      <p>Whiteboard-Fotos, Diagramme, Screenshots — die KI beschreibt und<br>strukturiert den Inhalt automatisch für dich.</p>
+    </div>
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-hd-icon" style="background:var(--purple-d)">📷</div>
+        <div><h3>Bild hochladen</h3><p>JPG, PNG, WebP, GIF</p></div>
+      </div>
+      <div class="card-body">
+        <div class="field">
+          <div class="drop-z" id="drop-z">
+            <input type="file" id="img-file" accept="image/*" onchange="onImgChange(event)">
+            <span class="di">🖼️</span>
+            <strong id="drop-lbl">Bild hier ablegen oder klicken</strong>
+            <small>JPG · PNG · WebP · GIF</small>
+          </div>
+        </div>
+        <div id="img-prev-sec" style="display:none" class="field">
+          <div class="img-prev">
+            <img id="prev-img" src="" alt="">
+            <div class="img-label" id="img-name-lbl"></div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Frage / Aufgabe für die KI</label>
+          <input type="text" id="img-q" value="Was siehst du auf diesem Bild? Beschreibe alle wichtigen Inhalte detailliert auf Deutsch." placeholder="Was steht auf dem Whiteboard?">
+        </div>
+        <button class="btn btn-purple" id="ana-btn" onclick="analyzeImage()">🔍 Bild analysieren</button>
+      </div>
+    </div>
+    <div class="card" id="ana-card" style="display:none">
+      <div class="card-hd">
+        <div class="card-hd-icon" style="background:var(--purple-d)">🤖</div>
+        <div><h3>KI-Analyse</h3><p>Ergebnis der Bildanalyse</p></div>
+        <button class="btn btn-ghost" style="margin-left:auto;font-size:.76rem;padding:.38rem .75rem" onclick="copyAna()">📋 Kopieren</button>
+      </div>
+      <div class="card-body">
+        <div class="ana-txt" id="ana-txt"></div>
+        <div style="margin-top:.9rem;display:flex;gap:.5rem;flex-wrap:wrap">
+          <button class="btn btn-ghost" style="font-size:.78rem" onclick="appendToNotes()">➕ Zu Notizen hinzufügen</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── RESULT ─────────────────────────────────────────────────────────── -->
+  <div class="page" id="page-result">
+    <div id="res-panel">
+      <div class="res-hero">
+        <span class="res-hero-icon">🎉</span>
+        <div class="res-hero-text">
+          <h3>Meeting erfolgreich aufbereitet</h3>
+          <p id="res-sub">PDF wurde generiert und ist bereit zum Download.</p>
+        </div>
+        <div class="res-hero-act">
+          <button class="btn btn-green" onclick="downloadPDF()">⬇️ PDF herunterladen</button>
+        </div>
+      </div>
+      <div class="sum-card" id="res-sum" style="display:none"></div>
+      <div class="res-grid" id="res-grid"></div>
+      <div class="task-sec" id="task-sec" style="display:none">
+        <div class="task-sec-hd">📌 &nbsp;Aufgaben &amp; Verantwortlichkeiten</div>
+        <table class="task-tbl">
+          <thead><tr><th>Aufgabe</th><th>Verantwortlich</th><th>Frist</th></tr></thead>
+          <tbody id="task-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="no-res" style="text-align:center;padding:4rem 2rem;color:var(--dim)">
+      <div style="font-size:3rem;margin-bottom:.9rem">📋</div>
+      <p>Noch kein Meeting aufbereitet.<br>Gehe zu <strong>Notizen eingeben</strong> und starte die KI.</p>
+      <button class="btn btn-ghost" style="margin-top:1.3rem" onclick="nav('notes',document.querySelector('.nav-it'))">Zu den Notizen →</button>
+    </div>
+  </div>
+
+  <!-- ─── SETTINGS ───────────────────────────────────────────────────────── -->
+  <div class="page" id="page-settings">
+    <div class="hero" style="background:linear-gradient(135deg,rgba(245,158,11,.11),rgba(99,102,241,.06))">
+      <h1>Einstellungen</h1>
+      <p>Verbinde die App mit deiner lokalen Ollama-Installation.</p>
+    </div>
+    <div class="card" style="margin-bottom:1.1rem">
+      <div class="card-hd">
+        <div class="card-hd-icon" style="background:rgba(245,158,11,.14)">🔧</div>
+        <div><h3>Ollama Verbindung</h3><p>Lokale KI-Einstellungen</p></div>
+      </div>
+      <div class="set-row">
+        <div class="set-info"><label>Ollama URL</label><p>Standard: http://localhost:11434</p></div>
+        <div class="set-ctrl"><input type="text" id="set-url" value="http://localhost:11434"></div>
+      </div>
+      <div class="set-row">
+        <div class="set-info"><label>Text-Modell</label><p>Für Notizen-Verarbeitung</p></div>
+        <div class="set-ctrl"><input type="text" id="set-txt" value="llama3.2"></div>
+      </div>
+      <div class="set-row">
+        <div class="set-info"><label>Vision-Modell</label><p>Für Bildanalyse</p></div>
+        <div class="set-ctrl"><input type="text" id="set-vis" value="llava"></div>
+      </div>
+      <div class="set-row">
+        <div class="set-info"></div>
+        <div class="set-ctrl" style="display:flex;gap:.5rem">
+          <button class="btn btn-ghost" style="flex:1" onclick="checkStatus()">Testen</button>
+          <button class="btn btn-primary" style="flex:1" onclick="saveSettings()">OK</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-hd">
+        <div class="card-hd-icon" style="background:rgba(16,185,129,.12)">💡</div>
+        <div><h3>Schnellstart</h3><p>Ollama einrichten</p></div>
+      </div>
+      <div class="card-body" style="display:flex;flex-direction:column;gap:.6rem">
+        <div><label>Ollama installieren (Linux/Mac)</label>
+          <div class="code-blk"><span>$</span> curl -fsSL https://ollama.com/install.sh | sh</div></div>
+        <div><label>Ollama starten &amp; CORS erlauben</label>
+          <div class="code-blk"><span>$</span> OLLAMA_ORIGINS=* ollama serve</div></div>
+        <div><label>Text-Modell laden</label>
+          <div class="code-blk"><span>$</span> ollama pull llama3.2</div></div>
+        <div><label>Vision-Modell laden</label>
+          <div class="code-blk"><span>$</span> ollama pull llava</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PROGRESS ═══════════════════════════════════════════════════════════ -->
+<div id="prog-ov">
+  <div class="prog-card">
+    <span class="prog-icon" id="prog-ico">🧠</span>
+    <h3 id="prog-ttl">KI verarbeitet dein Meeting</h3>
+    <p id="prog-dsc">Bitte kurz warten — das Modell läuft lokal.</p>
+    <div class="prog-bar-wrap"><div class="prog-bar-fill" id="prog-bar"></div></div>
+    <div class="prog-steps">
+      <div class="p-step" id="s1"><div class="p-dot">1</div>Notizen analysieren</div>
+      <div class="p-step" id="s2"><div class="p-dot">2</div>Struktur erstellen</div>
+      <div class="p-step" id="s3"><div class="p-dot">3</div>PDF generieren</div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ══ STATE ══════════════════════════════════════════════════════════════ */
+const chips = [];
+let structured = null;
+let hasResult  = false;
+
+/* ══ INIT ════════════════════════════════════════════════════════════════ */
+document.getElementById('date').value = new Date().toISOString().split('T')[0];
+
+const dz = document.getElementById('drop-z');
+dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('dov'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('dov'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('dov');
+  const f = e.dataTransfer.files[0]; if (f) setImgFile(f);
+});
+
+checkStatus();
+setInterval(checkStatus, 30000);
+
+/* ══ NAVIGATION ══════════════════════════════════════════════════════════ */
+const pageInfo = {
+  notes:    ['Notizen eingeben',   'KI strukturiert dein Meeting automatisch'],
+  image:    ['Bildanalyse',        'Whiteboards, Diagramme & Screenshots'],
+  result:   ['Ergebnis & PDF',     'Dein aufbereitetes Meeting-Protokoll'],
+  settings: ['Einstellungen',      'Ollama-Verbindung konfigurieren'],
+};
+
+function nav(page, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-it').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  if (el) el.classList.add('active');
+  const [t, s] = pageInfo[page] || ['', ''];
+  document.getElementById('tb-title').textContent = t;
+  document.getElementById('tb-sub').textContent   = s;
+  if (page === 'result') {
+    document.getElementById('res-panel').style.display = hasResult ? 'block' : 'none';
+    document.getElementById('no-res').style.display    = hasResult ? 'none'  : 'block';
+  }
+  closeSb();
+}
+
+function toggleSb() { document.getElementById('sb').classList.toggle('open'); document.getElementById('sb-ov').classList.toggle('open'); }
+function closeSb()  { document.getElementById('sb').classList.remove('open'); document.getElementById('sb-ov').classList.remove('open'); }
+
+/* ══ CHIPS ═══════════════════════════════════════════════════════════════ */
+function chipKey(e) {
+  const inp = document.getElementById('chip-inp');
+  if ((e.key === 'Enter' || e.key === ',') && inp.value.trim()) {
+    e.preventDefault(); addChip(inp.value.trim().replace(/,$/, '')); inp.value = '';
+  } else if (e.key === 'Backspace' && !inp.value && chips.length) {
+    chips.pop(); renderChips();
+  }
+}
+function addChip(n) { if (!n || chips.includes(n)) return; chips.push(n); renderChips(); }
+function renderChips() {
+  const wrap = document.getElementById('chip-wrap');
+  wrap.querySelectorAll('.chip').forEach(c => c.remove());
+  chips.forEach((n, i) => {
+    const c = document.createElement('span');
+    c.className = 'chip';
+    c.innerHTML = `${n} <span class="chip-x" onclick="chips.splice(${i},1);renderChips()">×</span>`;
+    wrap.insertBefore(c, document.getElementById('chip-inp'));
+  });
+}
+
+/* ══ STATUS ══════════════════════════════════════════════════════════════ */
+function ollamaUrl() { return document.getElementById('set-url').value.trim() || 'http://localhost:11434'; }
+function textModel() { return document.getElementById('set-txt').value.trim() || 'llama3.2'; }
+function visModel()  { return document.getElementById('set-vis').value.trim() || 'llava'; }
+
+async function checkStatus() {
+  const dot = document.getElementById('st-dot');
+  const lbl = document.getElementById('st-lbl');
+  const mdl = document.getElementById('st-mdl');
+  dot.className = 'st-dot chk'; lbl.textContent = 'Verbinde…';
+  try {
+    const r = await fetch(ollamaUrl() + '/api/tags', { signal: AbortSignal.timeout(4000) });
+    if (!r.ok) throw new Error();
+    dot.className = 'st-dot on';
+    lbl.textContent = 'Ollama aktiv';
+    mdl.textContent = textModel();
+  } catch {
+    dot.className = 'st-dot off';
+    lbl.textContent = 'Nicht verbunden';
+    mdl.textContent = 'OLLAMA_ORIGINS=* ollama serve';
+  }
+}
+
+/* ══ PROGRESS ════════════════════════════════════════════════════════════ */
+function showProg(ico, ttl, dsc) {
+  document.getElementById('prog-ico').textContent = ico;
+  document.getElementById('prog-ttl').textContent = ttl;
+  document.getElementById('prog-dsc').textContent = dsc;
+  document.getElementById('prog-bar').style.width = '0%';
+  ['s1','s2','s3'].forEach(id => document.getElementById(id).className = 'p-step');
+  document.getElementById('prog-ov').classList.add('vis');
+}
+function hideProg() { document.getElementById('prog-ov').classList.remove('vis'); }
+function setStep(n, pct) {
+  for (let i = 1; i <= 3; i++) {
+    const el = document.getElementById('s' + i);
+    el.className = i < n ? 'p-step done' : i === n ? 'p-step active' : 'p-step';
+  }
+  document.getElementById('prog-bar').style.width = pct + '%';
+}
+
+/* ══ PROCESS NOTES ═══════════════════════════════════════════════════════ */
+async function processNotes() {
+  const raw = document.getElementById('raw').value.trim();
+  if (!raw) { toast('Bitte Notizen eingeben.', 'err'); return; }
+
+  const btn = document.getElementById('proc-btn');
+  btn.disabled = true; btn.textContent = '⏳ Verarbeite…';
+
+  const lang = document.getElementById('lang').value === 'de' ? 'auf Deutsch' : 'in English';
+  const prompt = `Du bist ein professioneller Meeting-Assistent. Verarbeite diese Meeting-Notizen ${lang} und strukturiere sie.
+
+Antworte NUR mit folgendem JSON (kein Markdown, kein Text davor oder danach):
+{
+  "zusammenfassung": "Kurze Zusammenfassung (2-3 Sätze)",
+  "themen": ["Thema 1", "Thema 2"],
+  "beschluesse": ["Beschluss 1", "Beschluss 2"],
+  "aufgaben": [{"aufgabe": "Was", "verantwortlich": "Wer", "frist": "Wann"}],
+  "naechste_schritte": ["Schritt 1", "Schritt 2"],
+  "offene_fragen": ["Frage 1"]
+}
+
+Meeting-Notizen:
+${raw}`;
+
+  showProg('🧠', 'KI analysiert dein Meeting', 'Das Modell läuft lokal auf deinem Gerät…');
+  setStep(1, 20);
+  const t1 = setTimeout(() => setStep(2, 55), 4000);
+  const t2 = setTimeout(() => setStep(3, 85), 10000);
+
+  try {
+    const r = await fetch(ollamaUrl() + '/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: textModel(), prompt, stream: false }),
+    });
+    if (!r.ok) throw new Error('Ollama Fehler: ' + r.status);
+    const d = await r.json();
+    let txt = d.response.trim();
+    if (txt.startsWith('```')) { const ls = txt.split('\n'); txt = ls.slice(1, ls[ls.length-1]==='```' ? -1 : undefined).join('\n'); }
+
+    structured = JSON.parse(txt);
+    clearTimeout(t1); clearTimeout(t2);
+    setStep(3, 100);
+    await sleep(500);
+    hideProg();
+
+    hasResult = true;
+    renderResult();
+    document.getElementById('nav-res').style.display = 'flex';
+    nav('result', document.getElementById('nav-res'));
+    toast('Meeting aufbereitet!', 'ok');
+  } catch (e) {
+    clearTimeout(t1); clearTimeout(t2); hideProg();
+    toast(e.message.includes('fetch') ? 'Ollama nicht erreichbar. Starte: OLLAMA_ORIGINS=* ollama serve' : e.message, 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = '✨ Notizen aufbereiten & PDF erstellen';
+  }
+}
+
+/* ══ RENDER RESULT ═══════════════════════════════════════════════════════ */
+function renderResult() {
+  const s = structured;
+  const sumEl = document.getElementById('res-sum');
+  sumEl.style.display = s.zusammenfassung ? 'block' : 'none';
+  sumEl.textContent   = s.zusammenfassung || '';
+
+  const title = document.getElementById('title').value;
+  const date  = fmtDate(document.getElementById('date').value);
+  document.getElementById('res-sub').textContent = `${title} · ${date}`;
+
+  const grid = document.getElementById('res-grid'); grid.innerHTML = '';
+  const secs = [
+    { key:'themen',           ico:'🗂️',  lbl:'Themen',          bg:'var(--blue-d)'   },
+    { key:'beschluesse',      ico:'✅',  lbl:'Beschlüsse',      bg:'var(--green-d)'  },
+    { key:'naechste_schritte',ico:'🚀',  lbl:'Nächste Schritte',bg:'var(--acc-d)'    },
+    { key:'offene_fragen',    ico:'❓',  lbl:'Offene Fragen',   bg:'var(--purple-d)' },
+  ];
+  secs.forEach(sec => {
+    const items = s[sec.key]; if (!items?.length) return;
+    const card = document.createElement('div');
+    card.className = 'res-card';
+    card.innerHTML = `<div class="rch">
+      <div class="rch-badge" style="background:${sec.bg}">${sec.ico}</div>
+      <h4>${sec.lbl}</h4>
+      <span style="margin-left:auto;font-size:.7rem;color:var(--dimmer)">${items.length}</span>
+    </div>
+    <ul>${items.map(i => `<li>${typeof i==='object'?(i.aufgabe||JSON.stringify(i)):i}</li>`).join('')}</ul>`;
+    grid.appendChild(card);
+  });
+
+  const tasks = s.aufgaben || [];
+  const taskSec = document.getElementById('task-sec');
+  if (tasks.length) {
+    taskSec.style.display = 'block';
+    document.getElementById('task-tbody').innerHTML = tasks.map(a => {
+      const aufg  = typeof a==='object' ? (a.aufgabe||'—') : String(a);
+      const verant= typeof a==='object' ? (a.verantwortlich||'—') : '—';
+      const frist = typeof a==='object' ? (a.frist||'offen') : 'offen';
+      const fb = frist.toLowerCase()==='offen'
+        ? `<span class="badge b-open">${frist}</span>`
+        : `<span class="badge b-date">${frist}</span>`;
+      return `<tr><td>${aufg}</td><td><span class="badge b-who">${verant}</span></td><td>${fb}</td></tr>`;
+    }).join('');
+  } else { taskSec.style.display = 'none'; }
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const [y,m,d] = iso.split('-'); return `${d}.${m}.${y}`;
+}
+
+/* ══ PDF GENERATION (clientseitig via jsPDF) ══════════════════════════════ */
+function downloadPDF() {
+  if (!structured) { toast('Kein Ergebnis vorhanden.','err'); return; }
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit:'mm', format:'a4' });
+  const pw  = doc.internal.pageSize.getWidth();
+  const ph  = doc.internal.pageSize.getHeight();
+  const ml  = 18, mr = 18, cw = pw - ml - mr;
+  let y = 0;
+
+  const hexToRgb = h => {
+    const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h);
+    return r ? [parseInt(r[1],16), parseInt(r[2],16), parseInt(r[3],16)] : [0,0,0];
+  };
+
+  // Header block
+  doc.setFillColor(13, 33, 55);
+  doc.rect(0, 0, pw, 28, 'F');
+  doc.setTextColor(255,255,255);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(18);
+  doc.text(document.getElementById('title').value || 'Meeting', ml, 13);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(9);
+  doc.setTextColor(169,204,227);
+  const dateStr = fmtDate(document.getElementById('date').value);
+  const att = chips.length ? 'Teilnehmer: ' + chips.join(' · ') : '';
+  doc.text('Datum: ' + dateStr, ml, 20);
+  if (att) doc.text(att, ml, 25.5, { maxWidth: cw });
+  y = att ? 34 : 32;
+
+  // Attendees bar
+  if (att) {
+    doc.setFillColor(26,82,118);
+    doc.rect(0, 28, pw, 7, 'F');
+    doc.setTextColor(169,204,227);
+    doc.setFontSize(8);
+    doc.text(att, ml, 33);
+    y = 38;
+  }
+
+  const newPage = () => {
+    doc.addPage();
+    doc.setFillColor(13,33,55);
+    doc.rect(0, 0, pw, 8, 'F');
+    doc.setTextColor(170,170,170);
+    doc.setFontSize(7);
+    doc.text('Meeting Notes AI  •  Vertraulich', ml, 5.5);
+    y = 14;
+  };
+
+  const checkY = (need = 15) => { if (y + need > ph - 18) { newPage(); } };
+
+  const sectionHeader = (label, r, g, b) => {
+    checkY(12);
+    doc.setFillColor(r,g,b);
+    doc.roundedRect(ml, y, cw, 8, 1.5, 1.5, 'F');
+    doc.setTextColor(255,255,255);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(9.5);
+    doc.text(label, ml + 4, y + 5.5);
+    y += 11;
+  };
+
+  const bulletItem = (txt, indent = 6) => {
+    const lines = doc.splitTextToSize('•  ' + txt, cw - indent - 2);
+    checkY(lines.length * 5 + 1);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(9);
+    doc.setTextColor(28,40,51);
+    doc.text(lines, ml + indent, y);
+    y += lines.length * 5 + 1;
+  };
+
+  // Summary
+  if (structured.zusammenfassung) {
+    checkY(20);
+    doc.setFillColor(214,234,248);
+    const sumLines = doc.splitTextToSize(structured.zusammenfassung, cw - 8);
+    const sumH = sumLines.length * 5 + 6;
+    doc.roundedRect(ml, y, cw, sumH, 1.5, 1.5, 'F');
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(9);
+    doc.setTextColor(28,40,51);
+    doc.text(sumLines, ml + 4, y + 5);
+    y += sumH + 5;
+  }
+
+  // Themen
+  if (structured.themen?.length) {
+    sectionHeader('Besprochene Themen', 46,134,193);
+    structured.themen.forEach(t => bulletItem(typeof t==='string'?t:JSON.stringify(t)));
+    y += 3;
+  }
+
+  // Beschlüsse
+  if (structured.beschluesse?.length) {
+    sectionHeader('Beschlüsse & Entscheidungen', 30,132,73);
+    structured.beschluesse.forEach(b => bulletItem(typeof b==='string'?b:JSON.stringify(b)));
+    y += 3;
+  }
+
+  // Aufgaben
+  if (structured.aufgaben?.length) {
+    sectionHeader('Aufgaben & Verantwortlichkeiten', 202,111,30);
+    const colW = [cw*0.55, cw*0.25, cw*0.2];
+    const headers = ['Aufgabe','Verantwortlich','Frist'];
+    const rowH = 7;
+    checkY(rowH + 4);
+    doc.setFillColor(202,111,30);
+    doc.rect(ml, y, cw, rowH, 'F');
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(255,255,255);
+    let cx = ml;
+    headers.forEach((h, i) => { doc.text(h, cx + 2, y + 5); cx += colW[i]; });
+    y += rowH;
+    structured.aufgaben.forEach((a, ri) => {
+      const aufg  = typeof a==='object' ? (a.aufgabe||'—') : String(a);
+      const verant= typeof a==='object' ? (a.verantwortlich||'—') : '—';
+      const frist = typeof a==='object' ? (a.frist||'offen') : 'offen';
+      const rows  = [aufg, verant, frist];
+      const maxLines = Math.max(1, ...rows.map((r,i) => doc.splitTextToSize(r, colW[i]-4).length));
+      const rh = maxLines * 5 + 4;
+      checkY(rh + 2);
+      doc.setFillColor(ri%2===0 ? 255 : 254,235,208);
+      doc.rect(ml, y, cw, rh, 'F');
+      doc.setFont('helvetica','normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(28,40,51);
+      cx = ml;
+      rows.forEach((r, i) => {
+        const ls = doc.splitTextToSize(r, colW[i]-4);
+        doc.text(ls, cx + 2, y + 4); cx += colW[i];
+      });
+      y += rh;
+    });
+    y += 3;
+  }
+
+  // Nächste Schritte
+  if (structured.naechste_schritte?.length) {
+    sectionHeader('Nächste Schritte', 26,82,118);
+    structured.naechste_schritte.forEach((s, i) => bulletItem(`${i+1}.  ${typeof s==='string'?s:JSON.stringify(s)}`));
+    y += 3;
+  }
+
+  // Offene Fragen
+  if (structured.offene_fragen?.length) {
+    sectionHeader('Offene Fragen', 125,60,152);
+    structured.offene_fragen.forEach(f => bulletItem((typeof f==='string'?f:JSON.stringify(f))));
+    y += 3;
+  }
+
+  // Footer auf jeder Seite
+  const totalPages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setDrawColor(174,182,187);
+    doc.setLineWidth(0.3);
+    doc.line(ml, ph-14, pw-mr, ph-14);
+    doc.setTextColor(174,182,187);
+    doc.setFontSize(7.5);
+    doc.text('Vertraulich – nur für interne Nutzung', ml, ph-10);
+    doc.text(`Seite ${i} von ${totalPages}`, pw-mr, ph-10, {align:'right'});
+  }
+
+  const safeName = (document.getElementById('title').value || 'Meeting').replace(/[^a-zA-Z0-9äöüÄÖÜß ]/g,'_');
+  doc.save(`Meeting_${safeName}_${new Date().toISOString().split('T')[0]}.pdf`);
+  toast('PDF heruntergeladen!', 'ok');
+}
+
+/* ══ IMAGE ANALYSIS ══════════════════════════════════════════════════════ */
+function onImgChange(e) { const f = e.target.files[0]; if (f) setImgFile(f); }
+
+function setImgFile(file) {
+  document.getElementById('drop-lbl').textContent = file.name;
+  document.getElementById('img-name-lbl').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('prev-img').src = ev.target.result;
+    document.getElementById('img-prev-sec').style.display = 'block';
+    document.getElementById('ana-card').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function analyzeImage() {
+  const file = document.getElementById('img-file').files[0];
+  if (!file) { toast('Bitte ein Bild auswählen.','err'); return; }
+  const btn = document.getElementById('ana-btn');
+  btn.disabled = true; btn.textContent = '⏳ Analysiere…';
+  showProg('🔍','Bild wird analysiert','LLaVA-Modell läuft lokal…');
+  setStep(1,40);
+
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    const b64 = ev.target.result.split(',')[1];
+    const t1  = setTimeout(() => setStep(2,75), 5000);
+    try {
+      const r = await fetch(ollamaUrl() + '/api/generate', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model: visModel(),
+          prompt: document.getElementById('img-q').value,
+          images: [b64],
+          stream: false,
+        }),
+      });
+      clearTimeout(t1);
+      if (!r.ok) throw new Error('Fehler ' + r.status);
+      const d = await r.json();
+      setStep(3,100); await sleep(400); hideProg();
+      document.getElementById('ana-txt').textContent = d.response;
+      document.getElementById('ana-card').style.display = 'block';
+      document.getElementById('ana-card').scrollIntoView({behavior:'smooth',block:'start'});
+      toast('Bildanalyse abgeschlossen!','ok');
+    } catch(e) {
+      clearTimeout(t1); hideProg();
+      toast(e.message.includes('fetch') ? 'Ollama nicht erreichbar.' : e.message, 'err');
+    } finally {
+      btn.disabled = false; btn.textContent = '🔍 Bild analysieren';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function copyAna() {
+  navigator.clipboard.writeText(document.getElementById('ana-txt').textContent)
+    .then(() => toast('Analyse kopiert!','info'));
+}
+
+function appendToNotes() {
+  const txt = document.getElementById('ana-txt').textContent;
+  const ta  = document.getElementById('raw');
+  ta.value += (ta.value ? '\n\n--- Bildanalyse ---\n' : '') + txt;
+  nav('notes', document.querySelector('.nav-it'));
+  toast('Analyse zu Notizen hinzugefügt','ok');
+}
+
+/* ══ SETTINGS ════════════════════════════════════════════════════════════ */
+function saveSettings() { checkStatus(); toast('Einstellungen gespeichert','ok'); }
+
+/* ══ TOAST ═══════════════════════════════════════════════════════════════ */
+function toast(msg, type='ok') {
+  const el = document.getElementById('toast');
+  el.innerHTML = `<span>${{ok:'✓',err:'✕',info:'ℹ'}[type]||'✓'}</span> ${msg}`;
+  el.className = `show ${type}`;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.className='', 4500);
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+</script>
+</body>
+</html>
