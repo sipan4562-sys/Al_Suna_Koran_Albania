@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Output & uploads
+meeting_tool/output/
+meeting_tool/uploads/
+
+# OS
+.DS_Store
+Thumbs.db
