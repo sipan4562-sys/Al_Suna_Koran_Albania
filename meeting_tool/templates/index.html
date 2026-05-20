@@ -4,585 +4,1459 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Meeting Notes AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --dark:    #0D2137;
-    --mid:     #1A5276;
-    --accent:  #2E86C1;
-    --light:   #D6EAF8;
-    --bg:      #F4F6F9;
-    --white:   #FFFFFF;
-    --grey:    #AEB6BF;
-    --green:   #1E8449;
-    --orange:  #CA6F1E;
-    --red:     #C0392B;
-    --text:    #1C2833;
-    --radius:  10px;
-    --shadow:  0 4px 20px rgba(0,0,0,0.10);
-  }
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    min-height: 100vh;
-  }
+/* ══════════════════════════════════════════════════════
+   DESIGN TOKENS
+══════════════════════════════════════════════════════ */
+:root {
+  --c-bg:         #0F1117;
+  --c-surface:    #1A1D27;
+  --c-surface2:   #22263A;
+  --c-border:     rgba(255,255,255,0.07);
+  --c-border2:    rgba(255,255,255,0.13);
+  --c-text:       #E8EAF0;
+  --c-text-dim:   #8B91A8;
+  --c-text-dimmer:#555A70;
+  --c-accent:     #6366F1;
+  --c-accent2:    #818CF8;
+  --c-accent-dim: rgba(99,102,241,0.15);
+  --c-green:      #10B981;
+  --c-green-dim:  rgba(16,185,129,0.12);
+  --c-orange:     #F59E0B;
+  --c-orange-dim: rgba(245,158,11,0.12);
+  --c-purple:     #A855F7;
+  --c-purple-dim: rgba(168,85,247,0.12);
+  --c-red:        #EF4444;
+  --c-red-dim:    rgba(239,68,68,0.12);
+  --c-blue:       #3B82F6;
+  --c-blue-dim:   rgba(59,130,246,0.12);
+  --sidebar-w:    240px;
+  --radius-sm:    8px;
+  --radius:       12px;
+  --radius-lg:    18px;
+  --shadow:       0 8px 32px rgba(0,0,0,0.4);
+  --transition:   0.2s cubic-bezier(0.4,0,0.2,1);
+}
 
-  /* ── Header ── */
-  header {
-    background: linear-gradient(135deg, var(--dark) 0%, var(--mid) 100%);
-    color: #fff;
-    padding: 1.4rem 2rem;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.25);
-  }
-  header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.3px; }
-  header p  { font-size: 0.85rem; opacity: 0.75; margin-top: 2px; }
-  .logo { font-size: 2rem; }
+/* ══════════════════════════════════════════════════════
+   RESET & BASE
+══════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--c-bg);
+  color: var(--c-text);
+  min-height: 100vh;
+  display: flex;
+  overflow-x: hidden;
+}
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--c-surface2); border-radius: 3px; }
+::selection { background: var(--c-accent); color: #fff; }
 
-  /* ── Status bar ── */
-  #status-bar {
-    background: var(--dark);
-    color: #fff;
-    font-size: 0.78rem;
-    padding: 0.35rem 2rem;
-    display: flex;
-    gap: 1.5rem;
-    align-items: center;
-  }
-  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-  .dot.green  { background: #2ECC71; box-shadow: 0 0 6px #2ECC71; }
-  .dot.red    { background: #E74C3C; }
-  .dot.yellow { background: #F39C12; }
+/* ══════════════════════════════════════════════════════
+   SIDEBAR
+══════════════════════════════════════════════════════ */
+#sidebar {
+  width: var(--sidebar-w);
+  min-height: 100vh;
+  background: var(--c-surface);
+  border-right: 1px solid var(--c-border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  left: 0; top: 0; bottom: 0;
+  z-index: 100;
+  transition: transform var(--transition);
+}
 
-  /* ── Layout ── */
-  main {
-    max-width: 1100px;
-    margin: 2rem auto;
-    padding: 0 1rem 4rem;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
-  }
-  @media (max-width: 780px) {
-    main { grid-template-columns: 1fr; }
-  }
+.sidebar-logo {
+  padding: 1.5rem 1.2rem 1rem;
+  border-bottom: 1px solid var(--c-border);
+}
+.sidebar-logo-mark {
+  width: 38px; height: 38px;
+  background: linear-gradient(135deg, var(--c-accent), var(--c-purple));
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 4px 12px rgba(99,102,241,0.4);
+}
+.sidebar-logo h2 { font-size: 0.95rem; font-weight: 700; letter-spacing: -0.3px; }
+.sidebar-logo p  { font-size: 0.7rem; color: var(--c-text-dim); margin-top: 2px; }
 
-  /* ── Cards ── */
-  .card {
-    background: var(--white);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow);
-    overflow: hidden;
-  }
-  .card-head {
-    background: var(--mid);
-    color: #fff;
-    padding: 0.85rem 1.2rem;
-    font-weight: 600;
-    font-size: 0.95rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .card-body { padding: 1.2rem; }
+.nav-section { padding: 1rem 0.8rem 0.4rem; }
+.nav-label {
+  font-size: 0.63rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--c-text-dimmer);
+  padding: 0 0.4rem;
+  margin-bottom: 0.4rem;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--c-text-dim);
+  transition: all var(--transition);
+  user-select: none;
+  position: relative;
+}
+.nav-item:hover { background: var(--c-surface2); color: var(--c-text); }
+.nav-item.active {
+  background: var(--c-accent-dim);
+  color: var(--c-accent2);
+}
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 20%; bottom: 20%;
+  width: 3px;
+  background: var(--c-accent);
+  border-radius: 2px;
+}
+.nav-icon { font-size: 1rem; width: 20px; text-align: center; }
+.nav-badge {
+  margin-left: auto;
+  background: var(--c-accent);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 20px;
+}
 
-  /* ── Form elements ── */
-  label { font-size: 0.82rem; font-weight: 600; color: var(--mid); display: block; margin-bottom: 0.3rem; }
-  input[type="text"], input[type="date"], textarea, select {
-    width: 100%;
-    padding: 0.6rem 0.8rem;
-    border: 1.5px solid #D5D8DC;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    font-family: inherit;
-    color: var(--text);
-    transition: border-color 0.2s;
-    background: #FDFEFE;
-  }
-  input:focus, textarea:focus, select:focus {
-    outline: none;
-    border-color: var(--accent);
-    background: var(--white);
-  }
-  textarea { resize: vertical; min-height: 200px; font-family: 'Consolas', monospace; font-size: 0.85rem; }
-  .field { margin-bottom: 1rem; }
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+.sidebar-status {
+  margin-top: auto;
+  padding: 1rem;
+  border-top: 1px solid var(--c-border);
+}
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.75rem;
+  background: var(--c-surface2);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  color: var(--c-text-dim);
+}
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--c-text-dimmer);
+  flex-shrink: 0;
+  transition: all 0.3s;
+}
+.status-dot.connected { background: var(--c-green); box-shadow: 0 0 8px var(--c-green); }
+.status-dot.error     { background: var(--c-red); }
+.status-dot.checking  { background: var(--c-orange); animation: pulse-dot 1s infinite; }
+@keyframes pulse-dot { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
 
-  /* ── Buttons ── */
-  button {
-    cursor: pointer;
-    border: none;
-    border-radius: 7px;
-    font-family: inherit;
-    font-weight: 600;
-    padding: 0.7rem 1.4rem;
-    font-size: 0.9rem;
-    transition: all 0.15s;
-  }
-  .btn-primary {
-    background: linear-gradient(135deg, var(--accent), var(--mid));
-    color: #fff;
-    width: 100%;
-    margin-top: 0.5rem;
-  }
-  .btn-primary:hover { filter: brightness(1.12); transform: translateY(-1px); }
-  .btn-primary:disabled { filter: grayscale(0.6); cursor: not-allowed; transform: none; }
-  .btn-green  { background: var(--green); color: #fff; }
-  .btn-green:hover { filter: brightness(1.1); }
-  .btn-small {
-    padding: 0.4rem 0.9rem;
-    font-size: 0.8rem;
-    background: var(--light);
-    color: var(--mid);
-  }
-  .btn-small:hover { background: var(--accent); color: #fff; }
+/* Mobile menu toggle */
+#menu-toggle {
+  display: none;
+  position: fixed; top: 1rem; left: 1rem; z-index: 200;
+  width: 40px; height: 40px;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border2);
+  border-radius: var(--radius-sm);
+  align-items: center; justify-content: center;
+  cursor: pointer; font-size: 1.1rem;
+}
+#sidebar-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 99;
+}
 
-  /* ── Drop zone ── */
-  .drop-zone {
-    border: 2.5px dashed var(--accent);
-    border-radius: var(--radius);
-    padding: 2rem;
-    text-align: center;
-    color: var(--grey);
-    cursor: pointer;
-    transition: all 0.2s;
-    position: relative;
-  }
-  .drop-zone:hover, .drop-zone.dragover {
-    background: var(--light);
-    border-color: var(--mid);
-    color: var(--mid);
-  }
-  .drop-zone input[type="file"] {
-    position: absolute; inset: 0; opacity: 0; cursor: pointer;
-  }
-  .drop-zone .icon { font-size: 2.2rem; display: block; margin-bottom: 0.5rem; }
+/* ══════════════════════════════════════════════════════
+   MAIN CONTENT
+══════════════════════════════════════════════════════ */
+#main-wrap {
+  margin-left: var(--sidebar-w);
+  flex: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
 
-  /* ── Result panel ── */
-  #result-panel {
-    display: none;
-    grid-column: 1 / -1;
-  }
-  #result-panel.visible { display: block; }
+.topbar {
+  height: 60px;
+  border-bottom: 1px solid var(--c-border);
+  display: flex;
+  align-items: center;
+  padding: 0 2rem;
+  gap: 1rem;
+  position: sticky; top: 0;
+  background: rgba(15,17,23,0.85);
+  backdrop-filter: blur(16px);
+  z-index: 50;
+}
+.topbar-title { font-size: 0.95rem; font-weight: 600; }
+.topbar-sub   { font-size: 0.78rem; color: var(--c-text-dim); }
+.topbar-actions { margin-left: auto; display: flex; gap: 0.6rem; }
 
-  .result-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 1rem;
-    padding: 1.2rem;
-  }
-  .result-section { background: var(--bg); border-radius: 8px; padding: 0.9rem; }
-  .result-section h3 {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--mid);
-    margin-bottom: 0.6rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-  .result-section ul { padding-left: 1.1rem; }
-  .result-section li { font-size: 0.87rem; margin-bottom: 0.3rem; line-height: 1.4; }
-  .summary-box {
-    background: var(--light);
-    border-left: 4px solid var(--accent);
-    padding: 0.9rem;
-    border-radius: 0 8px 8px 0;
-    font-size: 0.9rem;
-    line-height: 1.6;
-    margin: 0 1.2rem;
-  }
+/* ══════════════════════════════════════════════════════
+   PAGES
+══════════════════════════════════════════════════════ */
+.page { display: none; padding: 2rem; max-width: 900px; width: 100%; }
+.page.active { display: block; }
 
-  .task-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-  .task-table th {
-    background: var(--orange);
-    color: #fff;
-    padding: 0.5rem 0.7rem;
-    text-align: left;
-  }
-  .task-table td { padding: 0.45rem 0.7rem; border-bottom: 1px solid #EEE; }
-  .task-table tr:nth-child(even) td { background: #FEF9F0; }
+/* ══════════════════════════════════════════════════════
+   HERO (Notes page)
+══════════════════════════════════════════════════════ */
+.hero {
+  background: linear-gradient(135deg,
+    rgba(99,102,241,0.18) 0%,
+    rgba(168,85,247,0.1) 50%,
+    rgba(59,130,246,0.08) 100%);
+  border: 1px solid rgba(99,102,241,0.2);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  margin-bottom: 2rem;
+  position: relative;
+  overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -60px; right: -60px;
+  width: 200px; height: 200px;
+  background: radial-gradient(circle, rgba(99,102,241,0.2), transparent 70%);
+  pointer-events: none;
+}
+.hero h1 { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.5px; line-height: 1.2; }
+.hero h1 span { color: var(--c-accent2); }
+.hero p  { color: var(--c-text-dim); margin-top: 0.5rem; font-size: 0.88rem; line-height: 1.6; }
+.hero-steps {
+  display: flex; gap: 0.6rem; margin-top: 1.2rem; flex-wrap: wrap;
+}
+.hero-step {
+  display: flex; align-items: center; gap: 0.4rem;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.75rem; color: var(--c-text-dim);
+}
+.hero-step span { color: var(--c-accent2); font-weight: 700; }
 
-  /* ── Image result ── */
-  #image-result { display: none; }
-  #image-result.visible { display: block; }
-  #preview-img { max-width: 100%; max-height: 300px; border-radius: 8px; margin-bottom: 1rem; }
-  #analysis-text {
-    background: var(--bg);
-    border-radius: 8px;
-    padding: 0.9rem;
-    font-size: 0.88rem;
-    line-height: 1.6;
-    white-space: pre-wrap;
-  }
+/* ══════════════════════════════════════════════════════
+   FORM CARD
+══════════════════════════════════════════════════════ */
+.card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: 1.2rem;
+}
+.card-header {
+  padding: 1rem 1.4rem;
+  border-bottom: 1px solid var(--c-border);
+  display: flex; align-items: center; gap: 0.6rem;
+}
+.card-header-icon {
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.95rem; flex-shrink: 0;
+}
+.card-header h3 { font-size: 0.9rem; font-weight: 600; }
+.card-header p  { font-size: 0.75rem; color: var(--c-text-dim); margin-top: 1px; }
+.card-body { padding: 1.4rem; }
 
-  /* ── Download banner ── */
-  #download-banner {
-    display: none;
-    background: linear-gradient(135deg, var(--green), #27AE60);
-    color: #fff;
-    padding: 1rem 1.5rem;
-    border-radius: var(--radius);
-    margin: 0 1.2rem 1.2rem;
-    display: none;
-    align-items: center;
-    gap: 1rem;
-    flex-wrap: wrap;
-  }
-  #download-banner.visible {
-    display: flex;
-  }
-  #download-banner span { flex: 1; font-size: 0.9rem; }
+/* ══════════════════════════════════════════════════════
+   FORM ELEMENTS
+══════════════════════════════════════════════════════ */
+.field { margin-bottom: 1.1rem; }
+.field:last-child { margin-bottom: 0; }
+label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--c-text-dim);
+  margin-bottom: 0.4rem;
+  letter-spacing: 0.2px;
+}
+.input-wrap { position: relative; }
+input[type="text"],
+input[type="date"],
+select,
+textarea {
+  width: 100%;
+  background: var(--c-surface2);
+  border: 1.5px solid var(--c-border2);
+  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.9rem;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: var(--c-text);
+  transition: border-color var(--transition), box-shadow var(--transition);
+  outline: none;
+  -webkit-appearance: none;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--c-accent);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+input::placeholder, textarea::placeholder { color: var(--c-text-dimmer); }
+select { cursor: pointer; }
+select option { background: var(--c-surface2); }
+textarea {
+  resize: vertical;
+  min-height: 180px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.8rem; }
 
-  /* ── Spinner ── */
-  .spinner {
-    display: inline-block;
-    width: 18px; height: 18px;
-    border: 3px solid rgba(255,255,255,0.4);
-    border-top-color: #fff;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    vertical-align: middle;
-    margin-right: 8px;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
+/* Participant chips */
+.chip-input-wrap {
+  display: flex; flex-wrap: wrap; gap: 0.4rem;
+  background: var(--c-surface2);
+  border: 1.5px solid var(--c-border2);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem;
+  min-height: 42px;
+  cursor: text;
+  transition: border-color var(--transition);
+}
+.chip-input-wrap:focus-within {
+  border-color: var(--c-accent);
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+.chip {
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  background: var(--c-accent-dim);
+  border: 1px solid rgba(99,102,241,0.25);
+  border-radius: 20px;
+  padding: 0.2rem 0.5rem 0.2rem 0.6rem;
+  font-size: 0.78rem;
+  color: var(--c-accent2);
+  animation: chip-in 0.15s ease;
+}
+@keyframes chip-in { from { opacity:0; transform:scale(0.8); } to { opacity:1; transform:scale(1); } }
+.chip-remove {
+  cursor: pointer; color: var(--c-accent); font-weight: 700;
+  line-height: 1; padding: 0 2px; border-radius: 50%;
+  transition: color var(--transition);
+}
+.chip-remove:hover { color: var(--c-red); }
+#chip-text-input {
+  border: none; outline: none; background: transparent;
+  color: var(--c-text); font-size: 0.85rem; font-family: inherit;
+  flex: 1; min-width: 120px; padding: 0.15rem 0.2rem;
+}
 
-  /* ── Toast ── */
-  #toast {
-    position: fixed; bottom: 1.5rem; right: 1.5rem;
-    background: var(--dark); color: #fff;
-    padding: 0.8rem 1.2rem;
-    border-radius: 8px;
-    font-size: 0.85rem;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-    opacity: 0; pointer-events: none;
-    transition: opacity 0.3s;
-    z-index: 999;
-    max-width: 320px;
-  }
-  #toast.show { opacity: 1; pointer-events: auto; }
-  #toast.error { background: var(--red); }
+/* ══════════════════════════════════════════════════════
+   BUTTONS
+══════════════════════════════════════════════════════ */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 0.5rem;
+  border: none; border-radius: var(--radius-sm);
+  font-family: inherit; font-weight: 600;
+  cursor: pointer; transition: all var(--transition);
+  white-space: nowrap;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
 
-  /* ── Tabs ── */
-  .tabs { display: flex; border-bottom: 2px solid var(--light); margin-bottom: 1rem; }
-  .tab {
-    padding: 0.6rem 1.1rem;
-    font-size: 0.88rem;
-    font-weight: 600;
-    cursor: pointer;
-    color: var(--grey);
-    border-bottom: 3px solid transparent;
-    margin-bottom: -2px;
-    transition: all 0.15s;
-  }
-  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
-  .tab-pane { display: none; }
-  .tab-pane.active { display: block; }
+.btn-primary {
+  background: linear-gradient(135deg, var(--c-accent), #4F46E5);
+  color: #fff;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 14px rgba(99,102,241,0.35);
+  width: 100%;
+}
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(99,102,241,0.5);
+}
+
+.btn-ghost {
+  background: var(--c-surface2);
+  color: var(--c-text-dim);
+  border: 1px solid var(--c-border2);
+  padding: 0.55rem 1rem;
+  font-size: 0.82rem;
+}
+.btn-ghost:hover { background: var(--c-border2); color: var(--c-text); }
+
+.btn-purple {
+  background: linear-gradient(135deg, var(--c-purple), #7C3AED);
+  color: #fff;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 14px rgba(168,85,247,0.35);
+  width: 100%;
+}
+.btn-purple:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(168,85,247,0.5);
+}
+
+.btn-green {
+  background: linear-gradient(135deg, var(--c-green), #059669);
+  color: #fff;
+  padding: 0.6rem 1.2rem;
+  font-size: 0.85rem;
+}
+.btn-green:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+.btn-sm {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.78rem;
+}
+
+/* ══════════════════════════════════════════════════════
+   PROGRESS / LOADER
+══════════════════════════════════════════════════════ */
+.progress-overlay {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(8px);
+  z-index: 500;
+  flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 1.5rem;
+}
+.progress-overlay.visible { display: flex; }
+
+.progress-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border2);
+  border-radius: var(--radius-lg);
+  padding: 2.5rem 3rem;
+  text-align: center;
+  max-width: 380px;
+  width: 90%;
+  box-shadow: var(--shadow);
+}
+.progress-icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  display: block;
+  animation: float 2s ease-in-out infinite;
+}
+@keyframes float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+.progress-card h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.4rem; }
+.progress-card p  { font-size: 0.82rem; color: var(--c-text-dim); margin-bottom: 1.5rem; }
+
+.progress-bar-wrap {
+  background: var(--c-surface2);
+  border-radius: 20px;
+  height: 6px;
+  overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--c-accent), var(--c-purple));
+  border-radius: 20px;
+  width: 0%;
+  transition: width 0.5s ease;
+  position: relative;
+}
+.progress-bar-fill::after {
+  content: '';
+  position: absolute; right: 0; top: 0; bottom: 0;
+  width: 60px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4));
+  animation: shimmer 1.5s infinite;
+}
+@keyframes shimmer { 0% { opacity:0; } 50% { opacity:1; } 100% { opacity:0; } }
+.progress-steps { margin-top: 1rem; display: flex; flex-direction: column; gap: 0.4rem; text-align: left; }
+.progress-step {
+  display: flex; align-items: center; gap: 0.6rem;
+  font-size: 0.78rem; color: var(--c-text-dimmer);
+  transition: color 0.3s;
+}
+.progress-step.done { color: var(--c-green); }
+.progress-step.active { color: var(--c-text); }
+.step-dot {
+  width: 16px; height: 16px; flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--c-surface2);
+  border: 1.5px solid var(--c-border2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.6rem;
+  transition: all 0.3s;
+}
+.progress-step.done .step-dot {
+  background: var(--c-green);
+  border-color: var(--c-green);
+  color: #fff;
+}
+.progress-step.active .step-dot {
+  border-color: var(--c-accent);
+  background: var(--c-accent-dim);
+  animation: spin-dot 1s linear infinite;
+}
+@keyframes spin-dot { to { transform: rotate(360deg); } }
+
+/* ══════════════════════════════════════════════════════
+   RESULT PANEL
+══════════════════════════════════════════════════════ */
+#result-panel { display: none; }
+#result-panel.visible { display: block; animation: slide-up 0.4s ease; }
+@keyframes slide-up { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+
+.result-hero {
+  background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(99,102,241,0.08));
+  border: 1px solid rgba(16,185,129,0.2);
+  border-radius: var(--radius-lg);
+  padding: 1.4rem 1.6rem;
+  display: flex; align-items: center; gap: 1.2rem;
+  margin-bottom: 1.2rem;
+  flex-wrap: wrap;
+}
+.result-hero-icon { font-size: 2rem; }
+.result-hero-text h3 { font-size: 1rem; font-weight: 700; color: var(--c-green); }
+.result-hero-text p  { font-size: 0.8rem; color: var(--c-text-dim); margin-top: 2px; }
+.result-hero-actions { margin-left: auto; display: flex; gap: 0.6rem; flex-wrap: wrap; }
+
+.summary-card {
+  background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(59,130,246,0.06));
+  border: 1px solid rgba(99,102,241,0.18);
+  border-radius: var(--radius);
+  padding: 1.2rem 1.4rem;
+  margin-bottom: 1.2rem;
+  font-size: 0.9rem;
+  line-height: 1.7;
+  color: var(--c-text);
+  position: relative;
+}
+.summary-card::before {
+  content: '"';
+  position: absolute; top: -0.2rem; left: 0.9rem;
+  font-size: 3rem; color: rgba(99,102,241,0.2);
+  line-height: 1; font-family: Georgia, serif;
+}
+
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.2rem;
+}
+
+.result-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  padding: 1.1rem;
+  animation: card-in 0.35s ease both;
+}
+.result-card:nth-child(2) { animation-delay: 0.05s; }
+.result-card:nth-child(3) { animation-delay: 0.1s; }
+.result-card:nth-child(4) { animation-delay: 0.15s; }
+@keyframes card-in { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+
+.result-card-header {
+  display: flex; align-items: center; gap: 0.5rem;
+  margin-bottom: 0.8rem; padding-bottom: 0.7rem;
+  border-bottom: 1px solid var(--c-border);
+}
+.result-card-badge {
+  width: 26px; height: 26px;
+  border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.85rem; flex-shrink: 0;
+}
+.result-card-header h4 {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--c-text-dim);
+}
+.result-card ul { list-style: none; display: flex; flex-direction: column; gap: 0.45rem; }
+.result-card li {
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--c-text);
+  display: flex; gap: 0.4rem;
+}
+.result-card li::before { content: '·'; color: var(--c-text-dimmer); flex-shrink: 0; }
+
+/* Task table */
+.task-section {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 1.2rem;
+}
+.task-section-header {
+  padding: 0.9rem 1.2rem;
+  border-bottom: 1px solid var(--c-border);
+  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 0.82rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--c-orange);
+}
+.task-table { width: 100%; border-collapse: collapse; }
+.task-table th {
+  font-size: 0.72rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--c-text-dimmer);
+  padding: 0.65rem 1.2rem;
+  text-align: left;
+  border-bottom: 1px solid var(--c-border);
+}
+.task-table td {
+  padding: 0.7rem 1.2rem;
+  font-size: 0.84rem;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  vertical-align: top;
+  line-height: 1.4;
+}
+.task-table tr:last-child td { border-bottom: none; }
+.task-table tr:hover td { background: var(--c-surface2); }
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.badge-open   { background: var(--c-red-dim);    color: var(--c-red); }
+.badge-person { background: var(--c-blue-dim);   color: var(--c-blue); }
+.badge-date   { background: var(--c-orange-dim); color: var(--c-orange); }
+
+/* ══════════════════════════════════════════════════════
+   IMAGE PAGE
+══════════════════════════════════════════════════════ */
+.drop-zone {
+  border: 2px dashed var(--c-border2);
+  border-radius: var(--radius);
+  padding: 2.5rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition);
+  position: relative;
+  background: var(--c-surface2);
+}
+.drop-zone:hover, .drop-zone.dragover {
+  border-color: var(--c-accent);
+  background: var(--c-accent-dim);
+}
+.drop-zone input[type="file"] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.drop-icon { font-size: 2.5rem; display: block; margin-bottom: 0.8rem; }
+.drop-zone strong { font-size: 0.9rem; display: block; margin-bottom: 0.3rem; }
+.drop-zone small  { font-size: 0.78rem; color: var(--c-text-dimmer); }
+
+.img-preview-wrap {
+  position: relative;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--c-surface2);
+  text-align: center;
+  margin-bottom: 1rem;
+}
+.img-preview-wrap img {
+  max-width: 100%; max-height: 360px;
+  border-radius: var(--radius);
+  display: block; margin: 0 auto;
+}
+.img-overlay-label {
+  position: absolute; top: 0.6rem; right: 0.6rem;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  border-radius: 20px;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.72rem; color: rgba(255,255,255,0.8);
+}
+
+.analysis-result {
+  background: var(--c-surface2);
+  border: 1px solid var(--c-border2);
+  border-radius: var(--radius);
+  padding: 1.2rem;
+  font-size: 0.87rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  color: var(--c-text);
+  min-height: 80px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* ══════════════════════════════════════════════════════
+   SETTINGS PAGE
+══════════════════════════════════════════════════════ */
+.settings-row {
+  display: flex; align-items: center;
+  padding: 1rem 1.4rem;
+  border-bottom: 1px solid var(--c-border);
+  gap: 1rem;
+}
+.settings-row:last-child { border-bottom: none; }
+.settings-info { flex: 1; }
+.settings-info label { color: var(--c-text); font-size: 0.88rem; font-weight: 600; margin-bottom: 0; }
+.settings-info p { font-size: 0.75rem; color: var(--c-text-dim); margin-top: 2px; }
+.settings-control { width: 220px; flex-shrink: 0; }
+.settings-control input, .settings-control select { margin-bottom: 0; }
+
+.code-block {
+  background: var(--c-bg);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  padding: 0.8rem 1rem;
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: var(--c-accent2);
+  margin-top: 0.4rem;
+}
+.code-block span { color: var(--c-text-dim); }
+
+/* ══════════════════════════════════════════════════════
+   TOAST
+══════════════════════════════════════════════════════ */
+#toast {
+  position: fixed; bottom: 1.5rem; right: 1.5rem;
+  padding: 0.75rem 1.1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.83rem; font-weight: 500;
+  box-shadow: var(--shadow);
+  z-index: 999;
+  max-width: 340px;
+  display: flex; align-items: center; gap: 0.6rem;
+  opacity: 0; transform: translateY(10px) scale(0.95);
+  pointer-events: none;
+  transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+}
+#toast.show {
+  opacity: 1; transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+#toast.ok    { background: var(--c-green-dim); border: 1px solid rgba(16,185,129,0.3); color: var(--c-green); }
+#toast.err   { background: var(--c-red-dim);   border: 1px solid rgba(239,68,68,0.3);  color: var(--c-red); }
+#toast.info  { background: var(--c-accent-dim);border: 1px solid rgba(99,102,241,0.3); color: var(--c-accent2); }
+
+/* ══════════════════════════════════════════════════════
+   RESPONSIVE
+══════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  #sidebar { transform: translateX(-100%); }
+  #sidebar.open { transform: translateX(0); }
+  #sidebar-overlay.open { display: block; }
+  #main-wrap { margin-left: 0; }
+  #menu-toggle { display: flex; }
+  .topbar { padding-left: 4rem; }
+  .page { padding: 1rem; }
+  .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  .result-hero-actions { width: 100%; }
+  .settings-row { flex-direction: column; align-items: flex-start; }
+  .settings-control { width: 100%; }
+}
 </style>
 </head>
 <body>
 
-<header>
-  <span class="logo">📝</span>
-  <div>
-    <h1>Meeting Notes AI</h1>
-    <p>Lokale KI &bull; PDF-Export &bull; Bildanalyse</p>
+<!-- ══ SIDEBAR ══════════════════════════════════════════════════════════════ -->
+<div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<aside id="sidebar">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-mark">📝</div>
+    <h2>Meeting Notes AI</h2>
+    <p>Lokale KI &bull; 100% privat</p>
   </div>
-</header>
 
-<div id="status-bar">
-  <span><span class="dot" id="ollama-dot"></span> &nbsp;Ollama: <span id="ollama-status">Prüfe...</span></span>
-  <span>Modell (Text): <strong id="text-model">—</strong></span>
-  <span>Modell (Vision): <strong id="vision-model">—</strong></span>
-  <span style="margin-left:auto; font-size:0.72rem; opacity:0.6">Alle Daten bleiben lokal auf deinem Gerät</span>
-</div>
+  <div class="nav-section">
+    <div class="nav-label">Werkzeuge</div>
+    <div class="nav-item active" onclick="goPage('notes', this)">
+      <span class="nav-icon">✏️</span> Notizen eingeben
+    </div>
+    <div class="nav-item" onclick="goPage('image', this)">
+      <span class="nav-icon">🖼️</span> Bildanalyse
+    </div>
+    <div class="nav-item" onclick="goPage('result', this)" id="nav-result" style="display:none">
+      <span class="nav-icon">📊</span> Ergebnis &amp; PDF
+      <span class="nav-badge" id="result-badge">NEU</span>
+    </div>
+  </div>
 
-<main>
+  <div class="nav-section">
+    <div class="nav-label">System</div>
+    <div class="nav-item" onclick="goPage('settings', this)">
+      <span class="nav-icon">⚙️</span> Einstellungen
+    </div>
+  </div>
 
-  <!-- ── Notizen-Karte ── -->
-  <div class="card">
-    <div class="card-head">✏️ Meeting-Notizen eingeben</div>
-    <div class="card-body">
-      <div class="tabs">
-        <div class="tab active" onclick="switchTab('notes')">Notizen</div>
-        <div class="tab" onclick="switchTab('settings')">Einstellungen</div>
+  <div class="sidebar-status">
+    <div class="status-pill">
+      <div class="status-dot checking" id="status-dot"></div>
+      <div>
+        <div id="status-label" style="font-weight:600">Verbinde…</div>
+        <div id="status-model" style="font-size:0.65rem; opacity:0.6; margin-top:1px">Ollama</div>
       </div>
+    </div>
+  </div>
+</aside>
 
-      <div class="tab-pane active" id="tab-notes">
+<!-- ══ MOBILE TOGGLE ════════════════════════════════════════════════════════ -->
+<div id="menu-toggle" onclick="toggleSidebar()">☰</div>
+
+<!-- ══ MAIN ═════════════════════════════════════════════════════════════════ -->
+<div id="main-wrap">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title" id="topbar-title">Notizen eingeben</div>
+      <div class="topbar-sub" id="topbar-sub">KI strukturiert dein Meeting automatisch</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost btn-sm" onclick="checkStatus()">⟳ Status</button>
+    </div>
+  </div>
+
+  <!-- ─── PAGE: NOTES ────────────────────────────────────────────────── -->
+  <div class="page active" id="page-notes">
+
+    <div class="hero">
+      <h1>Meeting-Notizen<br><span>in Sekunden aufbereiten</span></h1>
+      <p>Wirf deine rohen Notizen hinein — Stichpunkte, Chaos, kurze Sätze.<br>
+         Die lokale KI strukturiert alles und erstellt ein professionelles PDF.</p>
+      <div class="hero-steps">
+        <div class="hero-step"><span>1</span> Notizen einfügen</div>
+        <div class="hero-step"><span>2</span> KI verarbeitet</div>
+        <div class="hero-step"><span>3</span> PDF herunterladen</div>
+      </div>
+    </div>
+
+    <!-- Meeting Meta -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-header-icon" style="background:var(--c-accent-dim)">📋</div>
+        <div>
+          <h3>Meeting-Details</h3>
+          <p>Titel, Datum und Teilnehmer</p>
+        </div>
+      </div>
+      <div class="card-body">
         <div class="field">
           <label>Meeting-Titel</label>
-          <input type="text" id="title" value="Wöchentliches Team-Meeting" placeholder="z.B. Sprint Planning Q1">
+          <input type="text" id="title" value="Wöchentliches Team-Meeting"
+            placeholder="z.B. Sprint Planning Q1 2026">
         </div>
-        <div class="grid2">
+        <div class="grid-2">
           <div class="field">
             <label>Datum</label>
             <input type="date" id="date">
           </div>
           <div class="field">
-            <label>Sprache</label>
+            <label>Ausgabesprache</label>
             <select id="language">
-              <option value="de">Deutsch</option>
-              <option value="en">English</option>
+              <option value="de">🇩🇪  Deutsch</option>
+              <option value="en">🇬🇧  English</option>
             </select>
           </div>
         </div>
         <div class="field">
-          <label>Teilnehmer (kommagetrennt)</label>
-          <input type="text" id="attendees" placeholder="Anna Müller, Max Schreiber, Julia Braun">
+          <label>Teilnehmer — Enter drücken um hinzuzufügen</label>
+          <div class="chip-input-wrap" id="chip-wrap" onclick="document.getElementById('chip-text-input').focus()">
+            <input id="chip-text-input" placeholder="Name eingeben + Enter …"
+              onkeydown="chipKeyDown(event)">
+          </div>
+          <input type="hidden" id="attendees">
         </div>
+      </div>
+    </div>
+
+    <!-- Raw Notes -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-header-icon" style="background:rgba(16,185,129,0.15)">✏️</div>
+        <div>
+          <h3>Rohe Meeting-Notizen</h3>
+          <p>Beliebiges Format — die KI versteht alles</p>
+        </div>
+      </div>
+      <div class="card-body">
         <div class="field">
-          <label>Rohe Meeting-Notizen</label>
-          <textarea id="raw-notes" placeholder="Füge deine Meeting-Notizen hier ein... Stichpunkte, Sätze oder roher Text — die KI strukturiert alles automatisch.
+          <textarea id="raw-notes"
+            placeholder="Hier deine Notizen eingeben…
 
 Beispiel:
-- Sprint Review besprochen
-- Deployment auf Freitag verschoben wegen DB-Migration
-- Lisa kümmert sich um die Doku bis Ende der Woche
-- Offene Frage: Wer übernimmt das neue Kundenprojekt?"></textarea>
+— Sprint Review: Backend fertig, Frontend 80%
+— DB-Migration blockt Deployment, verschoben auf Freitag
+— Lisa: Dokumentation bis EoW
+— Max und Tim übernehmen neues Kundenprojekt
+— Offen: Wer macht Code-Review für PR #42?
+— Nächstes Meeting: Montag 10:00 Uhr"></textarea>
         </div>
-        <button class="btn-primary" id="process-btn" onclick="processNotes()">
-          Notizen aufbereiten &amp; PDF erstellen
+        <button class="btn btn-primary" id="process-btn" onclick="processNotes()">
+          ✨ Notizen aufbereiten &amp; PDF erstellen
         </button>
       </div>
+    </div>
+  </div>
 
-      <div class="tab-pane" id="tab-settings">
+  <!-- ─── PAGE: IMAGE ─────────────────────────────────────────────────── -->
+  <div class="page" id="page-image">
+    <div class="hero" style="background: linear-gradient(135deg, rgba(168,85,247,0.18), rgba(99,102,241,0.1))">
+      <h1>Bilder <span style="color:var(--c-purple)">analysieren</span></h1>
+      <p>Whiteboard-Fotos, Diagramme, Screenshots — die KI beschreibt und strukturiert<br>
+         den Inhalt automatisch für dich.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-header-icon" style="background:var(--c-purple-dim)">📷</div>
+        <div><h3>Bild hochladen</h3><p>JPG, PNG, WebP, GIF</p></div>
+      </div>
+      <div class="card-body">
         <div class="field">
-          <label>Ollama URL</label>
-          <input type="text" id="ollama-url" value="http://localhost:11434" placeholder="http://localhost:11434">
+          <div class="drop-zone" id="drop-zone">
+            <input type="file" id="image-file" accept="image/*" onchange="onImageChange(event)">
+            <span class="drop-icon">🖼️</span>
+            <strong id="drop-label">Bild hier ablegen oder klicken</strong>
+            <small>JPG · PNG · WebP · GIF · max. 20 MB</small>
+          </div>
         </div>
+
+        <div id="img-preview-section" style="display:none" class="field">
+          <div class="img-preview-wrap">
+            <img id="preview-img" src="" alt="Vorschau">
+            <div class="img-overlay-label" id="img-filename-label"></div>
+          </div>
+        </div>
+
         <div class="field">
-          <label>Text-Modell</label>
-          <input type="text" id="txt-model-input" value="llama3.2" placeholder="llama3.2, mistral, gemma2...">
+          <label>Frage / Aufgabe für die KI</label>
+          <input type="text" id="image-question"
+            value="Was siehst du auf diesem Bild? Beschreibe alle wichtigen Inhalte detailliert auf Deutsch."
+            placeholder="Was steht auf dem Whiteboard?">
         </div>
-        <div class="field">
-          <label>Vision-Modell</label>
-          <input type="text" id="vis-model-input" value="llava" placeholder="llava, llava-phi3...">
+        <button class="btn btn-purple" id="analyze-btn" onclick="analyzeImage()">
+          🔍 Bild analysieren
+        </button>
+      </div>
+    </div>
+
+    <div class="card" id="analysis-card" style="display:none">
+      <div class="card-header">
+        <div class="card-header-icon" style="background:var(--c-purple-dim)">🤖</div>
+        <div><h3>KI-Analyse</h3><p>Ergebnis der Bildanalyse</p></div>
+        <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="copyAnalysis()">📋 Kopieren</button>
+      </div>
+      <div class="card-body">
+        <div class="analysis-result" id="analysis-text"></div>
+        <div style="margin-top:1rem; display:flex; gap:0.6rem; flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="appendToNotes()">
+            ➕ Zu Notizen hinzufügen
+          </button>
         </div>
-        <p style="font-size:0.8rem; color:var(--grey); margin-top:0.5rem; line-height:1.5">
-          Starte Ollama: <code>ollama serve</code><br>
-          Modell laden: <code>ollama pull llama3.2</code><br>
-          Vision laden: <code>ollama pull llava</code>
-        </p>
-        <button class="btn-small" style="margin-top:1rem" onclick="checkStatus()">Verbindung testen</button>
       </div>
     </div>
   </div>
 
-  <!-- ── Bildanalyse-Karte ── -->
-  <div class="card">
-    <div class="card-head">🖼️ Bildanalyse</div>
-    <div class="card-body">
-      <div class="field">
-        <label>Bild hochladen (Whiteboard, Diagramm, Screenshot…)</label>
-        <div class="drop-zone" id="drop-zone">
-          <input type="file" id="image-file" accept="image/*" onchange="previewImage(event)">
-          <span class="icon">📷</span>
-          <strong>Bild hier ablegen oder klicken</strong>
-          <br><small>JPG, PNG, GIF, WebP</small>
+  <!-- ─── PAGE: RESULT ────────────────────────────────────────────────── -->
+  <div class="page" id="page-result">
+    <div id="result-panel">
+
+      <div class="result-hero" id="result-hero">
+        <span class="result-hero-icon">🎉</span>
+        <div class="result-hero-text">
+          <h3>Meeting erfolgreich aufbereitet</h3>
+          <p id="result-hero-sub">PDF wurde generiert und ist bereit zum Download.</p>
+        </div>
+        <div class="result-hero-actions">
+          <button class="btn btn-green" id="pdf-download-btn" onclick="downloadPdf()">
+            ⬇️ PDF herunterladen
+          </button>
+          <button class="btn btn-ghost btn-sm" id="pdf-view-btn" onclick="viewPdf()">
+            🔍 Vorschau
+          </button>
         </div>
       </div>
-      <div class="field">
-        <label>Frage / Aufgabe für die KI</label>
-        <input type="text" id="image-question"
-          value="Was siehst du auf diesem Bild? Beschreibe alle wichtigen Punkte detailliert."
-          placeholder="Was steht auf dem Whiteboard?">
+
+      <div class="summary-card" id="result-summary"></div>
+
+      <div class="result-grid" id="result-grid"></div>
+
+      <div class="task-section" id="task-section" style="display:none">
+        <div class="task-section-header">
+          📌 &nbsp;Aufgaben &amp; Verantwortlichkeiten
+        </div>
+        <table class="task-table">
+          <thead>
+            <tr>
+              <th>Aufgabe</th>
+              <th>Verantwortlich</th>
+              <th>Frist</th>
+            </tr>
+          </thead>
+          <tbody id="task-tbody"></tbody>
+        </table>
       </div>
-      <button class="btn-primary" id="analyze-btn" onclick="analyzeImage()" style="background: linear-gradient(135deg, #8E44AD, #6C3483)">
-        Bild analysieren
+
+    </div>
+    <div id="no-result" style="text-align:center; padding:4rem 2rem; color:var(--c-text-dim)">
+      <div style="font-size:3rem; margin-bottom:1rem">📋</div>
+      <p>Noch kein Meeting aufbereitet.<br>Gehe zu <strong>Notizen eingeben</strong> und starte die KI.</p>
+      <button class="btn btn-ghost" style="margin-top:1.5rem" onclick="goPage('notes', document.querySelector('.nav-item'))">
+        Zu den Notizen →
       </button>
+    </div>
+  </div>
 
-      <div id="image-result">
-        <hr style="margin: 1.2rem 0; border-color: var(--light)">
-        <img id="preview-img" src="" alt="Vorschau">
-        <div id="analysis-text"></div>
-        <button class="btn-small" style="margin-top:0.8rem" onclick="copyAnalysis()">📋 Analyse kopieren</button>
+  <!-- ─── PAGE: SETTINGS ──────────────────────────────────────────────── -->
+  <div class="page" id="page-settings">
+    <div class="hero" style="background: linear-gradient(135deg, rgba(245,158,11,0.12), rgba(99,102,241,0.06))">
+      <h1>Einstellungen</h1>
+      <p>Verbinde die App mit deiner lokalen Ollama-Installation.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:1.2rem">
+      <div class="card-header">
+        <div class="card-header-icon" style="background:rgba(245,158,11,0.15)">🔧</div>
+        <div><h3>Ollama Verbindung</h3><p>Lokale KI-Verbindungseinstellungen</p></div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-info">
+          <label>Ollama Server URL</label>
+          <p>Standard: http://localhost:11434</p>
+        </div>
+        <div class="settings-control">
+          <input type="text" id="set-ollama-url" value="http://localhost:11434">
+        </div>
+      </div>
+      <div class="settings-row">
+        <div class="settings-info">
+          <label>Text-Modell</label>
+          <p>Für Notizen-Verarbeitung</p>
+        </div>
+        <div class="settings-control">
+          <input type="text" id="set-text-model" value="llama3.2">
+        </div>
+      </div>
+      <div class="settings-row">
+        <div class="settings-info">
+          <label>Vision-Modell</label>
+          <p>Für Bildanalyse (LLaVA empfohlen)</p>
+        </div>
+        <div class="settings-control">
+          <input type="text" id="set-vision-model" value="llava">
+        </div>
+      </div>
+      <div class="settings-row">
+        <div class="settings-info"></div>
+        <div class="settings-control" style="display:flex; gap:0.6rem">
+          <button class="btn btn-ghost" style="flex:1" onclick="checkStatus()">Testen</button>
+          <button class="btn btn-primary" style="flex:1" onclick="saveSettings()">Speichern</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-header-icon" style="background:rgba(16,185,129,0.12)">💡</div>
+        <div><h3>Schnellstart</h3><p>Befehle zum Einrichten von Ollama</p></div>
+      </div>
+      <div class="card-body" style="display:flex; flex-direction:column; gap:0.6rem">
+        <div>
+          <label>Ollama installieren</label>
+          <div class="code-block"><span>$</span> curl -fsSL https://ollama.com/install.sh | sh</div>
+        </div>
+        <div>
+          <label>Ollama starten</label>
+          <div class="code-block"><span>$</span> ollama serve</div>
+        </div>
+        <div>
+          <label>Text-Modell laden (~2 GB)</label>
+          <div class="code-block"><span>$</span> ollama pull llama3.2</div>
+        </div>
+        <div>
+          <label>Vision-Modell laden (~4 GB)</label>
+          <div class="code-block"><span>$</span> ollama pull llava</div>
+        </div>
       </div>
     </div>
   </div>
+</div>
 
-  <!-- ── Ergebnis-Panel ── -->
-  <div id="result-panel" class="card">
-    <div class="card-head">📊 Aufbereitetes Meeting</div>
-    <div id="download-banner">
-      <span>✅ PDF erfolgreich erstellt!</span>
-      <a id="pdf-link" href="#" download>
-        <button class="btn-small" style="background:#fff; color:var(--green); font-weight:700">⬇️ PDF herunterladen</button>
-      </a>
-      <a id="pdf-view-link" href="#" target="_blank">
-        <button class="btn-small" style="background:rgba(255,255,255,0.2); color:#fff">🔍 Vorschau</button>
-      </a>
+<!-- ══ PROGRESS OVERLAY ═════════════════════════════════════════════════════ -->
+<div class="progress-overlay" id="progress-overlay">
+  <div class="progress-card">
+    <span class="progress-icon" id="progress-icon">🧠</span>
+    <h3 id="progress-title">KI verarbeitet dein Meeting</h3>
+    <p id="progress-desc">Bitte kurz warten — das Modell läuft lokal auf deinem Gerät.</p>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="progress-bar"></div>
     </div>
-    <div class="result-grid" id="result-grid"></div>
+    <div class="progress-steps" id="progress-steps">
+      <div class="progress-step" id="step-1">
+        <div class="step-dot">1</div> Notizen analysieren
+      </div>
+      <div class="progress-step" id="step-2">
+        <div class="step-dot">2</div> Struktur erstellen
+      </div>
+      <div class="progress-step" id="step-3">
+        <div class="step-dot">3</div> PDF generieren
+      </div>
+    </div>
   </div>
+</div>
 
-</main>
-
+<!-- ══ TOAST ════════════════════════════════════════════════════════════════ -->
 <div id="toast"></div>
 
 <script>
-const API = '';
+/* ══════════════════════════════════════════════════════
+   STATE
+══════════════════════════════════════════════════════ */
+let currentPdfUrl = '';
 let currentPdfFilename = '';
+let hasResult = false;
+const chips = [];
 
-// ── Init ─────────────────────────────────────────────────────────────────────
+/* ══════════════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════════════ */
 document.getElementById('date').value = new Date().toISOString().split('T')[0];
 
-// Drag & drop
 const dz = document.getElementById('drop-zone');
 dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('dragover'); });
 dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
 dz.addEventListener('drop', e => {
   e.preventDefault(); dz.classList.remove('dragover');
   const f = e.dataTransfer.files[0];
-  if (f) { document.getElementById('image-file').files = e.dataTransfer.files; previewImageFile(f); }
+  if (f) { setImageFile(f); }
 });
 
 checkStatus();
+setInterval(checkStatus, 30000);
 
-// ── Tabs ─────────────────────────────────────────────────────────────────────
-function switchTab(name) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
-  event.currentTarget.classList.add('active');
-  document.getElementById('tab-' + name).classList.add('active');
+/* ══════════════════════════════════════════════════════
+   NAVIGATION
+══════════════════════════════════════════════════════ */
+const titles = {
+  notes:    ['Notizen eingeben',   'KI strukturiert dein Meeting automatisch'],
+  image:    ['Bildanalyse',        'Whiteboards, Diagramme & Screenshots auswerten'],
+  result:   ['Ergebnis & PDF',     'Dein aufbereitetes Meeting-Protokoll'],
+  settings: ['Einstellungen',      'Ollama-Verbindung konfigurieren'],
+};
+
+function goPage(name, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  if (el) el.classList.add('active');
+  const [t, s] = titles[name] || ['', ''];
+  document.getElementById('topbar-title').textContent = t;
+  document.getElementById('topbar-sub').textContent   = s;
+
+  if (name === 'result') {
+    document.getElementById('result-panel').style.display = hasResult ? 'block' : 'none';
+    document.getElementById('no-result').style.display    = hasResult ? 'none'  : 'block';
+  }
+  closeSidebar();
 }
 
-// ── Status check ─────────────────────────────────────────────────────────────
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
+}
+
+/* ══════════════════════════════════════════════════════
+   CHIP INPUT (Teilnehmer)
+══════════════════════════════════════════════════════ */
+function chipKeyDown(e) {
+  const input = document.getElementById('chip-text-input');
+  if ((e.key === 'Enter' || e.key === ',') && input.value.trim()) {
+    e.preventDefault();
+    addChip(input.value.trim().replace(/,$/, ''));
+    input.value = '';
+  } else if (e.key === 'Backspace' && !input.value && chips.length) {
+    removeChip(chips.length - 1);
+  }
+}
+
+function addChip(name) {
+  if (!name || chips.includes(name)) return;
+  chips.push(name);
+  renderChips();
+}
+
+function removeChip(idx) {
+  chips.splice(idx, 1);
+  renderChips();
+}
+
+function renderChips() {
+  const wrap = document.getElementById('chip-wrap');
+  wrap.querySelectorAll('.chip').forEach(c => c.remove());
+  chips.forEach((name, i) => {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.innerHTML = `${name} <span class="chip-remove" onclick="removeChip(${i})">×</span>`;
+    wrap.insertBefore(chip, document.getElementById('chip-text-input'));
+  });
+  document.getElementById('attendees').value = chips.join(', ');
+}
+
+/* ══════════════════════════════════════════════════════
+   STATUS CHECK
+══════════════════════════════════════════════════════ */
 async function checkStatus() {
-  const dot = document.getElementById('ollama-dot');
-  const statusEl = document.getElementById('ollama-status');
-  dot.className = 'dot yellow';
-  statusEl.textContent = 'Prüfe...';
+  const dot   = document.getElementById('status-dot');
+  const label = document.getElementById('status-label');
+  const model = document.getElementById('status-model');
+  dot.className = 'status-dot checking';
+  label.textContent = 'Verbinde…';
   try {
     const r = await fetch('/api/models');
     const d = await r.json();
     if (d.connected) {
-      dot.className = 'dot green';
-      statusEl.textContent = 'Verbunden';
-      document.getElementById('text-model').textContent =
-        document.getElementById('txt-model-input').value;
-      document.getElementById('vision-model').textContent =
-        document.getElementById('vis-model-input').value;
+      dot.className = 'status-dot connected';
+      label.textContent = 'Ollama aktiv';
+      const tm = document.getElementById('set-text-model')?.value || 'llama3.2';
+      model.textContent = tm;
     } else throw new Error();
   } catch {
-    dot.className = 'dot red';
-    statusEl.textContent = 'Nicht verbunden';
+    dot.className = 'status-dot error';
+    label.textContent = 'Nicht verbunden';
+    model.textContent = 'Ollama starten!';
   }
 }
 
-// ── Process notes ─────────────────────────────────────────────────────────────
-async function processNotes() {
-  const btn  = document.getElementById('process-btn');
-  const notes = document.getElementById('raw-notes').value.trim();
-  if (!notes) { toast('Bitte gib Meeting-Notizen ein.', true); return; }
+/* ══════════════════════════════════════════════════════
+   PROGRESS
+══════════════════════════════════════════════════════ */
+function showProgress(icon, title, desc) {
+  document.getElementById('progress-icon').textContent = icon;
+  document.getElementById('progress-title').textContent = title;
+  document.getElementById('progress-desc').textContent = desc;
+  document.getElementById('progress-bar').style.width = '0%';
+  ['step-1','step-2','step-3'].forEach(id => {
+    const el = document.getElementById(id);
+    el.className = 'progress-step';
+  });
+  document.getElementById('progress-overlay').classList.add('visible');
+}
 
+function hideProgress() {
+  document.getElementById('progress-overlay').classList.remove('visible');
+}
+
+function setProgressStep(stepNum, pct) {
+  for (let i = 1; i <= 3; i++) {
+    const el = document.getElementById('step-' + i);
+    if (i < stepNum)       el.className = 'progress-step done';
+    else if (i === stepNum) el.className = 'progress-step active';
+    else                    el.className = 'progress-step';
+  }
+  document.getElementById('progress-bar').style.width = pct + '%';
+}
+
+/* ══════════════════════════════════════════════════════
+   PROCESS NOTES
+══════════════════════════════════════════════════════ */
+async function processNotes() {
+  const notes = document.getElementById('raw-notes').value.trim();
+  if (!notes) { toast('Bitte gib Meeting-Notizen ein.', 'err'); return; }
+
+  const btn = document.getElementById('process-btn');
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> KI verarbeitet...';
+  btn.textContent = '⏳ Verarbeite…';
+
+  showProgress('🧠', 'KI analysiert dein Meeting', 'Das Modell läuft lokal — bitte kurz warten.');
+  setProgressStep(1, 15);
 
   const fd = new FormData();
   fd.append('raw_notes',  notes);
   fd.append('title',      document.getElementById('title').value || 'Meeting');
-  fd.append('attendees',  document.getElementById('attendees').value);
+  fd.append('attendees',  chips.join(', '));
   fd.append('date',       document.getElementById('date').value);
   fd.append('language',   document.getElementById('language').value);
 
+  // Fake step advancement for UX
+  const t1 = setTimeout(() => setProgressStep(2, 50), 3000);
+  const t2 = setTimeout(() => setProgressStep(3, 85), 8000);
+
   try {
     const r = await fetch('/api/process-notes', { method: 'POST', body: fd });
-    if (!r.ok) {
-      const err = await r.json();
-      throw new Error(err.detail || 'Fehler');
-    }
+    clearTimeout(t1); clearTimeout(t2);
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail || 'Fehler'); }
     const data = await r.json();
+
+    setProgressStep(3, 100);
+    await new Promise(res => setTimeout(res, 600));
+    hideProgress();
+
+    currentPdfUrl      = data.pdf_url;
+    currentPdfFilename = data.pdf_filename;
+    hasResult = true;
+
     renderResult(data.structured);
-    showDownloadBanner(data.pdf_url, data.pdf_filename);
-    toast('Meeting aufbereitet & PDF erstellt!');
+    showResultNav();
+    goPage('result', document.getElementById('nav-result'));
+    toast('Meeting aufbereitet & PDF erstellt!', 'ok');
   } catch (e) {
-    toast(e.message, true);
+    clearTimeout(t1); clearTimeout(t2);
+    hideProgress();
+    toast(e.message, 'err');
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Notizen aufbereiten & PDF erstellen';
+    btn.textContent = '✨ Notizen aufbereiten & PDF erstellen';
   }
 }
 
+function showResultNav() {
+  const navResult = document.getElementById('nav-result');
+  navResult.style.display = 'flex';
+}
+
+/* ══════════════════════════════════════════════════════
+   RENDER RESULT
+══════════════════════════════════════════════════════ */
 function renderResult(s) {
-  const panel = document.getElementById('result-panel');
-  const grid  = document.getElementById('result-grid');
-  panel.classList.add('visible');
+  // Summary
+  const summaryEl = document.getElementById('result-summary');
+  summaryEl.textContent = s.zusammenfassung || '';
+  summaryEl.style.display = s.zusammenfassung ? 'block' : 'none';
+
+  // Sub-title
+  const title = document.getElementById('title').value;
+  const date  = document.getElementById('date').value;
+  document.getElementById('result-hero-sub').textContent =
+    `${title} · ${formatDate(date)} · PDF bereit`;
+
+  // Grid sections
+  const grid = document.getElementById('result-grid');
   grid.innerHTML = '';
 
-  if (s.zusammenfassung) {
-    const div = document.createElement('div');
-    div.style.gridColumn = '1/-1';
-    div.innerHTML = `<div class="summary-box">${s.zusammenfassung}</div>`;
-    grid.appendChild(div);
+  const sections = [
+    { key: 'themen',          icon: '🗂️',  label: 'Themen',          color: 'var(--c-blue-dim)',   badge_color: 'var(--c-blue)'   },
+    { key: 'beschluesse',     icon: '✅',  label: 'Beschlüsse',      color: 'var(--c-green-dim)',  badge_color: 'var(--c-green)'  },
+    { key: 'naechste_schritte', icon: '🚀', label: 'Nächste Schritte', color: 'var(--c-accent-dim)', badge_color: 'var(--c-accent2)' },
+    { key: 'offene_fragen',   icon: '❓',  label: 'Offene Fragen',   color: 'var(--c-purple-dim)', badge_color: 'var(--c-purple)' },
+  ];
+
+  sections.forEach(sec => {
+    const items = s[sec.key];
+    if (!items?.length) return;
+    const card = document.createElement('div');
+    card.className = 'result-card';
+    card.innerHTML = `
+      <div class="result-card-header">
+        <div class="result-card-badge" style="background:${sec.color}">${sec.icon}</div>
+        <h4>${sec.label}</h4>
+        <span style="margin-left:auto;font-size:0.72rem;color:var(--c-text-dimmer)">${items.length}</span>
+      </div>
+      <ul>${items.map(item =>
+        `<li>${typeof item === 'object' ? (item.aufgabe || JSON.stringify(item)) : item}</li>`
+      ).join('')}</ul>`;
+    grid.appendChild(card);
+  });
+
+  // Task table
+  const tasks = s.aufgaben || [];
+  const taskSection = document.getElementById('task-section');
+  const tbody = document.getElementById('task-tbody');
+  if (tasks.length) {
+    taskSection.style.display = 'block';
+    tbody.innerHTML = tasks.map(a => {
+      const aufg    = typeof a === 'object' ? (a.aufgabe || '—')        : String(a);
+      const verant  = typeof a === 'object' ? (a.verantwortlich || '—') : '—';
+      const frist   = typeof a === 'object' ? (a.frist || 'offen')      : 'offen';
+      const fristBadge = frist.toLowerCase() === 'offen'
+        ? `<span class="badge badge-open">${frist}</span>`
+        : `<span class="badge badge-date">${frist}</span>`;
+      return `<tr>
+        <td>${aufg}</td>
+        <td><span class="badge badge-person">${verant}</span></td>
+        <td>${fristBadge}</td>
+      </tr>`;
+    }).join('');
+  } else {
+    taskSection.style.display = 'none';
   }
-
-  if (s.themen?.length) appendList(grid, '🗂️ Themen', s.themen);
-  if (s.beschluesse?.length) appendList(grid, '✅ Beschlüsse', s.beschluesse);
-  if (s.naechste_schritte?.length) appendList(grid, '🚀 Nächste Schritte', s.naechste_schritte);
-  if (s.offene_fragen?.length) appendList(grid, '❓ Offene Fragen', s.offene_fragen);
-
-  if (s.aufgaben?.length) {
-    const div = document.createElement('div');
-    div.style.gridColumn = '1/-1';
-    div.className = 'result-section';
-    div.innerHTML = `<h3>📌 Aufgaben</h3>
-      <table class="task-table">
-        <thead><tr><th>Aufgabe</th><th>Verantwortlich</th><th>Frist</th></tr></thead>
-        <tbody>${s.aufgaben.map(a => `
-          <tr>
-            <td>${a.aufgabe || a}</td>
-            <td>${a.verantwortlich || '—'}</td>
-            <td>${a.frist || 'offen'}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>`;
-    grid.appendChild(div);
-  }
-
-  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function appendList(parent, title, items) {
-  const div = document.createElement('div');
-  div.className = 'result-section';
-  div.innerHTML = `<h3>${title}</h3><ul>${items.map(i =>
-    `<li>${typeof i === 'object' ? i.aufgabe || JSON.stringify(i) : i}</li>`
-  ).join('')}</ul>`;
-  parent.appendChild(div);
+function formatDate(iso) {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  return `${d}.${m}.${y}`;
 }
 
-function showDownloadBanner(url, filename) {
-  const banner = document.getElementById('download-banner');
-  banner.classList.add('visible');
-  document.getElementById('pdf-link').href      = url;
-  document.getElementById('pdf-link').download  = filename;
-  document.getElementById('pdf-view-link').href = url;
+/* ══════════════════════════════════════════════════════
+   PDF
+══════════════════════════════════════════════════════ */
+function downloadPdf() {
+  if (!currentPdfUrl) return;
+  const a = document.createElement('a');
+  a.href = currentPdfUrl;
+  a.download = currentPdfFilename;
+  a.click();
 }
 
-// ── Image analysis ────────────────────────────────────────────────────────────
-function previewImage(e) { previewImageFile(e.target.files[0]); }
+function viewPdf() {
+  if (!currentPdfUrl) return;
+  window.open(currentPdfUrl, '_blank');
+}
 
-function previewImageFile(file) {
-  if (!file) return;
+/* ══════════════════════════════════════════════════════
+   IMAGE ANALYSIS
+══════════════════════════════════════════════════════ */
+function onImageChange(e) {
+  const f = e.target.files[0];
+  if (f) setImageFile(f);
+}
+
+function setImageFile(file) {
+  document.getElementById('drop-label').textContent = file.name;
+  document.getElementById('img-filename-label').textContent = file.name;
   const reader = new FileReader();
   reader.onload = ev => {
     document.getElementById('preview-img').src = ev.target.result;
-    document.getElementById('image-result').classList.add('visible');
-    document.getElementById('analysis-text').textContent = '';
+    document.getElementById('img-preview-section').style.display = 'block';
+    document.getElementById('analysis-card').style.display = 'none';
   };
   reader.readAsDataURL(file);
-  dz.querySelector('strong').textContent = file.name;
+  dz.classList.remove('dragover');
 }
 
 async function analyzeImage() {
   const file = document.getElementById('image-file').files[0];
-  if (!file) { toast('Bitte zuerst ein Bild auswählen.', true); return; }
+  if (!file) { toast('Bitte zuerst ein Bild auswählen.', 'err'); return; }
 
   const btn = document.getElementById('analyze-btn');
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> KI analysiert Bild...';
+  btn.textContent = '⏳ Analysiere…';
+
+  showProgress('🔍', 'Bild wird analysiert', 'LLaVA-Modell läuft lokal auf deinem Gerät.');
+  setProgressStep(1, 30);
+  const t1 = setTimeout(() => setProgressStep(2, 70), 4000);
 
   const fd = new FormData();
   fd.append('file',     file);
@@ -590,31 +1464,59 @@ async function analyzeImage() {
 
   try {
     const r = await fetch('/api/analyze-image', { method: 'POST', body: fd });
+    clearTimeout(t1);
     if (!r.ok) { const e = await r.json(); throw new Error(e.detail); }
     const d = await r.json();
+
+    setProgressStep(3, 100);
+    await new Promise(res => setTimeout(res, 400));
+    hideProgress();
+
     document.getElementById('analysis-text').textContent = d.analysis;
-    document.getElementById('image-result').classList.add('visible');
-    toast('Bildanalyse abgeschlossen!');
+    document.getElementById('analysis-card').style.display = 'block';
+    document.getElementById('analysis-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    toast('Bildanalyse abgeschlossen!', 'ok');
   } catch (e) {
-    toast(e.message, true);
+    clearTimeout(t1);
+    hideProgress();
+    toast(e.message, 'err');
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Bild analysieren';
+    btn.textContent = '🔍 Bild analysieren';
   }
 }
 
 function copyAnalysis() {
   const text = document.getElementById('analysis-text').textContent;
-  navigator.clipboard.writeText(text).then(() => toast('Analyse kopiert!'));
+  navigator.clipboard.writeText(text).then(() => toast('Analyse kopiert!', 'info'));
 }
 
-// ── Toast ─────────────────────────────────────────────────────────────────────
-function toast(msg, isError = false) {
+function appendToNotes() {
+  const text = document.getElementById('analysis-text').textContent;
+  const notes = document.getElementById('raw-notes');
+  notes.value += (notes.value ? '\n\n--- Bildanalyse ---\n' : '') + text;
+  goPage('notes', document.querySelector('.nav-item'));
+  toast('Analyse zu Notizen hinzugefügt', 'ok');
+}
+
+/* ══════════════════════════════════════════════════════
+   SETTINGS
+══════════════════════════════════════════════════════ */
+function saveSettings() {
+  checkStatus();
+  toast('Einstellungen gespeichert', 'ok');
+}
+
+/* ══════════════════════════════════════════════════════
+   TOAST
+══════════════════════════════════════════════════════ */
+function toast(msg, type = 'ok') {
   const el = document.getElementById('toast');
-  el.textContent = (isError ? '⚠️ ' : '✅ ') + msg;
-  el.className   = 'show' + (isError ? ' error' : '');
+  const icons = { ok: '✓', err: '✕', info: 'ℹ' };
+  el.innerHTML = `<span>${icons[type] || '✓'}</span> ${msg}`;
+  el.className = `show ${type}`;
   clearTimeout(el._t);
-  el._t = setTimeout(() => el.className = '', 4000);
+  el._t = setTimeout(() => { el.className = ''; }, 4200);
 }
 </script>
 </body>
