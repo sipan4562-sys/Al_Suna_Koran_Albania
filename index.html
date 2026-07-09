@@ -1,158 +1,144 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="light">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <meta name="description" content="Erstelle beeindruckende Präsentationen aus deinem Text – kostenlos, für alle Geräte." />
-  <title>TextSlide – Texte als Präsentation</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#6366f1" />
+  <title>MatheMeister – Mathematik verstehen | Kostenlose Lernplattform</title>
+  <meta name="description" content="MatheMeister ist die kostenlose, werbefreie Mathematik-Lernplattform: klare Erklärungen, Schritt-für-Schritt-Lösungen, interaktive Übungen, Formelsammlung und Rechner – von der Grundschule bis zur Hochschule." />
+  <meta name="keywords" content="Mathematik lernen, Mathe Übungen, Formelsammlung, Prozentrechnung, Algebra, Geometrie, Analysis, Statistik, Abiturvorbereitung, Nachhilfe" />
+  <meta name="author" content="MatheMeister" />
+  <link rel="canonical" href="/" />
+
+  <!-- Open Graph / SEO -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="MatheMeister – Mathematik endlich verstehen" />
+  <meta property="og:description" content="Kostenlose Mathematik-Lernplattform mit Erklärungen, Übungen und Rechnern für alle Klassenstufen." />
+  <meta property="og:locale" content="de_DE" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <!-- Favicon (inline SVG) -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%236366f1'/%3E%3Ctext x='50' y='72' font-size='60' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'%3E%E2%88%91%3C/text%3E%3C/svg%3E" />
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&family=Playfair+Display:wght@700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+
+  <!-- Strukturierte Daten für SEO -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "EducationalOrganization",
+    "name": "MatheMeister",
+    "description": "Kostenlose Mathematik-Lernplattform mit Erklärungen, Übungen und Rechnern.",
+    "educationalLevel": ["Grundschule", "Sekundarstufe I", "Sekundarstufe II", "Hochschule"],
+    "inLanguage": "de"
+  }
+  </script>
 </head>
 <body>
 
-  <!-- ===== EDITOR VIEW ===== -->
-  <div id="editorView" class="view active">
-    <header class="site-header">
-      <div class="logo">
-        <span class="logo-icon">▶</span>
-        <span>TextSlide</span>
+  <!-- Preloader -->
+  <div id="preloader"><div class="preloader__spin" role="status" aria-label="Wird geladen"></div></div>
+
+  <!-- Skip-Link (Barrierefreiheit) -->
+  <a href="#app" class="btn btn--primary" style="position:absolute;left:-999px;top:0;z-index:300" onfocus="this.style.left='1rem';this.style.top='1rem'" onblur="this.style.left='-999px'">Zum Inhalt springen</a>
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <a class="logo" href="#/" aria-label="MatheMeister Startseite">
+        <span class="logo__mark"><span>∑</span></span>
+        <span>Mathe<em style="font-style:normal;color:var(--brand)">Meister</em></span>
+      </a>
+
+      <nav class="main-nav" id="mainNav" aria-label="Hauptnavigation">
+        <a class="nav-link" data-root="home" href="#/" data-i18n="nav.home">Startseite</a>
+        <a class="nav-link" data-root="lernen" href="#/lernen" data-i18n="nav.learn">Lernbereiche</a>
+        <a class="nav-link" data-root="uebungen" href="#/uebungen" data-i18n="nav.exercises">Übungen</a>
+        <a class="nav-link" data-root="formeln" href="#/formeln" data-i18n="nav.formulas">Formelsammlung</a>
+        <a class="nav-link" data-root="rechner" href="#/rechner" data-i18n="nav.calculators">Rechner</a>
+        <a class="nav-link" data-root="lernpfade" href="#/lernpfade" data-i18n="nav.paths">Lernpfade</a>
+        <a class="nav-link" data-root="blog" href="#/blog" data-i18n="nav.blog">Blog</a>
+        <a class="nav-link" data-root="dashboard" href="#/dashboard" data-i18n="nav.dashboard">Dashboard</a>
+      </nav>
+
+      <div class="header-tools">
+        <span class="progress-pill" title="Dein Lernfortschritt">📈 <span id="progressBadge">0%</span></span>
+        <button class="icon-btn" id="searchBtn" data-i18n-aria="search.open" aria-label="Suche öffnen" title="Suchen ( / )">🔍</button>
+        <button class="icon-btn" id="themeToggle" data-i18n-aria="theme.toggle" aria-label="Design wechseln" title="Design wechseln">🌙</button>
+        <select class="lang-select" id="langSelect" aria-label="Sprache wählen">
+          <option value="de">DE</option>
+          <option value="en">EN</option>
+        </select>
+        <span id="authArea"></span>
+        <button class="nav-toggle" id="navToggle" aria-label="Menü" aria-expanded="false" aria-controls="mainNav">☰</button>
       </div>
-    </header>
+    </div>
+  </header>
 
-    <main class="editor-main">
-      <section class="hero">
-        <h1>Text&nbsp;→&nbsp;<span class="gradient-text">Präsentation</span></h1>
-        <p class="hero-sub">Gib deinen Text ein und erhalte sofort eine professionelle Präsentation – optimiert für alle Geräte.</p>
-      </section>
+  <!-- Hauptinhalt (durch Router gefüllt) -->
+  <main class="main">
+    <div class="container">
+      <div id="app"></div>
+    </div>
+  </main>
 
-      <div class="editor-card">
-        <div class="editor-options">
-          <div class="option-group">
-            <label for="themeSelect">Design</label>
-            <select id="themeSelect">
-              <option value="ocean">Ozean</option>
-              <option value="sunset">Sonnenuntergang</option>
-              <option value="forest">Wald</option>
-              <option value="night">Nacht</option>
-              <option value="rose">Rose</option>
-              <option value="slate">Slate</option>
-            </select>
-          </div>
-          <div class="option-group">
-            <label for="fontSelect">Schrift</label>
-            <select id="fontSelect">
-              <option value="inter">Modern (Inter)</option>
-              <option value="playfair">Elegant (Playfair)</option>
-            </select>
-          </div>
-          <div class="option-group">
-            <label for="imageToggle">Hintergrundbilder</label>
-            <label class="toggle">
-              <input type="checkbox" id="imageToggle" checked />
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a class="logo" href="#/"><span class="logo__mark"><span>∑</span></span><span>MatheMeister</span></a>
+          <p data-i18n="footer.tagline">Deine kostenlose Plattform für Mathematik – von der Grundschule bis zur Uni.</p>
         </div>
-
-        <div class="textarea-wrap">
-          <textarea
-            id="textInput"
-            placeholder="Füge deinen Text hier ein…
-
-Jeder Absatz (getrennt durch Leerzeile) wird zu einer eigenen Folie.
-
-Oder starte Zeilen mit einem # für Titelfolien, z.B.:
-# Kapitel 1
-Hier kommt der Inhalt…
-
-# Kapitel 2
-Weiterer Inhalt…"
-            spellcheck="true"
-          ></textarea>
-          <div class="char-count"><span id="charCount">0</span> Zeichen</div>
+        <div class="footer-col">
+          <h4>Lernen</h4>
+          <a href="#/lernen/grundlagen">Grundlagen</a>
+          <a href="#/lernen/algebra">Algebra</a>
+          <a href="#/lernen/geometrie">Geometrie</a>
+          <a href="#/lernen/analysis">Analysis</a>
+          <a href="#/lernen/statistik">Statistik</a>
         </div>
-
-        <button id="createBtn" class="btn-primary" onclick="startPresentation()">
-          <span class="btn-icon">▶</span>
-          Präsentation erstellen
-        </button>
-      </div>
-    </main>
-
-    <footer class="site-footer">
-      <p>TextSlide &copy; 2025 &middot; Kostenlos &amp; ohne Registrierung</p>
-    </footer>
-  </div>
-
-  <!-- ===== LOADING VIEW ===== -->
-  <div id="loadingView" class="view">
-    <div class="loading-container">
-      <div class="loading-logo">
-        <span class="logo-icon spin">▶</span>
-        <span>TextSlide</span>
-      </div>
-      <h2 id="loadingStatus">Präsentation wird erstellt…</h2>
-      <div class="progress-track">
-        <div id="progressBar" class="progress-fill"></div>
-      </div>
-      <p id="progressLabel" class="progress-label">0 %</p>
-      <div class="loading-steps">
-        <div class="step" id="step1">
-          <span class="step-icon">⬜</span> Text analysieren
+        <div class="footer-col">
+          <h4>Werkzeuge</h4>
+          <a href="#/uebungen">Übungen</a>
+          <a href="#/formeln">Formelsammlung</a>
+          <a href="#/rechner">Rechner</a>
+          <a href="#/lernpfade">Lernpfade</a>
         </div>
-        <div class="step" id="step2">
-          <span class="step-icon">⬜</span> Folien layouten
-        </div>
-        <div class="step" id="step3">
-          <span class="step-icon">⬜</span> Designs anwenden
-        </div>
-        <div class="step" id="step4">
-          <span class="step-icon">⬜</span> Bilder laden
-        </div>
-        <div class="step" id="step5">
-          <span class="step-icon">⬜</span> Präsentation rendern
+        <div class="footer-col">
+          <h4>Mehr</h4>
+          <a href="#/blog">Blog</a>
+          <a href="#/dashboard">Dashboard</a>
+          <a href="#/login">Anmelden</a>
+          <a href="#/registrieren">Registrieren</a>
         </div>
       </div>
+      <div class="footer-bottom">
+        <p>© 2026 MatheMeister · Kostenlos &amp; werbefrei · Mit ❤️ für Lernende gemacht</p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Such-Modal -->
+  <div class="search-modal" id="searchModal" role="dialog" aria-modal="true" aria-label="Suche" aria-hidden="true">
+    <div class="search-box">
+      <div class="search-box__top">
+        <span aria-hidden="true">🔍</span>
+        <input type="search" id="searchInput" data-i18n-ph="search.placeholder" placeholder="Themen, Formeln, Übungen suchen …" autocomplete="off" />
+        <button class="icon-btn" id="searchClose" aria-label="Suche schließen">✕</button>
+      </div>
+      <div class="search-results" id="searchResults"></div>
     </div>
   </div>
 
-  <!-- ===== PRESENTATION VIEW ===== -->
-  <div id="presentationView" class="view">
-    <!-- Top Controls -->
-    <div id="presControls" class="pres-controls">
-      <button class="ctrl-btn" id="backBtn" onclick="backToEditor()" title="Zurück zum Editor">
-        ✕
-      </button>
-      <div class="slide-counter">
-        <span id="currentSlideNum">1</span> / <span id="totalSlideNum">1</span>
-      </div>
-      <button class="ctrl-btn" id="fullscreenBtn" onclick="toggleFullscreen()" title="Vollbild">
-        ⛶
-      </button>
-    </div>
-
-    <!-- Slides Container -->
-    <div id="slidesContainer" class="slides-container">
-      <!-- slides injected here -->
-    </div>
-
-    <!-- Navigation -->
-    <div id="presNav" class="pres-nav">
-      <button class="nav-btn" id="prevBtn" onclick="prevSlide()" title="Zurück">
-        ‹
-      </button>
-      <div id="dotNav" class="dot-nav"></div>
-      <button class="nav-btn" id="nextBtn" onclick="nextSlide()" title="Weiter">
-        ›
-      </button>
-    </div>
-
-    <!-- Progress bar -->
-    <div id="slideProgress" class="slide-progress-bar"></div>
-  </div>
-
-  <script src="app.js"></script>
+  <!-- Skripte -->
+  <script src="assets/js/i18n.js"></script>
+  <script src="assets/js/content.js"></script>
+  <script src="assets/js/blog.js"></script>
+  <script src="assets/js/calculators.js"></script>
+  <script src="assets/js/app.js"></script>
 </body>
 </html>
