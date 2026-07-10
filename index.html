@@ -1,158 +1,89 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="light">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <meta name="description" content="Erstelle beeindruckende Präsentationen aus deinem Text – kostenlos, für alle Geräte." />
-  <title>TextSlide – Texte als Präsentation</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#2f57f5" />
+
+  <title>MatheMeister – Mathematik verstehen, Schritt für Schritt</title>
+  <meta name="description" content="Kostenlose Mathematik-Lernplattform: verständliche Erklärungen, Beispiele, interaktive Übungen, Formelsammlung und Rechner – von den Grundlagen bis zur Hochschulmathematik." />
+  <meta name="keywords" content="Mathematik lernen, Mathe online, Algebra, Geometrie, Analysis, Trigonometrie, Statistik, Formelsammlung, Rechner, Abitur, Prozentrechnung, Ableitung, Integral" />
+  <meta name="author" content="MatheMeister" />
+  <link rel="canonical" href="./" />
+
+  <!-- Open Graph / SEO -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="MatheMeister – Mathematik verstehen, Schritt für Schritt" />
+  <meta property="og:description" content="Die kostenlose Lernplattform für Mathematik – von den Grundlagen bis zur Hochschulmathematik." />
+  <meta property="og:locale" content="de_DE" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%232f57f5'/%3E%3Ctext x='50' y='72' font-size='60' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'%3E%E2%88%91%3C/text%3E%3C/svg%3E" />
+
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&family=Playfair+Display:wght@700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Sora:wght@600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="assets/css/main.css" />
+
+  <!-- Structured data for SEO -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "EducationalOrganization",
+    "name": "MatheMeister",
+    "description": "Kostenlose Mathematik-Lernplattform von den Grundlagen bis zur Hochschulmathematik.",
+    "educationalLevel": ["Grundschule", "Sekundarstufe I", "Sekundarstufe II", "Hochschule"],
+    "teaches": ["Algebra", "Geometrie", "Analysis", "Trigonometrie", "Statistik", "Lineare Algebra"]
+  }
+  </script>
+
+  <!-- Set theme before paint to avoid flash -->
+  <script>
+    (function () {
+      try {
+        var th = localStorage.getItem("mm_theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", th);
+        var lg = localStorage.getItem("mm_lang") || "de";
+        document.documentElement.setAttribute("lang", lg);
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
+  <a href="#main" class="skip-link">Zum Inhalt springen</a>
 
-  <!-- ===== EDITOR VIEW ===== -->
-  <div id="editorView" class="view active">
-    <header class="site-header">
-      <div class="logo">
-        <span class="logo-icon">▶</span>
-        <span>TextSlide</span>
-      </div>
-    </header>
+  <header class="site-header" id="header-slot"></header>
 
-    <main class="editor-main">
-      <section class="hero">
-        <h1>Text&nbsp;→&nbsp;<span class="gradient-text">Präsentation</span></h1>
-        <p class="hero-sub">Gib deinen Text ein und erhalte sofort eine professionelle Präsentation – optimiert für alle Geräte.</p>
-      </section>
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
-      <div class="editor-card">
-        <div class="editor-options">
-          <div class="option-group">
-            <label for="themeSelect">Design</label>
-            <select id="themeSelect">
-              <option value="ocean">Ozean</option>
-              <option value="sunset">Sonnenuntergang</option>
-              <option value="forest">Wald</option>
-              <option value="night">Nacht</option>
-              <option value="rose">Rose</option>
-              <option value="slate">Slate</option>
-            </select>
-          </div>
-          <div class="option-group">
-            <label for="fontSelect">Schrift</label>
-            <select id="fontSelect">
-              <option value="inter">Modern (Inter)</option>
-              <option value="playfair">Elegant (Playfair)</option>
-            </select>
-          </div>
-          <div class="option-group">
-            <label for="imageToggle">Hintergrundbilder</label>
-            <label class="toggle">
-              <input type="checkbox" id="imageToggle" checked />
-              <span class="toggle-slider"></span>
-            </label>
-          </div>
-        </div>
-
-        <div class="textarea-wrap">
-          <textarea
-            id="textInput"
-            placeholder="Füge deinen Text hier ein…
-
-Jeder Absatz (getrennt durch Leerzeile) wird zu einer eigenen Folie.
-
-Oder starte Zeilen mit einem # für Titelfolien, z.B.:
-# Kapitel 1
-Hier kommt der Inhalt…
-
-# Kapitel 2
-Weiterer Inhalt…"
-            spellcheck="true"
-          ></textarea>
-          <div class="char-count"><span id="charCount">0</span> Zeichen</div>
-        </div>
-
-        <button id="createBtn" class="btn-primary" onclick="startPresentation()">
-          <span class="btn-icon">▶</span>
-          Präsentation erstellen
-        </button>
-      </div>
-    </main>
-
-    <footer class="site-footer">
-      <p>TextSlide &copy; 2025 &middot; Kostenlos &amp; ohne Registrierung</p>
-    </footer>
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+    <main class="content" id="app" role="main"></main>
   </div>
 
-  <!-- ===== LOADING VIEW ===== -->
-  <div id="loadingView" class="view">
-    <div class="loading-container">
-      <div class="loading-logo">
-        <span class="logo-icon spin">▶</span>
-        <span>TextSlide</span>
-      </div>
-      <h2 id="loadingStatus">Präsentation wird erstellt…</h2>
-      <div class="progress-track">
-        <div id="progressBar" class="progress-fill"></div>
-      </div>
-      <p id="progressLabel" class="progress-label">0 %</p>
-      <div class="loading-steps">
-        <div class="step" id="step1">
-          <span class="step-icon">⬜</span> Text analysieren
-        </div>
-        <div class="step" id="step2">
-          <span class="step-icon">⬜</span> Folien layouten
-        </div>
-        <div class="step" id="step3">
-          <span class="step-icon">⬜</span> Designs anwenden
-        </div>
-        <div class="step" id="step4">
-          <span class="step-icon">⬜</span> Bilder laden
-        </div>
-        <div class="step" id="step5">
-          <span class="step-icon">⬜</span> Präsentation rendern
-        </div>
-      </div>
+  <footer class="site-footer" id="footer-slot"></footer>
+
+  <!-- Search overlay -->
+  <div class="search-overlay" id="searchOverlay" role="dialog" aria-modal="true" aria-label="Suche">
+    <div class="search-box">
+      <input id="searchInput" type="search" autocomplete="off" placeholder="Suchen…" aria-label="Suche" />
+      <div class="search-results" id="searchResults"></div>
+      <div class="search-hint"><span>↑↓ Navigieren</span><span>↵ Öffnen</span><span>Esc Schließen</span></div>
     </div>
   </div>
 
-  <!-- ===== PRESENTATION VIEW ===== -->
-  <div id="presentationView" class="view">
-    <!-- Top Controls -->
-    <div id="presControls" class="pres-controls">
-      <button class="ctrl-btn" id="backBtn" onclick="backToEditor()" title="Zurück zum Editor">
-        ✕
-      </button>
-      <div class="slide-counter">
-        <span id="currentSlideNum">1</span> / <span id="totalSlideNum">1</span>
-      </div>
-      <button class="ctrl-btn" id="fullscreenBtn" onclick="toggleFullscreen()" title="Vollbild">
-        ⛶
-      </button>
+  <noscript>
+    <div style="padding:40px;text-align:center;font-family:sans-serif">
+      <h1>MatheMeister</h1>
+      <p>Bitte aktiviere JavaScript, um diese interaktive Mathematik-Lernplattform zu nutzen.</p>
     </div>
+  </noscript>
 
-    <!-- Slides Container -->
-    <div id="slidesContainer" class="slides-container">
-      <!-- slides injected here -->
-    </div>
-
-    <!-- Navigation -->
-    <div id="presNav" class="pres-nav">
-      <button class="nav-btn" id="prevBtn" onclick="prevSlide()" title="Zurück">
-        ‹
-      </button>
-      <div id="dotNav" class="dot-nav"></div>
-      <button class="nav-btn" id="nextBtn" onclick="nextSlide()" title="Weiter">
-        ›
-      </button>
-    </div>
-
-    <!-- Progress bar -->
-    <div id="slideProgress" class="slide-progress-bar"></div>
-  </div>
-
-  <script src="app.js"></script>
+  <script src="assets/js/i18n.js"></script>
+  <script src="assets/js/data.js"></script>
+  <script src="assets/js/calculators.js"></script>
+  <script src="assets/js/app.js"></script>
 </body>
 </html>
