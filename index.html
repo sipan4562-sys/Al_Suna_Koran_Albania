@@ -1,1249 +1,208 @@
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<meta name="description" content="MatheLab – moderne, interaktive Mathematik-Lernplattform mit Funktionsplotter, Trainer und Formelsammlung. Für Smartphone, Tablet, Laptop und Desktop." />
-<meta name="theme-color" content="#0a0c24" />
-<title>MatheLab · Interaktiv Mathematik lernen</title>
+<!DOCTYPE html>
+<html lang="de" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Irak – Wiege der Zivilisation | العراق | Iraq</title>
+<meta name="description" content="Entdecke den Irak: Kultur, Küche, Geschichte, Städte und Traditionen – modern erzählt in Arabisch, Englisch und Deutsch. اكتشف العراق: الثقافة والمطبخ والتاريخ.">
+<meta name="theme-color" content="#070b1c">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%99%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,400;0,600;0,700;0,800;1,400&family=Noto+Kufi+Arabic:wght@400;600;700&family=Noto+Naskh+Arabic:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
 
-<style>
-  /* ============================================================
-     MATHELAB — Design tokens
-     ============================================================ */
-  :root {
-    --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code",
-      Menlo, Consolas, "Liberation Mono", monospace;
-    --font-sans: system-ui, -apple-system, "Segoe UI", Roboto,
-      "Helvetica Neue", Arial, sans-serif;
+<div class="progress" id="progress"></div>
 
-    /* Light theme (paper with a blue bias) */
-    --bg: #e9edf7;
-    --bg-grid: rgba(30, 45, 110, 0.07);
-    --bg-grid-strong: rgba(30, 45, 110, 0.12);
-    --surface: #ffffff;
-    --surface-2: #f4f6fd;
-    --surface-3: #eaeef9;
-    --ink: #10142e;
-    --muted: #545c7e;
-    --faint: #8a92b4;
-    --border: rgba(20, 30, 80, 0.12);
-    --accent: #4b34d6;
-    --accent-soft: rgba(75, 52, 214, 0.10);
-    --accent-ink: #ffffff;
-    --lime: #4f7a00;      /* readable on light */
-    --lime-plot: #6ea800; /* curve on light plotter */
-    --cyan: #0782a0;
-    --coral: #d63a6a;
-    --shadow: 0 1px 2px rgba(16, 20, 46, .06), 0 12px 34px rgba(16, 20, 46, .10);
-    --shadow-lg: 0 30px 70px rgba(16, 20, 46, .18);
-    --radius: 18px;
-    --radius-sm: 12px;
-    --plot-bg: #0d1130;
-    --plot-grid: rgba(140, 160, 255, 0.14);
-    --plot-axis: rgba(200, 210, 255, 0.55);
-    --plot-curve: #c6f24e;
-    --plot-curve2: #4ee0f2;
-    --maxw: 1180px;
-  }
+<!-- Aurora background -->
+<div class="aurora" aria-hidden="true">
+  <div class="aurora-blob a1"></div>
+  <div class="aurora-blob a2"></div>
+  <div class="aurora-blob a3"></div>
+</div>
 
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #080a20;
-      --bg-grid: rgba(120, 150, 255, 0.06);
-      --bg-grid-strong: rgba(120, 150, 255, 0.11);
-      --surface: #11153a;
-      --surface-2: #161b47;
-      --surface-3: #1c2255;
-      --ink: #edf0ff;
-      --muted: #a2abd6;
-      --faint: #6b74a3;
-      --border: rgba(140, 160, 255, 0.15);
-      --accent: #8f80ff;
-      --accent-soft: rgba(143, 128, 255, 0.16);
-      --accent-ink: #0a0c24;
-      --lime: #c6f24e;
-      --lime-plot: #c6f24e;
-      --cyan: #4ee0f2;
-      --coral: #ff6b9d;
-      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 18px 44px rgba(0, 0, 0, .45);
-      --shadow-lg: 0 34px 80px rgba(0, 0, 0, .55);
-      --plot-bg: #0a0e2c;
-    }
-  }
-  /* Explicit toggle wins over the OS media query, both directions */
-  :root[data-theme="light"] {
-    --bg: #e9edf7; --bg-grid: rgba(30,45,110,0.07); --bg-grid-strong: rgba(30,45,110,0.12);
-    --surface: #ffffff; --surface-2: #f4f6fd; --surface-3: #eaeef9;
-    --ink: #10142e; --muted: #545c7e; --faint: #8a92b4; --border: rgba(20,30,80,0.12);
-    --accent: #4b34d6; --accent-soft: rgba(75,52,214,.10); --accent-ink:#fff;
-    --lime:#4f7a00; --lime-plot:#6ea800; --cyan:#0782a0; --coral:#d63a6a;
-    --shadow: 0 1px 2px rgba(16,20,46,.06), 0 12px 34px rgba(16,20,46,.10);
-    --shadow-lg: 0 30px 70px rgba(16,20,46,.18);
-  }
-  :root[data-theme="dark"] {
-    --bg:#080a20; --bg-grid: rgba(120,150,255,0.06); --bg-grid-strong: rgba(120,150,255,0.11);
-    --surface:#11153a; --surface-2:#161b47; --surface-3:#1c2255;
-    --ink:#edf0ff; --muted:#a2abd6; --faint:#6b74a3; --border: rgba(140,160,255,0.15);
-    --accent:#8f80ff; --accent-soft: rgba(143,128,255,.16); --accent-ink:#0a0c24;
-    --lime:#c6f24e; --lime-plot:#c6f24e; --cyan:#4ee0f2; --coral:#ff6b9d;
-    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 18px 44px rgba(0,0,0,.45);
-    --shadow-lg: 0 34px 80px rgba(0,0,0,.55);
-  }
+<!-- ======= NAVIGATION ======= -->
+<header class="nav" id="nav">
+  <a class="nav-logo" href="#home">
+    <span class="logo-mark" aria-hidden="true">
+      <svg viewBox="0 0 48 48" width="34" height="34">
+        <defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#f3d492"/><stop offset="1" stop-color="#c99a3c"/>
+        </linearGradient></defs>
+        <g fill="none" stroke="url(#lg)" stroke-width="2.2" stroke-linejoin="round">
+          <path d="M8 40h32M12 40v-7h24v7M16 33v-7h16v7M20 26v-7h8v7"/>
+          <circle cx="24" cy="12" r="3.4"/>
+        </g>
+      </svg>
+    </span>
+    <span class="logo-text"><b>العراق</b><small data-i18n="nav.brand">Entdecke den Irak</small></span>
+  </a>
 
-  /* ============================================================
-     Reset & base
-     ============================================================ */
-  * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
-  @media (prefers-reduced-motion: reduce) {
-    html { scroll-behavior: auto; }
-    *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
-  }
-  body {
-    margin: 0;
-    font-family: var(--font-sans);
-    color: var(--ink);
-    background-color: var(--bg);
-    background-image:
-      linear-gradient(var(--bg-grid) 1px, transparent 1px),
-      linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px),
-      linear-gradient(var(--bg-grid-strong) 1px, transparent 1px),
-      linear-gradient(90deg, var(--bg-grid-strong) 1px, transparent 1px);
-    background-size: 28px 28px, 28px 28px, 140px 140px, 140px 140px;
-    line-height: 1.65;
-    overflow-x: hidden;
-    transition: background-color .4s ease, color .4s ease;
-  }
-  h1, h2, h3, h4 { font-family: var(--font-mono); font-weight: 700; line-height: 1.08; letter-spacing: -.02em; text-wrap: balance; margin: 0; }
-  p { margin: 0; }
-  a { color: inherit; text-decoration: none; }
-  img { max-width: 100%; }
-  ::selection { background: var(--accent); color: var(--accent-ink); }
-  :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+  <nav class="nav-links" id="navLinks" aria-label="Hauptnavigation">
+    <a href="#home" data-i18n="nav.home">Start</a>
+    <a href="#fakten" data-i18n="nav.facts">Fakten</a>
+    <a href="#geschichte" data-i18n="nav.history">Geschichte</a>
+    <a href="#kultur" data-i18n="nav.culture">Kultur</a>
+    <a href="#kueche" data-i18n="nav.cuisine">Küche</a>
+    <a href="#orte" data-i18n="nav.places">Orte</a>
+    <a href="#feste" data-i18n="nav.traditions">Feste</a>
+    <a href="#reise" data-i18n="nav.travel">Reise</a>
+  </nav>
 
-  .wrap { width: 100%; max-width: var(--maxw); margin-inline: auto; padding-inline: clamp(18px, 4vw, 40px); }
-  .eyebrow {
-    font-family: var(--font-mono); font-size: .74rem; font-weight: 700;
-    letter-spacing: .22em; text-transform: uppercase; color: var(--accent);
-    display: inline-flex; align-items: center; gap: .55em;
-  }
-  .eyebrow::before { content: "//"; opacity: .55; }
-  .section { padding-block: clamp(64px, 9vw, 120px); position: relative; }
-  .section-head { max-width: 640px; margin-bottom: clamp(34px, 5vw, 56px); }
-  .section-head h2 { font-size: clamp(1.9rem, 4.4vw, 3rem); margin-top: 14px; }
-  .section-head p { color: var(--muted); font-size: 1.06rem; margin-top: 16px; }
-
-  /* ============================================================
-     Header / Nav
-     ============================================================ */
-  .site-header {
-    position: sticky; top: 0; z-index: 60;
-    backdrop-filter: saturate(1.4) blur(14px);
-    background: color-mix(in srgb, var(--bg) 82%, transparent);
-    border-bottom: 1px solid transparent;
-    transition: border-color .3s ease, background .3s ease;
-  }
-  .site-header.scrolled { border-bottom-color: var(--border); }
-  .nav { display: flex; align-items: center; justify-content: space-between; height: 68px; }
-  .brand { display: flex; align-items: center; gap: 11px; font-family: var(--font-mono); font-weight: 700; font-size: 1.12rem; letter-spacing: -.03em; }
-  .brand .mark {
-    width: 34px; height: 34px; border-radius: 9px; flex: none;
-    display: grid; place-items: center; color: var(--accent-ink);
-    background: var(--accent); font-size: 1.05rem;
-    box-shadow: 0 6px 18px var(--accent-soft);
-  }
-  .brand .mark span { transform: translateY(-1px); }
-  .nav-links { display: flex; align-items: center; gap: 4px; }
-  .nav-links a {
-    font-family: var(--font-mono); font-size: .86rem; font-weight: 600; color: var(--muted);
-    padding: 9px 14px; border-radius: 10px; transition: color .2s, background .2s;
-  }
-  .nav-links a:hover { color: var(--ink); background: var(--surface-2); }
-  .nav-actions { display: flex; align-items: center; gap: 10px; }
-  .icon-btn {
-    width: 42px; height: 42px; border-radius: 11px; border: 1px solid var(--border);
-    background: var(--surface); color: var(--ink); cursor: pointer; font-size: 1.05rem;
-    display: grid; place-items: center; transition: transform .15s, background .2s, border-color .2s;
-  }
-  .icon-btn:hover { transform: translateY(-2px); border-color: var(--accent); }
-  .icon-btn:active { transform: translateY(0); }
-  .btn {
-    font-family: var(--font-mono); font-weight: 700; font-size: .9rem; cursor: pointer;
-    border: 1px solid transparent; border-radius: 12px; padding: 12px 20px;
-    display: inline-flex; align-items: center; gap: 9px; transition: transform .15s, box-shadow .2s, background .2s;
-    -webkit-tap-highlight-color: transparent;
-  }
-  .btn-primary { background: var(--accent); color: var(--accent-ink); box-shadow: 0 10px 26px var(--accent-soft); }
-  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 34px var(--accent-soft); }
-  .btn-ghost { background: var(--surface); color: var(--ink); border-color: var(--border); }
-  .btn-ghost:hover { border-color: var(--accent); transform: translateY(-2px); }
-  .nav-toggle { display: none; }
-
-  @media (max-width: 860px) {
-    .nav-links {
-      position: fixed; inset: 68px 0 auto 0; flex-direction: column; align-items: stretch; gap: 2px;
-      background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px clamp(18px,4vw,40px) 22px;
-      transform: translateY(-140%); transition: transform .34s cubic-bezier(.5,.05,.2,1);
-      box-shadow: var(--shadow-lg);
-    }
-    .nav-links.open { transform: translateY(0); }
-    .nav-links a { padding: 13px 12px; font-size: 1rem; border-radius: 10px; }
-    .nav .cta-desktop { display: none; }
-    .nav-toggle { display: grid; }
-  }
-
-  /* ============================================================
-     Hero
-     ============================================================ */
-  .hero { padding-top: clamp(40px, 7vw, 80px); padding-bottom: clamp(20px, 5vw, 40px); }
-  .hero-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: clamp(28px, 4vw, 56px); align-items: center; }
-  .hero-copy h1 { font-size: clamp(2.5rem, 6.6vw, 4.6rem); }
-  .hero-copy h1 .glow { color: var(--lime); position: relative; }
-  .hero-copy .lead { color: var(--muted); font-size: clamp(1.05rem, 2vw, 1.24rem); margin-top: 20px; max-width: 34ch; }
-  .hero-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
-  .hero-stats { display: flex; gap: 28px; margin-top: 40px; flex-wrap: wrap; }
-  .hero-stats .stat .n { font-family: var(--font-mono); font-weight: 700; font-size: 1.7rem; color: var(--ink); font-variant-numeric: tabular-nums; }
-  .hero-stats .stat .l { font-size: .82rem; color: var(--faint); font-family: var(--font-mono); letter-spacing: .04em; }
-
-  .hero-panel {
-    background: var(--plot-bg); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 16px; box-shadow: var(--shadow-lg); position: relative; overflow: hidden;
-  }
-  .hero-panel .panel-bar { display: flex; align-items: center; gap: 8px; padding: 4px 6px 12px; }
-  .hero-panel .panel-bar .dot { width: 11px; height: 11px; border-radius: 50%; }
-  .hero-panel .panel-bar .tag { margin-left: auto; font-family: var(--font-mono); font-size: .72rem; color: #8b95cf; letter-spacing: .08em; }
-  .hero-canvas { width: 100%; display: block; border-radius: 10px; background: transparent; aspect-ratio: 16 / 11; }
-  .hero-eq {
-    position: absolute; font-family: var(--font-mono); color: var(--lime); opacity: .0;
-    font-size: .8rem; pointer-events: none; text-shadow: 0 0 12px rgba(198,242,78,.5);
-    animation: floatEq 9s ease-in-out infinite;
-  }
-  @keyframes floatEq {
-    0%   { opacity: 0; transform: translateY(10px); }
-    12%  { opacity: .85; }
-    88%  { opacity: .85; }
-    100% { opacity: 0; transform: translateY(-26px); }
-  }
-
-  @media (max-width: 860px) {
-    .hero-grid { grid-template-columns: 1fr; }
-    .hero-panel { order: -1; }
-    .hero-copy .lead { max-width: none; }
-  }
-
-  /* ============================================================
-     Reveal animation
-     ============================================================ */
-  .reveal { opacity: 0; transform: translateY(26px); transition: opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1); }
-  .reveal.in { opacity: 1; transform: none; }
-  .reveal.d1 { transition-delay: .08s; }
-  .reveal.d2 { transition-delay: .16s; }
-  .reveal.d3 { transition-delay: .24s; }
-
-  /* ============================================================
-     Topic cards
-     ============================================================ */
-  .topics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
-  @media (max-width: 900px) { .topics-grid { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 560px) { .topics-grid { grid-template-columns: 1fr; } }
-  .topic {
-    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 22px; cursor: pointer; text-align: left; color: inherit; font: inherit;
-    display: flex; flex-direction: column; gap: 12px; position: relative; overflow: hidden;
-    transition: transform .22s ease, border-color .22s ease, box-shadow .22s ease;
-  }
-  .topic::after {
-    content: ""; position: absolute; inset: auto -40% -60% auto; width: 180px; height: 180px;
-    background: radial-gradient(circle, var(--accent-soft), transparent 70%); opacity: 0; transition: opacity .3s;
-  }
-  .topic:hover { transform: translateY(-6px); border-color: var(--accent); box-shadow: var(--shadow); }
-  .topic:hover::after { opacity: 1; }
-  .topic .t-ico { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; font-size: 1.5rem; background: var(--surface-3); border: 1px solid var(--border); }
-  .topic h3 { font-size: 1.16rem; }
-  .topic p { color: var(--muted); font-size: .94rem; }
-  .topic .t-meta { margin-top: auto; display: flex; align-items: center; gap: 10px; font-family: var(--font-mono); font-size: .76rem; color: var(--faint); }
-  .topic .t-meta .chip { background: var(--surface-2); border: 1px solid var(--border); padding: 3px 9px; border-radius: 999px; }
-  .topic .t-open { color: var(--accent); font-weight: 700; }
-
-  /* Lesson dialog */
-  dialog.lesson {
-    border: 1px solid var(--border); border-radius: var(--radius); padding: 0;
-    max-width: 640px; width: calc(100% - 32px); background: var(--surface); color: var(--ink);
-    box-shadow: var(--shadow-lg);
-  }
-  dialog.lesson::backdrop { background: rgba(6, 8, 26, .6); backdrop-filter: blur(4px); }
-  .lesson-head { display: flex; align-items: flex-start; gap: 14px; padding: 24px 24px 12px; }
-  .lesson-head .t-ico { flex: none; }
-  .lesson-head h3 { font-size: 1.4rem; }
-  .lesson-head .close { margin-left: auto; }
-  .lesson-body { padding: 4px 24px 24px; }
-  .lesson-body p { color: var(--muted); margin-bottom: 12px; }
-  .lesson-body ul { color: var(--muted); margin: 0 0 14px; padding-left: 20px; }
-  .lesson-body li { margin-bottom: 6px; }
-  .formula-box {
-    font-family: var(--font-mono); background: var(--surface-2); border: 1px solid var(--border);
-    border-left: 3px solid var(--lime); border-radius: 10px; padding: 12px 14px; margin: 12px 0;
-    font-size: .98rem; overflow-x: auto; color: var(--ink);
-  }
-
-  /* ============================================================
-     Two-column feature block (Plotter + Trainer)
-     ============================================================ */
-  .feature { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(24px, 4vw, 48px); align-items: start; }
-  @media (max-width: 900px) { .feature { grid-template-columns: 1fr; } }
-
-  .panel {
-    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: 20px; box-shadow: var(--shadow);
-  }
-  .panel-title { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; font-family: var(--font-mono); font-weight: 700; }
-  .panel-title .d { width: 9px; height: 9px; border-radius: 3px; background: var(--lime); }
-
-  /* Plotter */
-  .plot-canvas { width: 100%; display: block; border-radius: 12px; background: var(--plot-bg); aspect-ratio: 4 / 3; touch-action: none; cursor: crosshair; }
-  .plot-input-row { display: flex; gap: 8px; margin-top: 14px; }
-  .fx-prefix { font-family: var(--font-mono); font-weight: 700; align-self: center; color: var(--muted); }
-  .field {
-    flex: 1; font-family: var(--font-mono); font-size: 1rem; padding: 12px 14px;
-    background: var(--surface-2); border: 1px solid var(--border); border-radius: 11px; color: var(--ink);
-  }
-  .field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-  .field.err { border-color: var(--coral); box-shadow: 0 0 0 3px rgba(214,58,106,.15); }
-  .plot-presets { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-  .preset {
-    font-family: var(--font-mono); font-size: .8rem; padding: 7px 12px; border-radius: 999px; cursor: pointer;
-    background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); transition: all .18s;
-  }
-  .preset:hover { border-color: var(--accent); color: var(--ink); transform: translateY(-1px); }
-  .plot-hint { font-family: var(--font-mono); font-size: .76rem; color: var(--faint); margin-top: 12px; }
-  .plot-hint b { color: var(--muted); font-weight: 700; }
-  .zoom-row { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
-  .zoom-row .icon-btn { width: 38px; height: 38px; font-size: 1rem; }
-  .readout { margin-left: auto; font-family: var(--font-mono); font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-
-  /* Trainer */
-  .trainer-top { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
-  .cat {
-    font-family: var(--font-mono); font-size: .8rem; padding: 8px 12px; border-radius: 10px; cursor: pointer;
-    background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); transition: all .18s;
-  }
-  .cat[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-  .diff-row { display: flex; gap: 8px; margin-bottom: 18px; }
-  .diff { flex: 1; font-family: var(--font-mono); font-size: .82rem; padding: 8px; border-radius: 10px; cursor: pointer; text-align: center; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); transition: all .18s; }
-  .diff[aria-pressed="true"] { border-color: var(--lime); color: var(--ink); background: color-mix(in srgb, var(--lime) 14%, var(--surface-2)); }
-  .quiz-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 26px 20px; text-align: center; }
-  .quiz-q { font-family: var(--font-mono); font-size: clamp(1.8rem, 6vw, 2.6rem); font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-  .quiz-q .eq { color: var(--faint); }
-  .answer-row { display: flex; gap: 8px; margin-top: 20px; }
-  .answer-row .field { text-align: center; font-size: 1.3rem; }
-  .quiz-feedback { min-height: 26px; margin-top: 14px; font-family: var(--font-mono); font-weight: 700; font-size: .95rem; }
-  .quiz-feedback.ok { color: var(--lime); }
-  .quiz-feedback.no { color: var(--coral); }
-  .quiz-card.shake { animation: shake .35s; }
-  @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-5px)} 80%{transform:translateX(5px)} }
-  .quiz-card.pop { animation: pop .3s; }
-  @keyframes pop { 0%{transform:scale(1)} 45%{transform:scale(1.03)} 100%{transform:scale(1)} }
-  .score-row { display: flex; gap: 10px; margin-top: 16px; }
-  .score-box { flex: 1; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 12px; text-align: center; }
-  .score-box .n { font-family: var(--font-mono); font-weight: 700; font-size: 1.5rem; font-variant-numeric: tabular-nums; }
-  .score-box .n.streak { color: var(--lime); }
-  .score-box .l { font-size: .72rem; color: var(--faint); font-family: var(--font-mono); letter-spacing: .05em; text-transform: uppercase; }
-
-  /* ============================================================
-     Formula reference (accordion)
-     ============================================================ */
-  .acc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; align-items: start; }
-  @media (max-width: 900px) { .acc-grid { grid-template-columns: 1fr; } }
-  .acc-col h3 { font-size: 1.05rem; margin-bottom: 10px; color: var(--accent); font-family: var(--font-mono); }
-  .acc {
-    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px; overflow: hidden;
-  }
-  .acc summary {
-    list-style: none; cursor: pointer; padding: 14px 16px; font-weight: 600; display: flex; align-items: center; gap: 10px;
-  }
-  .acc summary::-webkit-details-marker { display: none; }
-  .acc summary::before { content: "+"; font-family: var(--font-mono); color: var(--accent); font-weight: 700; transition: transform .2s; }
-  .acc[open] summary::before { transform: rotate(45deg); }
-  .acc .acc-body { padding: 0 16px 16px; color: var(--muted); font-size: .92rem; }
-  .acc .acc-body .formula-box { margin-top: 0; }
-
-  /* ============================================================
-     Progress
-     ============================================================ */
-  .progress-panel { display: grid; grid-template-columns: 1.1fr 1fr; gap: clamp(24px,4vw,48px); align-items: center; }
-  @media (max-width: 800px) { .progress-panel { grid-template-columns: 1fr; } }
-  .prog-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .prog-stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
-  .prog-stat .n { font-family: var(--font-mono); font-weight: 700; font-size: 2.2rem; font-variant-numeric: tabular-nums; }
-  .prog-stat .n.a { color: var(--accent); } .prog-stat .n.b { color: var(--lime); } .prog-stat .n.c { color: var(--cyan); }
-  .prog-stat .l { color: var(--muted); font-size: .88rem; }
-  .ring-wrap { display: grid; place-items: center; }
-  .ring { position: relative; width: min(260px, 70vw); aspect-ratio: 1; }
-  .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-  .ring .track { fill: none; stroke: var(--surface-3); stroke-width: 14; }
-  .ring .bar { fill: none; stroke: var(--lime); stroke-width: 14; stroke-linecap: round; transition: stroke-dashoffset 1s cubic-bezier(.2,.7,.2,1); }
-  .ring .center { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
-  .ring .center .pct { font-family: var(--font-mono); font-weight: 700; font-size: 2.4rem; font-variant-numeric: tabular-nums; }
-  .ring .center .lab { font-size: .8rem; color: var(--muted); font-family: var(--font-mono); }
-  .reset-link { background: none; border: none; color: var(--faint); font-family: var(--font-mono); font-size: .8rem; cursor: pointer; margin-top: 16px; text-decoration: underline; }
-  .reset-link:hover { color: var(--coral); }
-
-  /* ============================================================
-     CTA + Footer
-     ============================================================ */
-  .cta-band {
-    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-    padding: clamp(30px, 5vw, 56px); text-align: center; box-shadow: var(--shadow);
-    position: relative; overflow: hidden;
-  }
-  .cta-band h2 { font-size: clamp(1.7rem, 4vw, 2.6rem); }
-  .cta-band p { color: var(--muted); margin: 14px auto 0; max-width: 48ch; }
-  .cta-band .hero-cta { justify-content: center; }
-
-  footer.site-footer { border-top: 1px solid var(--border); margin-top: clamp(48px, 8vw, 90px); }
-  .footer-inner { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; justify-content: space-between; padding-block: 30px; }
-  .footer-inner .brand { font-size: 1rem; }
-  .footer-inner p { color: var(--faint); font-family: var(--font-mono); font-size: .8rem; }
-
-  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
-</style>
-
-<!-- ============================================================ HEADER ============================================================ -->
-<header class="site-header" id="siteHeader">
-  <div class="wrap nav">
-    <a class="brand" href="#top" aria-label="MatheLab Startseite">
-      <span class="mark"><span>∑</span></span>
-      MatheLab
-    </a>
-    <nav class="nav-links" id="navLinks" aria-label="Hauptnavigation">
-      <a href="#themen">Themen</a>
-      <a href="#plotter">Plotter</a>
-      <a href="#trainer">Trainer</a>
-      <a href="#formeln">Formeln</a>
-      <a href="#fortschritt">Fortschritt</a>
-    </nav>
-    <div class="nav-actions">
-      <button class="icon-btn" id="themeBtn" aria-label="Farbschema wechseln" title="Hell / Dunkel">◐</button>
-      <a href="#trainer" class="btn btn-primary cta-desktop">Jetzt üben ▸</a>
-      <button class="icon-btn nav-toggle" id="navToggle" aria-label="Menü öffnen" aria-expanded="false">☰</button>
+  <div class="nav-right">
+    <div class="lang-switch" role="group" aria-label="Sprache / Language / اللغة">
+      <button data-lang="ar" title="العربية">ع</button>
+      <button data-lang="en" title="English">EN</button>
+      <button data-lang="de" title="Deutsch">DE</button>
     </div>
+    <button class="burger" id="burger" aria-label="Menü" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
   </div>
 </header>
 
-<main id="top">
-  <!-- ============================ HERO ============================ -->
-  <section class="section hero">
-    <div class="wrap hero-grid">
-      <div class="hero-copy">
-        <span class="eyebrow reveal">Interaktiv · kostenlos · für jedes Gerät</span>
-        <h1 class="reveal d1">Mathematik,<br />die sich <span class="glow">bewegt</span>.</h1>
-        <p class="lead reveal d2">Zeichne Funktionen in Echtzeit, trainiere mit unendlich vielen Aufgaben und schlage Formeln nach – alles in einer schnellen, modernen Lernumgebung.</p>
-        <div class="hero-cta reveal d2">
-          <a href="#plotter" class="btn btn-primary">Funktion zeichnen ▸</a>
-          <a href="#trainer" class="btn btn-ghost">Trainer starten</a>
-        </div>
-        <div class="hero-stats reveal d3">
-          <div class="stat"><div class="n" data-count="6">0</div><div class="l">Themengebiete</div></div>
-          <div class="stat"><div class="n" data-count="7">0</div><div class="l">Aufgaben-Arten</div></div>
-          <div class="stat"><div class="n" data-count="100" data-suffix="%">0</div><div class="l">im Browser</div></div>
-        </div>
-      </div>
+<main>
 
-      <div class="hero-panel reveal d1" aria-hidden="true">
-        <div class="panel-bar">
-          <span class="dot" style="background:#ff6b7d"></span>
-          <span class="dot" style="background:#ffcf5c"></span>
-          <span class="dot" style="background:#7ce38b"></span>
-          <span class="tag">f(x) · live</span>
-        </div>
-        <canvas class="hero-canvas" id="heroCanvas"></canvas>
-        <span class="hero-eq" style="left:8%;  top:24%; animation-delay:0s">y = x²</span>
-        <span class="hero-eq" style="left:62%; top:16%; animation-delay:2.4s">sin(x)</span>
-        <span class="hero-eq" style="left:30%; top:70%; animation-delay:4.6s">√x</span>
-        <span class="hero-eq" style="left:74%; top:60%; animation-delay:6.8s">π ≈ 3.14</span>
+  <!-- ======= HERO ======= -->
+  <section class="hero" id="home">
+    <canvas id="scene" aria-hidden="true"></canvas>
+    <div class="hero-inner">
+      <p class="hero-eyebrow reveal" data-i18n="hero.eyebrow">بلاد الرافدين · Das Land der zwei Ströme</p>
+      <h1 class="hero-title reveal">
+        <span class="hero-ar">العراق</span>
+        <span class="hero-sub" data-i18n="hero.subtitle">Irak – Wiege der Zivilisation</span>
+      </h1>
+      <p class="hero-lead reveal" data-i18n="hero.lead">
+        Wo vor 7.000 Jahren die erste Schrift, das Rad und die ersten Städte der Menschheit
+        entstanden: Entdecke Kultur, Küche, Geschichte und Gegenwart des Irak –
+        modern erzählt, in drei Sprachen.
+      </p>
+      <div class="hero-cta reveal">
+        <a class="btn btn-gold" href="#kultur" data-i18n="hero.cta1">Kultur entdecken</a>
+        <a class="btn btn-ghost" href="#kueche" data-i18n="hero.cta2">Zur Küche</a>
+      </div>
+    </div>
+    <a class="scroll-hint" href="#fakten" aria-label="Nach unten scrollen">
+      <span data-i18n="hero.scroll">Scrollen</span>
+      <svg width="18" height="26" viewBox="0 0 18 26" fill="none">
+        <rect x="1" y="1" width="16" height="24" rx="8" stroke="currentColor" stroke-width="1.6"/>
+        <circle class="wheel" cx="9" cy="8" r="2.4" fill="currentColor"/>
+      </svg>
+    </a>
+  </section>
+
+  <!-- ======= FAKTEN ======= -->
+  <section class="section" id="fakten">
+    <header class="section-head reveal">
+      <div class="ornament" aria-hidden="true">✦ ✦ ✦</div>
+      <h2 data-i18n="facts.title">Der Irak in Zahlen</h2>
+      <p data-i18n="facts.sub">Ein junges Land auf uraltem Boden – zwischen Euphrat und Tigris.</p>
+    </header>
+    <div class="stats-grid" id="statsGrid"></div>
+  </section>
+
+  <!-- ======= GESCHICHTE ======= -->
+  <section class="section" id="geschichte">
+    <header class="section-head reveal">
+      <div class="ornament" aria-hidden="true">✦ ✦ ✦</div>
+      <h2 data-i18n="history.title">7.000 Jahre Geschichte</h2>
+      <p data-i18n="history.sub">Von den ersten Städten der Menschheit bis zum modernen Irak – eine Reise durch die Zeit.</p>
+    </header>
+    <div class="timeline" id="timeline"></div>
+  </section>
+
+  <!-- ======= KULTUR ======= -->
+  <section class="section" id="kultur">
+    <header class="section-head reveal">
+      <div class="ornament" aria-hidden="true">✦ ✦ ✦</div>
+      <h2 data-i18n="culture.title">Kultur &amp; Lebensart</h2>
+      <p data-i18n="culture.sub">Musik, Poesie, Kalligrafie und die berühmte Gastfreundschaft – die Seele des Irak.</p>
+    </header>
+    <div class="card-grid" id="cultureGrid"></div>
+  </section>
+
+  <!-- ======= KÜCHE ======= -->
+  <section class="section" id="kueche">
+    <header class="section-head reveal">
+      <div class="ornament" aria-hidden="true">✦ ✦ ✦</div>
+      <h2 data-i18n="cuisine.title">Die irakische Küche</h2>
+      <p data-i18n="cuisine.sub">Vom Masgouf am Tigris bis zur Kleicha zum Fest – Karten antippen und entdecken!</p>
+    </header>
+    <div class="dish-grid" id="dishGrid"></div>
+  </section>
+
+  <!-- ======= ORTE ======= -->
+  <section class="section" id="orte">
+    <header class="section-head reveal">
+      <div class="ornament" aria-hidden="true">✦ ✦ ✦</div>
+      <h2 data-i18n="places.title">Städte &amp; Wunder</h2>
+      <p data-i18n="places.sub">Neun Orte, die man gesehen haben muss – von Babylon bis zu den Marschen Edens.</p>
+    </header>
+    <div class="city-grid" id="cityGrid"></div>
+  </section>
+
+  <!-- ======= FESTE ======= -->
+  <section class="section" id="feste">
+    <header class="section-head reveal">
+      <div class="ornament" aria-hidden="true">✦ ✦ ✦</div>
+      <h2 data-i18n="traditions.title">Feste &amp; Traditionen</h2>
+      <p data-i18n="traditions.sub">Wie der Irak feiert, spielt und zusammenkommt – das ganze Jahr hindurch.</p>
+    </header>
+    <div class="card-grid" id="tradGrid"></div>
+  </section>
+
+  <!-- ======= REISE ======= -->
+  <section class="section" id="reise">
+    <header class="section-head reveal">
+      <div class="ornament" aria-hidden="true">✦ ✦ ✦</div>
+      <h2 data-i18n="travel.title">Gut zu wissen</h2>
+      <p data-i18n="travel.sub">Alles, was man für eine Reise braucht – kompakt und ehrlich.</p>
+    </header>
+    <div class="card-grid travel-grid" id="travelGrid"></div>
+
+    <div class="phrasebook reveal">
+      <h3 data-i18n="phrases.title">Kleine Sprachschule (Irakisch-Arabisch)</h3>
+      <div class="table-wrap">
+        <table id="phraseTable">
+          <thead>
+            <tr>
+              <th data-i18n="phrases.colAr">Arabisch</th>
+              <th data-i18n="phrases.colTr">Aussprache</th>
+              <th>Deutsch</th>
+              <th>English</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
       </div>
     </div>
   </section>
 
-  <!-- ============================ THEMEN ============================ -->
-  <section class="section" id="themen">
-    <div class="wrap">
-      <div class="section-head reveal">
-        <span class="eyebrow">Lernpfade</span>
-        <h2>Sechs Themen, klar erklärt</h2>
-        <p>Von den Grundrechenarten bis zur Analysis. Tippe auf ein Thema für eine kompakte Erklärung mit Beispiel und Merkformel.</p>
-      </div>
-      <div class="topics-grid" id="topicsGrid"><!-- injected --></div>
-    </div>
-  </section>
-
-  <!-- ============================ PLOTTER ============================ -->
-  <section class="section" id="plotter">
-    <div class="wrap">
-      <div class="section-head reveal">
-        <span class="eyebrow">Werkzeug</span>
-        <h2>Funktionsplotter</h2>
-        <p>Gib eine Funktion ein und sieh die Kurve sofort. Ziehen verschiebt, Mausrad oder ± zoomt. Unterstützt sin, cos, tan, sqrt, log, abs, ^, π und e.</p>
-      </div>
-      <div class="feature reveal d1">
-        <div class="panel">
-          <div class="panel-title"><span class="d"></span> Koordinatensystem</div>
-          <canvas class="plot-canvas" id="plotCanvas"></canvas>
-          <div class="zoom-row">
-            <button class="icon-btn" id="zoomIn" aria-label="Vergrößern">+</button>
-            <button class="icon-btn" id="zoomOut" aria-label="Verkleinern">−</button>
-            <button class="icon-btn" id="zoomReset" aria-label="Ansicht zurücksetzen" title="Zurücksetzen">⟳</button>
-            <span class="readout" id="plotReadout">x ∈ [−10, 10]</span>
-          </div>
-        </div>
-        <div class="panel">
-          <div class="panel-title"><span class="d"></span> Eingabe</div>
-          <div class="plot-input-row">
-            <span class="fx-prefix">f(x) =</span>
-            <input class="field" id="fxInput" value="sin(x) + x/3" spellcheck="false" autocomplete="off" aria-label="Funktion f von x" />
-          </div>
-          <div class="plot-presets" id="plotPresets"></div>
-          <p class="plot-hint">
-            Beispiele: <b>x^2</b> · <b>2*x + 1</b> · <b>sin(x)</b> · <b>1/x</b> · <b>sqrt(x)</b> · <b>abs(x)-3</b><br />
-            Tipp: Kurve fahren zum Ablesen der Koordinaten.
-          </p>
-          <div class="plot-input-row" style="margin-top:16px">
-            <span class="fx-prefix" style="color:var(--cyan)">g(x) =</span>
-            <input class="field" id="gxInput" value="" placeholder="optionale zweite Funktion" spellcheck="false" autocomplete="off" aria-label="Funktion g von x" />
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================ TRAINER ============================ -->
-  <section class="section" id="trainer">
-    <div class="wrap">
-      <div class="section-head reveal">
-        <span class="eyebrow">Üben</span>
-        <h2>Mathe-Trainer</h2>
-        <p>Endlos neue Aufgaben – wähle Bereich und Schwierigkeit. Jede richtige Antwort baut deine Serie aus. Enter bestätigt.</p>
-      </div>
-      <div class="feature reveal d1">
-        <div class="panel">
-          <div class="panel-title"><span class="d"></span> Einstellungen</div>
-          <div class="trainer-top" id="catRow" role="group" aria-label="Aufgabenbereich"></div>
-          <div class="diff-row" id="diffRow" role="group" aria-label="Schwierigkeit"></div>
-          <div class="score-row">
-            <div class="score-box"><div class="n" id="sScore">0</div><div class="l">Punkte</div></div>
-            <div class="score-box"><div class="n streak" id="sStreak">0</div><div class="l">Serie</div></div>
-            <div class="score-box"><div class="n" id="sAcc">100%</div><div class="l">Trefferquote</div></div>
-          </div>
-        </div>
-        <div class="panel">
-          <div class="panel-title"><span class="d"></span> Aufgabe</div>
-          <div class="quiz-card" id="quizCard">
-            <div class="quiz-q" id="quizQ">2 <span class="eq">+</span> 2 <span class="eq">=</span></div>
-            <div class="answer-row">
-              <input class="field" id="answerInput" type="text" inputmode="numeric" autocomplete="off" placeholder="?" aria-label="Deine Antwort" />
-              <button class="btn btn-primary" id="checkBtn">Prüfen</button>
-            </div>
-            <div class="quiz-feedback" id="quizFeedback" role="status" aria-live="polite"></div>
-          </div>
-          <div style="display:flex;gap:8px;margin-top:12px">
-            <button class="btn btn-ghost" id="skipBtn" style="flex:1;justify-content:center">Überspringen ↷</button>
-            <button class="btn btn-ghost" id="revealBtn" style="flex:1;justify-content:center">Lösung zeigen</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================ FORMELN ============================ -->
-  <section class="section" id="formeln">
-    <div class="wrap">
-      <div class="section-head reveal">
-        <span class="eyebrow">Nachschlagen</span>
-        <h2>Formelsammlung</h2>
-        <p>Die wichtigsten Formeln aus Algebra, Geometrie und Trigonometrie – aufgeklappt, wenn du sie brauchst.</p>
-      </div>
-      <div class="acc-grid reveal d1" id="accGrid"><!-- injected --></div>
-    </div>
-  </section>
-
-  <!-- ============================ FORTSCHRITT ============================ -->
-  <section class="section" id="fortschritt">
-    <div class="wrap">
-      <div class="section-head reveal">
-        <span class="eyebrow">Dein Konto</span>
-        <h2>Fortschritt</h2>
-        <p>Alle Werte werden lokal in deinem Browser gespeichert – ohne Anmeldung, ohne Server.</p>
-      </div>
-      <div class="progress-panel reveal d1">
-        <div>
-          <div class="prog-stats">
-            <div class="prog-stat"><div class="n a" id="pAnswered">0</div><div class="l">gelöste Aufgaben</div></div>
-            <div class="prog-stat"><div class="n b" id="pBest">0</div><div class="l">längste Serie</div></div>
-            <div class="prog-stat"><div class="n c" id="pCorrect">0</div><div class="l">richtige Antworten</div></div>
-            <div class="prog-stat"><div class="n" id="pTopics">0/6</div><div class="l">Themen geöffnet</div></div>
-          </div>
-          <button class="reset-link" id="resetBtn">Fortschritt zurücksetzen</button>
-        </div>
-        <div class="ring-wrap">
-          <div class="ring">
-            <svg viewBox="0 0 120 120">
-              <circle class="track" cx="60" cy="60" r="52"></circle>
-              <circle class="bar" id="ringBar" cx="60" cy="60" r="52" stroke-dasharray="326.7" stroke-dashoffset="326.7"></circle>
-            </svg>
-            <div class="center">
-              <div class="pct" id="ringPct">0%</div>
-              <div class="lab">Trefferquote</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================ CTA ============================ -->
-  <section class="section" style="padding-top:0">
-    <div class="wrap">
-      <div class="cta-band reveal">
-        <span class="eyebrow">Los geht's</span>
-        <h2>Bereit für die nächste Aufgabe?</h2>
-        <p>Kein Download, keine Anmeldung. Öffne den Trainer und leg sofort los – auf dem Handy in der Bahn oder am Schreibtisch.</p>
-        <div class="hero-cta">
-          <a href="#trainer" class="btn btn-primary">Trainer öffnen ▸</a>
-          <a href="#plotter" class="btn btn-ghost">Funktion plotten</a>
-        </div>
-      </div>
-    </div>
-  </section>
 </main>
 
-<footer class="site-footer">
-  <div class="wrap footer-inner">
-    <a class="brand" href="#top"><span class="mark"><span>∑</span></span> MatheLab</a>
-    <p>© 2026 MatheLab · Interaktiv Mathematik lernen · lokal &amp; datenschutzfreundlich</p>
+<!-- ======= FOOTER ======= -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span class="footer-ar">العراق</span>
+      <p data-i18n="footer.tagline">Mesopotamien – das Land zwischen Euphrat und Tigris.</p>
+    </div>
+    <nav class="footer-links" aria-label="Footer">
+      <a href="#geschichte" data-i18n="nav.history">Geschichte</a>
+      <a href="#kultur" data-i18n="nav.culture">Kultur</a>
+      <a href="#kueche" data-i18n="nav.cuisine">Küche</a>
+      <a href="#orte" data-i18n="nav.places">Orte</a>
+      <a href="#reise" data-i18n="nav.travel">Reise</a>
+    </nav>
   </div>
+  <div class="footer-quote" dir="rtl" lang="ar">«بغداد تقرأ ما كتبته القاهرة وطبعته بيروت» ✦</div>
+  <div class="footer-note"><span data-i18n="footer.made">Mit ♥ für das Land der zwei Ströme</span> · AR / EN / DE · 2026</div>
 </footer>
 
-<!-- Lesson dialog -->
-<dialog class="lesson" id="lessonDialog">
-  <div class="lesson-head">
-    <div class="t-ico" id="lessonIco">π</div>
-    <h3 id="lessonTitle">Titel</h3>
-    <button class="icon-btn close" id="lessonClose" aria-label="Schließen">✕</button>
-  </div>
-  <div class="lesson-body" id="lessonBody"></div>
-</dialog>
+<button class="to-top" id="toTop" aria-label="Nach oben">↑</button>
 
-<script>
-/* =====================================================================
-   MATHELAB — application logic (vanilla JS, no dependencies)
-   ===================================================================== */
-(function () {
-  "use strict";
-  const $ = (s, r = document) => r.querySelector(s);
-  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-  /* ---------- Storage ---------- */
-  const KEY = "mathelab_v1";
-  const store = Object.assign(
-    { answered: 0, correct: 0, bestStreak: 0, topics: [] },
-    (() => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } })()
-  );
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch {} };
-
-  /* ---------- Theme ---------- */
-  const root = document.documentElement;
-  const themeBtn = $("#themeBtn");
-  const savedTheme = (() => { try { return localStorage.getItem("mathelab_theme"); } catch { return null; } })();
-  if (savedTheme) root.setAttribute("data-theme", savedTheme);
-  function currentDark() {
-    const t = root.getAttribute("data-theme");
-    if (t) return t === "dark";
-    return matchMedia("(prefers-color-scheme: dark)").matches;
-  }
-  themeBtn.addEventListener("click", () => {
-    const dark = currentDark();
-    root.setAttribute("data-theme", dark ? "light" : "dark");
-    try { localStorage.setItem("mathelab_theme", dark ? "light" : "dark"); } catch {}
-    drawHero(); drawPlot();
-  });
-  matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => { drawHero(); drawPlot(); });
-
-  /* ---------- Header + mobile nav ---------- */
-  const header = $("#siteHeader");
-  addEventListener("scroll", () => header.classList.toggle("scrolled", scrollY > 8), { passive: true });
-  const navToggle = $("#navToggle"), navLinks = $("#navLinks");
-  navToggle.addEventListener("click", () => {
-    const open = navLinks.classList.toggle("open");
-    navToggle.setAttribute("aria-expanded", open);
-    navToggle.textContent = open ? "✕" : "☰";
-  });
-  $$("#navLinks a").forEach(a => a.addEventListener("click", () => {
-    navLinks.classList.remove("open");
-    navToggle.setAttribute("aria-expanded", "false");
-    navToggle.textContent = "☰";
-  }));
-
-  /* ---------- Reveal on scroll ---------- */
-  const io = new IntersectionObserver((entries) => {
-    entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } });
-  }, { threshold: 0.12 });
-  $$(".reveal").forEach(el => io.observe(el));
-
-  /* ---------- Animated counters ---------- */
-  const counterIO = new IntersectionObserver((entries) => {
-    entries.forEach(e => {
-      if (!e.isIntersecting) return;
-      const el = e.target, target = +el.dataset.count, suffix = el.dataset.suffix || "";
-      const dur = 1100, t0 = performance.now();
-      (function step(now) {
-        const p = clamp((now - t0) / dur, 0, 1);
-        el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3))) + suffix;
-        if (p < 1) requestAnimationFrame(step);
-      })(t0);
-      counterIO.unobserve(el);
-    });
-  }, { threshold: 0.5 });
-  $$("[data-count]").forEach(el => counterIO.observe(el));
-
-  /* =====================================================================
-     Expression evaluator (tokenizer → shunting-yard → RPN eval, no eval())
-     ===================================================================== */
-  const FUNCS = {
-    sin: Math.sin, cos: Math.cos, tan: Math.tan, asin: Math.asin, acos: Math.acos,
-    atan: Math.atan, sqrt: Math.sqrt, abs: Math.abs, ln: Math.log,
-    log: (x) => Math.log10 ? Math.log10(x) : Math.log(x) / Math.LN10,
-    exp: Math.exp, sign: Math.sign, floor: Math.floor, ceil: Math.ceil, round: Math.round
-  };
-  const CONSTS = { pi: Math.PI, e: Math.E, "π": Math.PI };
-  const OPS = {
-    "+": { p: 2, a: "L", f: (a, b) => a + b },
-    "-": { p: 2, a: "L", f: (a, b) => a - b },
-    "*": { p: 3, a: "L", f: (a, b) => a * b },
-    "/": { p: 3, a: "L", f: (a, b) => a / b },
-    "%": { p: 3, a: "L", f: (a, b) => a % b },
-    "^": { p: 4, a: "R", f: (a, b) => Math.pow(a, b) }
-  };
-
-  function tokenize(src) {
-    const s = src.replace(/π/g, "π").replace(/\s+/g, "");
-    const tokens = []; let i = 0;
-    const isDigit = c => c >= "0" && c <= "9";
-    const isAlpha = c => (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "π";
-    while (i < s.length) {
-      const c = s[i];
-      if (isDigit(c) || (c === "." && isDigit(s[i + 1]))) {
-        let j = i + 1; while (j < s.length && (isDigit(s[j]) || s[j] === ".")) j++;
-        tokens.push({ t: "num", v: parseFloat(s.slice(i, j)) }); i = j;
-      } else if (isAlpha(c)) {
-        let j = i + 1; while (j < s.length && (isAlpha(s[j]) || isDigit(s[j]))) j++;
-        tokens.push({ t: "name", v: s.slice(i, j) }); i = j;
-      } else if (c in OPS) { tokens.push({ t: "op", v: c }); i++; }
-      else if (c === "(") { tokens.push({ t: "lp" }); i++; }
-      else if (c === ")") { tokens.push({ t: "rp" }); i++; }
-      else if (c === ",") { tokens.push({ t: "comma" }); i++; }
-      else throw new Error("Unbekanntes Zeichen: " + c);
-    }
-    return tokens;
-  }
-
-  // insert implicit multiplication & handle unary minus, then shunting-yard
-  function toRPN(tokens) {
-    // implicit multiplication: num/name/rp/const followed by name/num/lp
-    const t2 = [];
-    for (let k = 0; k < tokens.length; k++) {
-      const cur = tokens[k], prev = t2[t2.length - 1];
-      if (prev) {
-        const prevVal = prev.t === "num" || prev.t === "rp" ||
-          (prev.t === "name" && !(prev.v in FUNCS));
-        const curVal = cur.t === "num" || cur.t === "lp" ||
-          (cur.t === "name");
-        if (prevVal && curVal) t2.push({ t: "op", v: "*" });
-      }
-      t2.push(cur);
-    }
-    const out = [], ops = [];
-    let prevType = null;
-    for (const tk of t2) {
-      if (tk.t === "num") { out.push(tk); }
-      else if (tk.t === "name") {
-        if (tk.v in FUNCS) ops.push({ t: "func", v: tk.v });
-        else if (tk.v in CONSTS) out.push({ t: "num", v: CONSTS[tk.v] });
-        else if (tk.v === "x" || tk.v === "X") out.push({ t: "var" });
-        else throw new Error("Unbekannt: " + tk.v);
-      } else if (tk.t === "op") {
-        // unary minus / plus
-        const unary = tk.v === "-" && (prevType === null || prevType === "op" || prevType === "lp" || prevType === "comma");
-        const unaryPlus = tk.v === "+" && (prevType === null || prevType === "op" || prevType === "lp" || prevType === "comma");
-        if (unaryPlus) { prevType = tk.t; continue; }
-        if (unary) { ops.push({ t: "op", v: "u-" }); }
-        else {
-          const o1 = OPS[tk.v];
-          while (ops.length) {
-            const top = ops[ops.length - 1];
-            if (top.t === "func") { out.push(ops.pop()); continue; }
-            if (top.t === "op" && top.v !== "u-") {
-              const o2 = OPS[top.v];
-              if ((o1.a === "L" && o1.p <= o2.p) || (o1.a === "R" && o1.p < o2.p)) { out.push(ops.pop()); continue; }
-            }
-            if (top.t === "op" && top.v === "u-") { out.push(ops.pop()); continue; }
-            break;
-          }
-          ops.push({ t: "op", v: tk.v });
-        }
-      } else if (tk.t === "lp") { ops.push(tk); }
-      else if (tk.t === "rp") {
-        while (ops.length && ops[ops.length - 1].t !== "lp") out.push(ops.pop());
-        if (!ops.length) throw new Error("Klammerfehler");
-        ops.pop();
-        if (ops.length && ops[ops.length - 1].t === "func") out.push(ops.pop());
-      } else if (tk.t === "comma") {
-        while (ops.length && ops[ops.length - 1].t !== "lp") out.push(ops.pop());
-      }
-      prevType = tk.t === "op" ? "op" : (tk.t === "lp" ? "lp" : (tk.t === "comma" ? "comma" : "val"));
-    }
-    while (ops.length) { const o = ops.pop(); if (o.t === "lp") throw new Error("Klammerfehler"); out.push(o); }
-    return out;
-  }
-
-  function compile(src) {
-    const rpn = toRPN(tokenize(src));
-    return function (x) {
-      const st = [];
-      for (const tk of rpn) {
-        if (tk.t === "num") st.push(tk.v);
-        else if (tk.t === "var") st.push(x);
-        else if (tk.t === "func") { const a = st.pop(); st.push(FUNCS[tk.v](a)); }
-        else if (tk.t === "op") {
-          if (tk.v === "u-") { st.push(-st.pop()); }
-          else { const b = st.pop(), a = st.pop(); st.push(OPS[tk.v].f(a, b)); }
-        }
-      }
-      return st.pop();
-    };
-  }
-
-  /* =====================================================================
-     Hero animated canvas
-     ===================================================================== */
-  const heroCanvas = $("#heroCanvas");
-  const hctx = heroCanvas.getContext("2d");
-  let heroT = 0, heroRAF = null;
-  function css(v) { return getComputedStyle(document.body).getPropertyValue(v).trim(); }
-  function fitCanvas(cv, ctx) {
-    const dpr = Math.min(devicePixelRatio || 1, 2);
-    const r = cv.getBoundingClientRect();
-    cv.width = Math.max(1, r.width * dpr); cv.height = Math.max(1, r.height * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    return { w: r.width, h: r.height };
-  }
-  function drawHero() {
-    const { w, h } = fitCanvas(heroCanvas, hctx);
-    hctx.clearRect(0, 0, w, h);
-    // grid
-    hctx.strokeStyle = css("--plot-grid"); hctx.lineWidth = 1;
-    const step = w / 16;
-    for (let gx = 0; gx <= w; gx += step) { hctx.beginPath(); hctx.moveTo(gx, 0); hctx.lineTo(gx, h); hctx.stroke(); }
-    for (let gy = 0; gy <= h; gy += step) { hctx.beginPath(); hctx.moveTo(0, gy); hctx.lineTo(w, gy); hctx.stroke(); }
-    // axes
-    hctx.strokeStyle = css("--plot-axis"); hctx.lineWidth = 1.4;
-    hctx.beginPath(); hctx.moveTo(0, h / 2); hctx.lineTo(w, h / 2); hctx.stroke();
-    // animated curves
-    const curves = [
-      { c: css("--plot-curve"), f: (t, ph) => Math.sin(t * 2 + ph) * 0.62, ph: heroT },
-      { c: css("--plot-curve2"), f: (t, ph) => Math.sin(t * 1.3 + ph) * 0.42 * Math.cos(t + ph * .5), ph: heroT * 0.7 }
-    ];
-    curves.forEach((cu, idx) => {
-      hctx.strokeStyle = cu.c; hctx.lineWidth = 2.4; hctx.lineJoin = "round";
-      hctx.shadowColor = cu.c; hctx.shadowBlur = idx === 0 ? 12 : 8;
-      hctx.beginPath();
-      for (let px = 0; px <= w; px += 2) {
-        const t = (px / w) * Math.PI * 2 * 2;
-        const y = h / 2 - cu.f(t, cu.ph) * (h / 2 - 12);
-        px === 0 ? hctx.moveTo(px, y) : hctx.lineTo(px, y);
-      }
-      hctx.stroke();
-    });
-    hctx.shadowBlur = 0;
-    // moving dot on curve 1
-    const dotX = (Math.sin(heroT * 0.6) * 0.5 + 0.5) * w;
-    const dt = (dotX / w) * Math.PI * 2 * 2;
-    const dotY = h / 2 - curves[0].f(dt, curves[0].ph) * (h / 2 - 12);
-    hctx.fillStyle = css("--plot-curve");
-    hctx.beginPath(); hctx.arc(dotX, dotY, 4.5, 0, 7); hctx.fill();
-  }
-  function heroLoop() { heroT += 0.02; drawHero(); heroRAF = requestAnimationFrame(heroLoop); }
-  if (reduceMotion) drawHero(); else heroLoop();
-
-  /* =====================================================================
-     Function plotter
-     ===================================================================== */
-  const plotCanvas = $("#plotCanvas"), pctx = plotCanvas.getContext("2d");
-  const fxInput = $("#fxInput"), gxInput = $("#gxInput"), readout = $("#plotReadout");
-  let view = { cx: 0, cy: 0, scale: 28 }; // px per unit
-  let mouse = null;
-
-  function worldToPx(w, wx, wy) { return { x: w.w / 2 + (wx - view.cx) * view.scale, y: w.h / 2 - (wy - view.cy) * view.scale }; }
-  function pxToWorld(w, px, py) { return { x: view.cx + (px - w.w / 2) / view.scale, y: view.cy - (py - w.h / 2) / view.scale }; }
-
-  function niceStep(unitPx) {
-    const targets = [1, 2, 5]; let base = 1;
-    let unit = 60 / unitPx; // aim ~60px per major line, in world units
-    const pow = Math.pow(10, Math.floor(Math.log10(unit)));
-    for (const t of targets) { if (t * pow >= unit) { base = t * pow; break; } base = 10 * pow; }
-    return base;
-  }
-
-  function drawPlot() {
-    const w = fitCanvas(plotCanvas, pctx);
-    pctx.clearRect(0, 0, w.w, w.h);
-    const step = niceStep(view.scale);
-    const stepPx = step * view.scale;
-    // grid lines
-    pctx.strokeStyle = css("--plot-grid"); pctx.lineWidth = 1;
-    pctx.fillStyle = css("--plot-axis"); pctx.font = "11px ui-monospace, monospace";
-    const left = pxToWorld(w, 0, 0).x, right = pxToWorld(w, w.w, 0).x;
-    const top = pxToWorld(w, 0, 0).y, bottom = pxToWorld(w, 0, w.h).y;
-    for (let gx = Math.ceil(left / step) * step; gx <= right; gx += step) {
-      const p = worldToPx(w, gx, 0);
-      pctx.beginPath(); pctx.moveTo(p.x, 0); pctx.lineTo(p.x, w.h); pctx.stroke();
-    }
-    for (let gy = Math.ceil(bottom / step) * step; gy <= top; gy += step) {
-      const p = worldToPx(w, 0, gy);
-      pctx.beginPath(); pctx.moveTo(0, p.y); pctx.lineTo(w.w, p.y); pctx.stroke();
-    }
-    // axes
-    const origin = worldToPx(w, 0, 0);
-    pctx.strokeStyle = css("--plot-axis"); pctx.lineWidth = 1.6;
-    pctx.beginPath(); pctx.moveTo(0, clamp(origin.y, 0, w.h)); pctx.lineTo(w.w, clamp(origin.y, 0, w.h)); pctx.stroke();
-    pctx.beginPath(); pctx.moveTo(clamp(origin.x, 0, w.w), 0); pctx.lineTo(clamp(origin.x, 0, w.w), w.h); pctx.stroke();
-    // axis labels
-    pctx.fillStyle = css("--plot-axis"); pctx.globalAlpha = .85;
-    for (let gx = Math.ceil(left / step) * step; gx <= right; gx += step) {
-      if (Math.abs(gx) < 1e-9) continue;
-      const p = worldToPx(w, gx, 0);
-      pctx.fillText(fmt(gx), p.x + 3, clamp(origin.y, 12, w.h - 4) - 4);
-    }
-    for (let gy = Math.ceil(bottom / step) * step; gy <= top; gy += step) {
-      if (Math.abs(gy) < 1e-9) continue;
-      const p = worldToPx(w, 0, gy);
-      pctx.fillText(fmt(gy), clamp(origin.x, 4, w.w - 28) + 4, p.y - 3);
-    }
-    pctx.globalAlpha = 1;
-
-    plotFn(w, fxInput, css("--plot-curve"), 2.6);
-    plotFn(w, gxInput, css("--plot-curve2"), 2.2);
-
-    // hover crosshair readout on f(x)
-    if (mouse) {
-      try {
-        const fn = compiledF;
-        if (fn) {
-          const wx = pxToWorld(w, mouse.x, 0).x;
-          const wy = fn(wx);
-          if (isFinite(wy)) {
-            const p = worldToPx(w, wx, wy);
-            if (p.y >= -20 && p.y <= w.h + 20) {
-              pctx.fillStyle = css("--plot-curve");
-              pctx.beginPath(); pctx.arc(p.x, p.y, 5, 0, 7); pctx.fill();
-              pctx.strokeStyle = css("--plot-curve"); pctx.globalAlpha = .35; pctx.setLineDash([4, 4]);
-              pctx.beginPath(); pctx.moveTo(p.x, w.h); pctx.lineTo(p.x, p.y); pctx.lineTo(worldToPx(w, 0, wy).x, p.y); pctx.stroke();
-              pctx.setLineDash([]); pctx.globalAlpha = 1;
-              readout.textContent = `x=${fmt(wx)}  f(x)=${fmt(wy)}`;
-              return;
-            }
-          }
-        }
-      } catch {}
-    }
-    readout.textContent = `x ∈ [${fmt(left)}, ${fmt(right)}]`;
-  }
-
-  let compiledF = null;
-  function plotFn(w, input, color, width) {
-    const src = input.value.trim();
-    if (!src) { if (input === fxInput) compiledF = null; return; }
-    let fn;
-    try { fn = compile(src); fn(0.123); input.classList.remove("err"); }
-    catch { input.classList.add("err"); if (input === fxInput) compiledF = null; return; }
-    if (input === fxInput) compiledF = fn;
-    pctx.strokeStyle = color; pctx.lineWidth = width; pctx.lineJoin = "round";
-    pctx.shadowColor = color; pctx.shadowBlur = 6;
-    pctx.beginPath();
-    let penDown = false, prevY = null;
-    for (let px = 0; px <= w.w; px += 1) {
-      const wx = pxToWorld(w, px, 0).x;
-      let wy; try { wy = fn(wx); } catch { wy = NaN; }
-      if (!isFinite(wy)) { penDown = false; continue; }
-      const py = worldToPx(w, 0, wy).y;
-      // break on discontinuity jumps (e.g. tan, 1/x)
-      if (penDown && prevY !== null && Math.abs(py - prevY) > w.h * 1.6) penDown = false;
-      if (py < -w.h * 2 || py > w.h * 3) { penDown = false; prevY = py; continue; }
-      if (!penDown) { pctx.moveTo(px, py); penDown = true; } else pctx.lineTo(px, py);
-      prevY = py;
-    }
-    pctx.stroke(); pctx.shadowBlur = 0;
-  }
-
-  function fmt(n) {
-    if (Math.abs(n) < 1e-9) return "0";
-    if (Math.abs(n) >= 1e5 || (Math.abs(n) < 1e-3 && n !== 0)) return n.toExponential(1);
-    return (Math.round(n * 1000) / 1000).toString();
-  }
-
-  // interactions
-  let drag = null;
-  plotCanvas.addEventListener("pointerdown", (e) => {
-    plotCanvas.setPointerCapture(e.pointerId);
-    drag = { x: e.offsetX, y: e.offsetY, cx: view.cx, cy: view.cy };
-  });
-  plotCanvas.addEventListener("pointermove", (e) => {
-    mouse = { x: e.offsetX, y: e.offsetY };
-    if (drag) {
-      view.cx = drag.cx - (e.offsetX - drag.x) / view.scale;
-      view.cy = drag.cy + (e.offsetY - drag.y) / view.scale;
-    }
-    drawPlot();
-  });
-  const endDrag = () => { drag = null; };
-  plotCanvas.addEventListener("pointerup", endDrag);
-  plotCanvas.addEventListener("pointercancel", endDrag);
-  plotCanvas.addEventListener("pointerleave", () => { mouse = null; drawPlot(); });
-  plotCanvas.addEventListener("wheel", (e) => {
-    e.preventDefault();
-    const w = { w: plotCanvas.clientWidth, h: plotCanvas.clientHeight };
-    const before = pxToWorld(w, e.offsetX, e.offsetY);
-    view.scale = clamp(view.scale * (e.deltaY < 0 ? 1.12 : 0.89), 3, 400);
-    const after = pxToWorld(w, e.offsetX, e.offsetY);
-    view.cx += before.x - after.x; view.cy += before.y - after.y;
-    drawPlot();
-  }, { passive: false });
-  $("#zoomIn").addEventListener("click", () => { view.scale = clamp(view.scale * 1.25, 3, 400); drawPlot(); });
-  $("#zoomOut").addEventListener("click", () => { view.scale = clamp(view.scale * 0.8, 3, 400); drawPlot(); });
-  $("#zoomReset").addEventListener("click", () => { view = { cx: 0, cy: 0, scale: 28 }; drawPlot(); });
-  [fxInput, gxInput].forEach(inp => inp.addEventListener("input", drawPlot));
-
-  // presets
-  const PRESETS = ["x^2", "x^3 - 3*x", "sin(x)", "cos(x)*x", "1/x", "sqrt(x)", "abs(x)-2", "2^x", "log(x)"];
-  const presetWrap = $("#plotPresets");
-  PRESETS.forEach(p => {
-    const b = document.createElement("button");
-    b.className = "preset"; b.type = "button"; b.textContent = p;
-    b.addEventListener("click", () => { fxInput.value = p; fxInput.classList.remove("err"); drawPlot(); });
-    presetWrap.appendChild(b);
-  });
-
-  /* =====================================================================
-     Topics
-     ===================================================================== */
-  const TOPICS = [
-    { ico: "➕", title: "Grundrechenarten", tag: "Basis", desc: "Addition, Subtraktion, Mal und Geteilt sicher beherrschen.",
-      body: `<p>Die vier Grundrechenarten sind das Fundament der Mathematik. Wichtig ist die richtige Reihenfolge:</p>
-        <div class="formula-box">Punkt- vor Strichrechnung: 2 + 3 · 4 = 2 + 12 = 14</div>
-        <p>Merke die Reihenfolge <b>„KlaPoStri“</b>:</p>
-        <ul><li><b>Kla</b>mmern zuerst</li><li><b>Po</b>tenzen &amp; Wurzeln</li><li><b>Punkt</b>rechnung (· :)</li><li><b>Strich</b>rechnung (+ −)</li></ul>` },
-    { ico: "½", title: "Bruchrechnung", tag: "Basis", desc: "Kürzen, erweitern, addieren und multiplizieren von Brüchen.",
-      body: `<p>Ein Bruch besteht aus Zähler und Nenner. Zum Addieren brauchst du einen gemeinsamen Nenner:</p>
-        <div class="formula-box">a/b + c/d = (a·d + c·b) / (b·d)</div>
-        <p>Multiplizieren ist einfacher – Zähler mal Zähler, Nenner mal Nenner:</p>
-        <div class="formula-box">a/b · c/d = (a·c) / (b·d)</div>
-        <p>Dividieren heißt: mit dem <b>Kehrwert</b> multiplizieren.</p>` },
-    { ico: "%", title: "Prozentrechnung", tag: "Alltag", desc: "Prozentwert, Grundwert und Prozentsatz zuverlässig berechnen.",
-      body: `<p>Die drei Größen hängen über eine Formel zusammen:</p>
-        <div class="formula-box">Prozentwert W = Grundwert G · (p / 100)</div>
-        <p>Beispiel: 20 % von 150 € = 150 · 0,2 = <b>30 €</b>.</p>
-        <p>Den Grundwert bekommst du durch Umstellen: G = W / (p/100).</p>` },
-    { ico: "x²", title: "Algebra", tag: "Aufbau", desc: "Terme umformen, Gleichungen lösen, binomische Formeln.",
-      body: `<p>Die drei binomischen Formeln solltest du auswendig kennen:</p>
-        <div class="formula-box">(a + b)² = a² + 2ab + b²
-(a − b)² = a² − 2ab + b²
-(a + b)(a − b) = a² − b²</div>
-        <p>Lineare Gleichungen löst du, indem du auf beiden Seiten dasselbe tust, bis <b>x</b> allein steht.</p>` },
-    { ico: "△", title: "Geometrie", tag: "Aufbau", desc: "Flächen, Umfänge und der Satz des Pythagoras.",
-      body: `<p>Der Satz des Pythagoras gilt in jedem rechtwinkligen Dreieck:</p>
-        <div class="formula-box">a² + b² = c²   (c = Hypotenuse)</div>
-        <p>Wichtige Flächenformeln:</p>
-        <ul><li>Rechteck: A = a · b</li><li>Dreieck: A = ½ · g · h</li><li>Kreis: A = π · r²</li></ul>` },
-    { ico: "∫", title: "Analysis", tag: "Oberstufe", desc: "Ableitungen und Integrale – die Sprache der Veränderung.",
-      body: `<p>Die Ableitung misst die Steigung einer Funktion. Die Potenzregel:</p>
-        <div class="formula-box">f(x) = xⁿ  ⟹  f′(x) = n · xⁿ⁻¹</div>
-        <p>Das Integral ist die Umkehrung – es misst die Fläche unter der Kurve:</p>
-        <div class="formula-box">∫ xⁿ dx = xⁿ⁺¹ / (n+1) + C   (n ≠ −1)</div>
-        <p>Probier die Funktionen direkt oben im <b>Plotter</b> aus!</p>` }
-  ];
-  const topicsGrid = $("#topicsGrid");
-  TOPICS.forEach((t, i) => {
-    const el = document.createElement("button");
-    el.className = "topic reveal"; el.type = "button";
-    if (i % 3 === 1) el.classList.add("d1"); if (i % 3 === 2) el.classList.add("d2");
-    el.innerHTML = `<div class="t-ico">${t.ico}</div><h3>${t.title}</h3><p>${t.desc}</p>
-      <div class="t-meta"><span class="chip">${t.tag}</span><span class="t-open">Lektion öffnen →</span></div>`;
-    el.addEventListener("click", () => openLesson(t, i));
-    topicsGrid.appendChild(el); io.observe(el);
-  });
-  const dialog = $("#lessonDialog");
-  function openLesson(t, i) {
-    $("#lessonIco").textContent = t.ico; $("#lessonTitle").textContent = t.title; $("#lessonBody").innerHTML = t.body;
-    if (typeof dialog.showModal === "function") dialog.showModal(); else dialog.setAttribute("open", "");
-    if (!store.topics.includes(i)) { store.topics.push(i); save(); renderProgress(); }
-  }
-  $("#lessonClose").addEventListener("click", () => dialog.close());
-  dialog.addEventListener("click", (e) => { if (e.target === dialog) dialog.close(); });
-
-  /* =====================================================================
-     Trainer
-     ===================================================================== */
-  const CATS = [
-    { id: "add", label: "Addition" }, { id: "sub", label: "Subtraktion" },
-    { id: "mul", label: "Multiplikation" }, { id: "div", label: "Division" },
-    { id: "pct", label: "Prozente" }, { id: "pow", label: "Potenzen" },
-    { id: "eq", label: "Gleichungen" }
-  ];
-  const DIFFS = [{ id: 1, label: "Leicht" }, { id: 2, label: "Mittel" }, { id: 3, label: "Schwer" }];
-  let curCat = "add", curDiff = 1, curAnswer = 0, curText = "", session = { correct: 0, total: 0, streak: 0 };
-
-  const catRow = $("#catRow");
-  CATS.forEach(c => {
-    const b = document.createElement("button");
-    b.className = "cat"; b.type = "button"; b.textContent = c.label;
-    b.setAttribute("aria-pressed", c.id === curCat);
-    b.addEventListener("click", () => {
-      curCat = c.id; $$("#catRow .cat").forEach(x => x.setAttribute("aria-pressed", "false"));
-      b.setAttribute("aria-pressed", "true"); newQuestion();
-    });
-    catRow.appendChild(b);
-  });
-  const diffRow = $("#diffRow");
-  DIFFS.forEach(d => {
-    const b = document.createElement("button");
-    b.className = "diff"; b.type = "button"; b.textContent = d.label;
-    b.setAttribute("aria-pressed", d.id === curDiff);
-    b.addEventListener("click", () => {
-      curDiff = d.id; $$("#diffRow .diff").forEach(x => x.setAttribute("aria-pressed", "false"));
-      b.setAttribute("aria-pressed", "true"); newQuestion();
-    });
-    diffRow.appendChild(b);
-  });
-
-  const rnd = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-  function newQuestion(focus = true) {
-    const d = curDiff;
-    let a, b, q, ans;
-    switch (curCat) {
-      case "add": { const R = [20, 100, 1000][d - 1]; a = rnd(2, R); b = rnd(2, R); q = `${a} + ${b}`; ans = a + b; break; }
-      case "sub": { const R = [20, 100, 1000][d - 1]; a = rnd(2, R); b = rnd(1, a); q = `${a} − ${b}`; ans = a - b; break; }
-      case "mul": { const R = [[2,9],[2,15],[6,25]][d-1]; a = rnd(R[0], R[1]); b = rnd(R[0], R[1]); q = `${a} · ${b}`; ans = a * b; break; }
-      case "div": { const R = [[2,9],[2,12],[3,20]][d-1]; b = rnd(R[0], R[1]); ans = rnd(R[0], R[1]); a = b * ans; q = `${a} : ${b}`; break; }
-      case "pct": { const ps = [[10,25,50],[5,20,75],[12,35,65]][d-1]; const p = ps[rnd(0,2)]; const base = rnd(1, [10,40,100][d-1]) * [10,5,1][d-1] || 100; a = base; q = `${p} % von ${base}`; ans = base * p / 100; break; }
-      case "pow": { if (d === 1) { a = rnd(2, 9); q = `${a}²`; ans = a*a; } else if (d === 2) { a = rnd(2, 6); q = `${a}³`; ans = a**3; } else { a = rnd(2, 5); const e = rnd(2, 4); q = `${a}^${e}`; ans = a**e; } break; }
-      case "eq": { const x = rnd(1, [10,15,20][d-1]); const m = rnd(2, [5,9,12][d-1]); const c = rnd(1, [10,30,50][d-1]); const res = m*x + c; q = `${m}·x + ${c} = ${res}   →   x`; ans = x; break; }
-    }
-    curAnswer = ans; curText = q;
-    // pretty markup: replace operators with muted spans
-    $("#quizQ").innerHTML = q.replace(/([+\-−·:=²³^%])/g, '<span class="eq">$1</span>') + ' <span class="eq">=</span>';
-    if (curCat === "eq") $("#quizQ").innerHTML = q.replace(/(=|→|·|\+)/g, '<span class="eq">$1</span>') + ' <span class="eq">=</span>';
-    const ai = $("#answerInput"); ai.value = ""; if (focus) ai.focus({ preventScroll: true });
-    $("#quizFeedback").textContent = ""; $("#quizFeedback").className = "quiz-feedback";
-  }
-
-  function check() {
-    const ai = $("#answerInput"); const raw = ai.value.trim().replace(",", ".");
-    if (raw === "") return;
-    const val = parseFloat(raw);
-    const fb = $("#quizFeedback"); const card = $("#quizCard");
-    session.total++; store.answered = (store.answered || 0) + 1;
-    if (Math.abs(val - curAnswer) < 1e-6) {
-      session.correct++; session.streak++; store.correct = (store.correct || 0) + 1;
-      if (session.streak > (store.bestStreak || 0)) store.bestStreak = session.streak;
-      fb.textContent = pick(["Richtig! ✓", "Perfekt! ✓", "Sitzt! ✓", "Genau! ✓"]);
-      fb.className = "quiz-feedback ok";
-      if (!reduceMotion) { card.classList.remove("pop"); void card.offsetWidth; card.classList.add("pop"); }
-      save(); renderScore(); renderProgress();
-      setTimeout(newQuestion, 650);
-    } else {
-      session.streak = 0;
-      fb.textContent = "Nicht ganz – nochmal versuchen";
-      fb.className = "quiz-feedback no";
-      if (!reduceMotion) { card.classList.remove("shake"); void card.offsetWidth; card.classList.add("shake"); }
-      save(); renderScore(); renderProgress();
-      ai.select();
-    }
-  }
-  const pick = (a) => a[Math.floor(Math.random() * a.length)];
-  $("#checkBtn").addEventListener("click", check);
-  $("#answerInput").addEventListener("keydown", (e) => { if (e.key === "Enter") check(); });
-  $("#skipBtn").addEventListener("click", () => { session.streak = 0; renderScore(); newQuestion(); });
-  $("#revealBtn").addEventListener("click", () => {
-    const fb = $("#quizFeedback");
-    fb.textContent = `Lösung: ${fmt(curAnswer)}`; fb.className = "quiz-feedback";
-    session.streak = 0; renderScore();
-  });
-
-  function renderScore() {
-    $("#sScore").textContent = session.correct;
-    $("#sStreak").textContent = session.streak;
-    const acc = session.total ? Math.round(session.correct / session.total * 100) : 100;
-    $("#sAcc").textContent = acc + "%";
-  }
-
-  /* =====================================================================
-     Formulas
-     ===================================================================== */
-  const FORMULAS = [
-    { col: "Algebra", items: [
-      ["Binomische Formeln", "(a±b)² = a² ± 2ab + b²\n(a+b)(a−b) = a² − b²"],
-      ["Quadratische Lösung", "x = (−b ± √(b² − 4ac)) / (2a)"],
-      ["Potenzgesetze", "aᵐ · aⁿ = aᵐ⁺ⁿ\naᵐ / aⁿ = aᵐ⁻ⁿ\n(aᵐ)ⁿ = aᵐⁿ"],
-      ["Logarithmus", "log(a·b) = log a + log b\nlog(aⁿ) = n · log a"]
-    ]},
-    { col: "Geometrie", items: [
-      ["Pythagoras", "a² + b² = c²"],
-      ["Kreis", "U = 2πr\nA = πr²"],
-      ["Dreieck", "A = ½ · g · h"],
-      ["Volumen", "Quader: V = a·b·c\nKugel: V = 4/3 · πr³"]
-    ]},
-    { col: "Trigonometrie", items: [
-      ["Grundbeziehung", "sin²x + cos²x = 1"],
-      ["Definitionen", "sin = Gegen/Hypot.\ncos = Ankath./Hypot.\ntan = Gegen/Ankath."],
-      ["Sinussatz", "a/sin α = b/sin β = c/sin γ"],
-      ["Kosinussatz", "c² = a² + b² − 2ab·cos γ"]
-    ]}
-  ];
-  const accGrid = $("#accGrid");
-  FORMULAS.forEach((group, gi) => {
-    const col = document.createElement("div");
-    col.className = "acc-col";
-    col.innerHTML = `<h3>${group.col}</h3>`;
-    group.items.forEach((it, idx) => {
-      const d = document.createElement("details");
-      d.className = "acc"; if (gi === 0 && idx === 0) d.open = true;
-      d.innerHTML = `<summary>${it[0]}</summary><div class="acc-body"><div class="formula-box">${it[1]}</div></div>`;
-      col.appendChild(d);
-    });
-    accGrid.appendChild(col);
-  });
-
-  /* =====================================================================
-     Progress
-     ===================================================================== */
-  const CIRC = 2 * Math.PI * 52;
-  function renderProgress() {
-    $("#pAnswered").textContent = store.answered || 0;
-    $("#pBest").textContent = store.bestStreak || 0;
-    $("#pCorrect").textContent = store.correct || 0;
-    $("#pTopics").textContent = `${(store.topics || []).length}/6`;
-    const acc = store.answered ? Math.round((store.correct || 0) / store.answered * 100) : 0;
-    $("#ringPct").textContent = acc + "%";
-    $("#ringBar").setAttribute("stroke-dashoffset", CIRC * (1 - acc / 100));
-  }
-  $("#resetBtn").addEventListener("click", () => {
-    if (!confirm("Wirklich den gesamten Fortschritt löschen?")) return;
-    store.answered = 0; store.correct = 0; store.bestStreak = 0; store.topics = [];
-    session = { correct: 0, total: 0, streak: 0 };
-    save(); renderProgress(); renderScore();
-  });
-
-  /* ---------- init ---------- */
-  drawPlot(); renderScore(); renderProgress(); newQuestion(false);
-  addEventListener("resize", () => { drawHero(); drawPlot(); });
-})();
-</script>
+<script src="assets/app.js"></script>
+</body>
+</html>
