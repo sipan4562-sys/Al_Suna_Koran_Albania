@@ -21,6 +21,7 @@ Einfach `index.html` im Browser öffnen – keine Installation, kein Server, kei
 ## Technik
 
 - **3D ohne Bibliotheken:** Die rotierende Zikkurat von Ur im Hero ist eine eigene Mini-3D-Engine auf Canvas 2D (Perspektiv-Projektion, Painter-Algorithmus, Lambert-Beleuchtung) mit Sternenhimmel und Goldstaub-Partikeln.
+- **Illustrierte Inhalte:** Alle 10 Gerichte sind detailreiche, handgezeichnete SVG-Illustrationen (mit animiertem Dampf) auf einer schwebenden 3D-Bühne; alle 9 Orte zeigen ihr echtes Wahrzeichen als Vektorszene (Ischtar-Tor, Malwiya-Minarett, Mudhif …) mit funkelnden Lichtern; Kultur, Feste und Reise haben eigene Icon-Illustrationen (`assets/art.js`).
 - **3D-Interaktionen:** Tilt-Effekt auf Karten (Maus), CSS-3D-Flip-Karten in der Küche, Scroll-Reveal-Animationen, animierte Zähler.
 - **i18n:** Komplettes Umschalten aller Inhalte inkl. `dir="rtl"`, arabischer Schriftarten und lokalisierter Zahlenformate (arabisch-indische Ziffern).
 - **Design:** Farbwelt des Ischtar-Tors (Lapislazuli-Blau + glasiertes Gold), Glassmorphism, responsive vom Smartphone bis zum Desktop, `prefers-reduced-motion` wird respektiert.

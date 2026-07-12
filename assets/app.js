@@ -552,6 +552,14 @@
     { ar: "بالعافية", tr: "bil-ʿāfya", de: "Guten Appetit!", en: "Enjoy your meal!" }
   ];
 
+  /* ================= Kunst-Zuordnung (assets/art.js) ================= */
+  const ART = window.ART || { dish: {}, city: {}, icon: {} };
+  const DISH_ART = ["masgouf", "dolma", "kubba", "quzi", "biryani", "tashreeb", "samoon", "kahi", "kleicha", "chai"];
+  const CITY_ART = ["baghdad", "babylon", "erbil", "ur", "samarra", "mosul", "basra", "najaf", "marsh"];
+  const CULTURE_ART = ["maqam", "oud", "poetry", "calligraphy", "hospitality", "kurdish", "crafts", "football"];
+  const TRAD_ART = ["ramadan", "eid", "newroz", "arbaeen", "wedding", "tigris"];
+  const TRAVEL_ART = ["season", "currency", "visa", "language", "etiquette", "transport"];
+
   /* ================= Helpers ================= */
   const $ = (sel, ctx) => (ctx || document).querySelector(sel);
   const $$ = (sel, ctx) => Array.prototype.slice.call((ctx || document).querySelectorAll(sel));
@@ -604,19 +612,22 @@
       </div>`).join("");
   }
 
-  function infoCard(item, i) {
-    return `
+  function infoCard(artKeys) {
+    return (item, i) => {
+      const art = ART.icon[artKeys[i]];
+      return `
       <article class="info-card reveal" data-tilt style="transition-delay:${(i % 4) * 70}ms">
-        <span class="card-icon">${item.icon}</span>
+        <span class="card-icon">${art || item.icon}</span>
         <h3>${esc(pick(item.name))}</h3>
         <div class="card-arname" dir="rtl" lang="ar">${esc(item.arName)}</div>
         <p>${esc(pick(item.text))}</p>
       </article>`;
+    };
   }
 
-  function renderCulture() { $("#cultureGrid").innerHTML = CULTURE.map(infoCard).join(""); }
-  function renderTraditions() { $("#tradGrid").innerHTML = TRADITIONS.map(infoCard).join(""); }
-  function renderTravel() { $("#travelGrid").innerHTML = TRAVEL.map(infoCard).join(""); }
+  function renderCulture() { $("#cultureGrid").innerHTML = CULTURE.map(infoCard(CULTURE_ART)).join(""); }
+  function renderTraditions() { $("#tradGrid").innerHTML = TRADITIONS.map(infoCard(TRAD_ART)).join(""); }
+  function renderTravel() { $("#travelGrid").innerHTML = TRAVEL.map(infoCard(TRAVEL_ART)).join(""); }
 
   function renderDishes() {
     $("#dishGrid").innerHTML = DISHES.map((d, i) => `
@@ -624,7 +635,9 @@
               aria-label="${esc(pick(d.name))} – ${esc(T[lang].flipHint)}">
         <span class="dish-inner">
           <span class="dish-face dish-front">
-            <span class="dish-emoji">${d.emoji}</span>
+            ${ART.dish[DISH_ART[i]]
+              ? `<span class="dish-stage">${ART.dish[DISH_ART[i]]}</span>`
+              : `<span class="dish-emoji">${d.emoji}</span>`}
             <h3>${esc(pick(d.name))}</h3>
             <span class="card-arname" dir="rtl" lang="ar">${esc(d.arName)}</span>
             <span class="dish-hint">${esc(T[lang].flipHint)}</span>
@@ -646,7 +659,9 @@
     $("#cityGrid").innerHTML = CITIES.map((c, i) => `
       <article class="city-card reveal" data-tilt style="transition-delay:${(i % 3) * 80}ms">
         <div class="city-banner">
-          <span class="dish-emoji">${c.emoji}</span>
+          ${ART.city[CITY_ART[i]]
+            ? `<span class="city-art">${ART.city[CITY_ART[i]]}</span>`
+            : `<span class="dish-emoji">${c.emoji}</span>`}
           <span class="city-badge">${esc(pick(c.badge))}</span>
         </div>
         <div class="city-body">
