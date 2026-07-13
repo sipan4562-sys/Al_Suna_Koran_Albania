@@ -18,6 +18,8 @@ Einfach `index.html` im Browser öffnen – keine Installation, kein Server, kei
 - **Feste & Traditionen** – Ramadan & Mheibes, Eid, Newroz, Arbain, Hochzeiten, Abende am Tigris.
 - **Reise** – beste Reisezeit, Währung, Visum, Sprache, Etikette, Verkehr + kleine Sprachschule (Irakisch-Arabisch).
 
+- **3D-Flagge mit echter Stoffphysik** – die irakische Flagge weht in einer eigenen Verlet-Cloth-Simulation (`assets/flag.js`): 3D-Punktgitter mit Distanz-Constraints, organischer Wind aus überlagerten Wellen + zufälligen Böen (kein Loop), Falten-Beleuchtung über Flächennormalen, der Takbir „الله أكبر" verformt sich als Textur physikalisch mit dem Stoff. Maus-Hover verstärkt den Wind, Wischen schiebt den Stoff an. Adaptive Qualität hält auch schwache Geräte bei 60 fps.
+
 ## Technik
 
 - **3D ohne Bibliotheken:** Die rotierende Zikkurat von Ur im Hero ist eine eigene Mini-3D-Engine auf Canvas 2D (Perspektiv-Projektion, Painter-Algorithmus, Lambert-Beleuchtung) mit Sternenhimmel und Goldstaub-Partikeln.

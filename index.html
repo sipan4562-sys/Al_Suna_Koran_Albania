@@ -42,6 +42,7 @@
 
   <nav class="nav-links" id="navLinks" aria-label="Hauptnavigation">
     <a href="#home" data-i18n="nav.home">Start</a>
+    <a href="#flagge" data-i18n="nav.flag">Flagge</a>
     <a href="#fakten" data-i18n="nav.facts">Fakten</a>
     <a href="#geschichte" data-i18n="nav.history">Geschichte</a>
     <a href="#kultur" data-i18n="nav.culture">Kultur</a>
@@ -91,6 +92,19 @@
         <circle class="wheel" cx="9" cy="8" r="2.4" fill="currentColor"/>
       </svg>
     </a>
+  </section>
+
+  <!-- ======= FLAGGE (3D-Stoffsimulation) ======= -->
+  <section class="section flag-section" id="flagge">
+    <header class="section-head reveal">
+      <div class="ornament" aria-hidden="true">✦ ✦ ✦</div>
+      <h2 data-i18n="flag.title">Die Flagge des Irak</h2>
+      <p data-i18n="flag.sub">Rot für den Mut, Weiß für die Großzügigkeit, Schwarz für die Geschichte – und in grüner Kufi-Schrift der Takbir: الله أكبر („Gott ist am größten“).</p>
+    </header>
+    <div class="flag-wrap reveal">
+      <canvas id="flagCanvas" role="img" aria-label="Animierte Flagge des Irak – علم العراق"></canvas>
+      <p class="flag-hint" data-i18n="flag.hint">Beweg die Maus über die Flagge – der Wind gehorcht dir.</p>
+    </div>
   </section>
 
   <!-- ======= FAKTEN ======= -->
@@ -217,5 +231,6 @@
 
 <script src="assets/art.js"></script>
 <script src="assets/app.js"></script>
+<script src="assets/flag.js"></script>
 </body>
 </html>

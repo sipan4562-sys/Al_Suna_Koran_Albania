@@ -10,7 +10,12 @@
   const T = {
     de: {
       title: "Irak – Wiege der Zivilisation | العراق | Iraq",
-      nav: { brand: "Entdecke den Irak", home: "Start", facts: "Fakten", history: "Geschichte", culture: "Kultur", cuisine: "Küche", places: "Orte", traditions: "Feste", travel: "Reise" },
+      nav: { brand: "Entdecke den Irak", home: "Start", flag: "Flagge", facts: "Fakten", history: "Geschichte", culture: "Kultur", cuisine: "Küche", places: "Orte", traditions: "Feste", travel: "Reise" },
+      flag: {
+        title: "Die Flagge des Irak",
+        sub: "Rot für den Mut, Weiß für die Großzügigkeit, Schwarz für die Geschichte – und in grüner Kufi-Schrift der Takbir: الله أكبر („Gott ist am größten“).",
+        hint: "Beweg die Maus über die Flagge – der Wind gehorcht dir."
+      },
       hero: {
         eyebrow: "بلاد الرافدين · Das Land der zwei Ströme",
         subtitle: "Irak – Wiege der Zivilisation",
@@ -33,7 +38,12 @@
     },
     en: {
       title: "Iraq – Cradle of Civilisation | العراق | Irak",
-      nav: { brand: "Discover Iraq", home: "Home", facts: "Facts", history: "History", culture: "Culture", cuisine: "Cuisine", places: "Places", traditions: "Festivals", travel: "Travel" },
+      nav: { brand: "Discover Iraq", home: "Home", flag: "Flag", facts: "Facts", history: "History", culture: "Culture", cuisine: "Cuisine", places: "Places", traditions: "Festivals", travel: "Travel" },
+      flag: {
+        title: "The flag of Iraq",
+        sub: "Red for courage, white for generosity, black for its history — and in green Kufic script the takbir: الله أكبر ('God is greatest').",
+        hint: "Move your mouse across the flag — the wind obeys you."
+      },
       hero: {
         eyebrow: "بلاد الرافدين · The Land of the Two Rivers",
         subtitle: "Iraq — Cradle of Civilisation",
@@ -56,7 +66,12 @@
     },
     ar: {
       title: "العراق – مهد الحضارات | Iraq | Irak",
-      nav: { brand: "اكتشف العراق", home: "الرئيسية", facts: "حقائق", history: "التاريخ", culture: "الثقافة", cuisine: "المطبخ", places: "الأماكن", traditions: "الأعياد", travel: "السفر" },
+      nav: { brand: "اكتشف العراق", home: "الرئيسية", flag: "العلم", facts: "حقائق", history: "التاريخ", culture: "الثقافة", cuisine: "المطبخ", places: "الأماكن", traditions: "الأعياد", travel: "السفر" },
+      flag: {
+        title: "علم العراق",
+        sub: "الأحمر للشجاعة، والأبيض للكرم، والأسود للتاريخ — وبالخط الكوفي الأخضر التكبير: الله أكبر.",
+        hint: "مرّر المؤشر فوق العلم — فالريح تستجيب لك."
+      },
       hero: {
         eyebrow: "بلاد الرافدين · أرض النهرين الخالدين",
         subtitle: "العراق — مهد الحضارات",
