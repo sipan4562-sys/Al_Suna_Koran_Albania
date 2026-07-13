@@ -26,7 +26,10 @@
       travel: { title: "Gut zu wissen", sub: "Alles, was man für eine Reise braucht – kompakt und ehrlich." },
       phrases: { title: "Kleine Sprachschule (Irakisch-Arabisch)", colAr: "Arabisch", colTr: "Aussprache" },
       footer: { tagline: "Mesopotamien – das Land zwischen Euphrat und Tigris.", made: "Mit ♥ für das Land der zwei Ströme" },
-      flipHint: "Antippen zum Umdrehen"
+      flipHint: "Antippen zum Umdrehen",
+      ingBtn: "Zutaten in 3D",
+      ingTitle: "Die Zutaten – einzeln erklärt",
+      ingClose: "Schließen"
     },
     en: {
       title: "Iraq – Cradle of Civilisation | العراق | Irak",
@@ -46,7 +49,10 @@
       travel: { title: "Good to know", sub: "Everything you need for a trip — compact and honest." },
       phrases: { title: "Mini phrasebook (Iraqi Arabic)", colAr: "Arabic", colTr: "Pronunciation" },
       footer: { tagline: "Mesopotamia — the land between the Euphrates and the Tigris.", made: "With ♥ for the land of the two rivers" },
-      flipHint: "Tap to flip"
+      flipHint: "Tap to flip",
+      ingBtn: "Ingredients in 3D",
+      ingTitle: "The ingredients — one by one",
+      ingClose: "Close"
     },
     ar: {
       title: "العراق – مهد الحضارات | Iraq | Irak",
@@ -66,8 +72,73 @@
       travel: { title: "معلومات تهمك", sub: "كل ما تحتاجه لرحلتك — باختصار وبصدق." },
       phrases: { title: "دليل عبارات سريع (اللهجة العراقية)", colAr: "العربية", colTr: "النطق" },
       footer: { tagline: "بلاد ما بين النهرين — أرض الفرات ودجلة.", made: "بكل ♥ لأرض الرافدين" },
-      flipHint: "اضغط لقلب البطاقة"
+      flipHint: "اضغط لقلب البطاقة",
+      ingBtn: "المكونات ثلاثية الأبعاد",
+      ingTitle: "المكونات — واحدًا واحدًا",
+      ingClose: "إغلاق"
     }
+  };
+
+  /* ================= Zutaten (dreisprachig) ================= */
+  const ING_NAMES = {
+    fish: { de: "Karpfen", en: "River carp", ar: "سمك الكارب" },
+    tamarind: { de: "Tamarinde", en: "Tamarind", ar: "تمر هندي" },
+    turmeric: { de: "Kurkuma", en: "Turmeric", ar: "كركم" },
+    salt: { de: "Salz", en: "Salt", ar: "ملح" },
+    lemon: { de: "Zitrone", en: "Lemon", ar: "ليمون" },
+    tomato: { de: "Tomate", en: "Tomato", ar: "طماطم" },
+    onion: { de: "Zwiebel", en: "Onion", ar: "بصل" },
+    fire: { de: "Offenes Feuer", en: "Open fire", ar: "نار مكشوفة" },
+    vineleaf: { de: "Weinblätter", en: "Vine leaves", ar: "ورق عنب" },
+    rice: { de: "Reis", en: "Rice", ar: "رز" },
+    meat: { de: "Hackfleisch", en: "Minced meat", ar: "لحم مفروم" },
+    pepper: { de: "Paprika", en: "Bell pepper", ar: "فلفل حلو" },
+    zucchini: { de: "Zucchini", en: "Courgette", ar: "كوسا" },
+    pomegranate: { de: "Granatapfelsirup", en: "Pomegranate syrup", ar: "دبس رمان" },
+    spices: { de: "Baharat-Gewürze", en: "Baharat spices", ar: "بهارات" },
+    bulgur: { de: "Bulgur", en: "Bulgur", ar: "برغل" },
+    pinenuts: { de: "Pinienkerne", en: "Pine nuts", ar: "صنوبر" },
+    raisins: { de: "Rosinen", en: "Raisins", ar: "زبيب" },
+    lamb: { de: "Lammfleisch", en: "Lamb", ar: "لحم غنم" },
+    saffron: { de: "Safran", en: "Saffron", ar: "زعفران" },
+    almond: { de: "Mandeln", en: "Almonds", ar: "لوز" },
+    cardamom: { de: "Kardamom", en: "Cardamom", ar: "هيل" },
+    chicken: { de: "Hühnchen", en: "Chicken", ar: "دجاج" },
+    noodles: { de: "Fadennudeln", en: "Vermicelli", ar: "شعيرية" },
+    peas: { de: "Erbsen", en: "Peas", ar: "بزاليا" },
+    potato: { de: "Kartoffeln", en: "Potatoes", ar: "بطاطا" },
+    bread: { de: "Fladenbrot", en: "Flatbread", ar: "خبز رقيق" },
+    chickpeas: { de: "Kichererbsen", en: "Chickpeas", ar: "حمص" },
+    garlic: { de: "Knoblauch", en: "Garlic", ar: "ثوم" },
+    loomi: { de: "Loomi (getrocknete Limette)", en: "Loomi (dried lime)", ar: "نومي بصرة" },
+    flour: { de: "Mehl", en: "Flour", ar: "طحين" },
+    yeast: { de: "Hefe", en: "Yeast", ar: "خميرة" },
+    water: { de: "Wasser", en: "Water", ar: "ماء" },
+    tannour: { de: "Tannour-Steinofen", en: "Tannour stone oven", ar: "تنور حجري" },
+    sesame: { de: "Sesam", en: "Sesame", ar: "سمسم" },
+    pastry: { de: "Blätterteig", en: "Flaky pastry", ar: "عجينة مورّقة" },
+    ghee: { de: "Butterschmalz (Ghee)", en: "Ghee", ar: "دهن حر" },
+    syrup: { de: "Zuckersirup", en: "Sugar syrup", ar: "شيرة" },
+    geymar: { de: "Geymar (Büffelrahm)", en: "Geymar (buffalo cream)", ar: "قيمر" },
+    dates: { de: "Datteln", en: "Dates", ar: "تمر" },
+    walnut: { de: "Walnüsse", en: "Walnuts", ar: "جوز" },
+    coconut: { de: "Kokos", en: "Coconut", ar: "جوز الهند" },
+    rosewater: { de: "Rosenwasser", en: "Rose water", ar: "ماء الورد" },
+    tea: { de: "Schwarztee", en: "Black tea", ar: "شاي أسود" },
+    sugar: { de: "Zucker", en: "Sugar", ar: "سكر" }
+  };
+
+  const DISH_INGS = {
+    masgouf: ["fish", "tamarind", "turmeric", "salt", "lemon", "tomato", "onion", "fire"],
+    dolma: ["vineleaf", "rice", "meat", "onion", "pepper", "zucchini", "pomegranate", "spices"],
+    kubba: ["bulgur", "rice", "meat", "onion", "pinenuts", "raisins", "spices"],
+    quzi: ["lamb", "rice", "saffron", "almond", "raisins", "cardamom", "onion", "spices"],
+    biryani: ["rice", "chicken", "noodles", "peas", "potato", "raisins", "almond", "spices"],
+    tashreeb: ["bread", "lamb", "chickpeas", "onion", "tomato", "garlic", "loomi"],
+    samoon: ["flour", "yeast", "water", "salt", "sesame", "tannour"],
+    kahi: ["pastry", "flour", "ghee", "syrup", "geymar", "rosewater"],
+    kleicha: ["flour", "dates", "cardamom", "walnut", "coconut", "ghee", "rosewater", "sesame"],
+    chai: ["tea", "cardamom", "sugar", "water"]
   };
 
   /* ================= Inhalte (dreisprachig) ================= */
@@ -631,8 +702,8 @@
 
   function renderDishes() {
     $("#dishGrid").innerHTML = DISHES.map((d, i) => `
-      <button class="dish-card reveal" type="button" style="transition-delay:${(i % 4) * 70}ms"
-              aria-label="${esc(pick(d.name))} – ${esc(T[lang].flipHint)}">
+      <div class="dish-card reveal" role="button" tabindex="0" style="transition-delay:${(i % 4) * 70}ms"
+           aria-label="${esc(pick(d.name))} – ${esc(T[lang].flipHint)}">
         <span class="dish-inner">
           <span class="dish-face dish-front">
             ${ART.dish[DISH_ART[i]]
@@ -646,14 +717,66 @@
             <span class="dish-badge">${esc(pick(d.badge))}</span>
             <h3>${esc(pick(d.name))}</h3>
             <p>${esc(pick(d.text))}</p>
+            <button class="dish-ing-btn" type="button" data-dish="${i}">🧺 ${esc(T[lang].ingBtn)}</button>
           </span>
         </span>
-      </button>`).join("");
+      </div>`).join("");
 
     $$(".dish-card").forEach((card) => {
       card.addEventListener("click", () => card.classList.toggle("flipped"));
+      card.addEventListener("keydown", (e) => {
+        if (e.target === card && (e.key === "Enter" || e.key === " ")) {
+          e.preventDefault();
+          card.classList.toggle("flipped");
+        }
+      });
+    });
+    $$(".dish-ing-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        openIngModal(+btn.dataset.dish);
+      });
     });
   }
+
+  /* ================= Zutaten-Explorer (3D-Orbit-Modal) ================= */
+  const ingModal = $("#ingModal");
+
+  function openIngModal(i) {
+    const d = DISHES[i];
+    const key = DISH_ART[i];
+    const ings = DISH_INGS[key] || [];
+    const n = ings.length;
+    $("#ingDish").textContent = pick(d.name);
+    // Arabische Unterzeile nur zeigen, wenn sie nicht schon der Titel ist
+    $("#ingArName").textContent = pick(d.name) === d.arName ? "" : d.arName;
+    $("#ingStage").innerHTML = `
+      <div class="ing-center" aria-hidden="true">
+        <span class="dish-stage">${ART.dish[key] || ""}</span>
+      </div>
+      <div class="ing-orbit" style="--n:${n}">
+        ${ings.map((k, j) => `
+          <div class="orbit-item" style="--i:${j};--d:${(j * 0.55).toFixed(2)}s">
+            <div class="ing-chip">
+              <span class="ing-icon">${(ART.ing && ART.ing[k]) || "✦"}</span>
+              <span class="ing-name">${esc(ING_NAMES[k] ? pick(ING_NAMES[k]) : k)}</span>
+            </div>
+          </div>`).join("")}
+      </div>`;
+    ingModal.hidden = false;
+    document.body.style.overflow = "hidden";
+    $(".ing-close", ingModal).focus();
+  }
+
+  function closeIngModal() {
+    if (ingModal.hidden) return;
+    ingModal.hidden = true;
+    document.body.style.overflow = "";
+  }
+
+  $(".ing-close", ingModal).addEventListener("click", closeIngModal);
+  $(".ing-backdrop", ingModal).addEventListener("click", closeIngModal);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeIngModal(); });
 
   function renderCities() {
     $("#cityGrid").innerHTML = CITIES.map((c, i) => `
@@ -755,6 +878,7 @@
       if (btn.dataset.lang === lang) return;
       lang = btn.dataset.lang;
       localStorage.setItem("iraq-lang", lang);
+      closeIngModal();
       renderAll();
     });
   });

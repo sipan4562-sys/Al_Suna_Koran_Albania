@@ -844,5 +844,451 @@ window.ART = (function () {
   icon.transport = iw(`
     <path d="M6 30 l10 -2 8 -10 h4 l-5 11 10 -1 3 -5 h4 l-2 8 2 8 h-4 l-3 -5 -10 -1 5 11 h-4 l-8 -10 -10 -2 Z" fill="rgba(232,200,120,0.15)" transform="rotate(-8 24 26)"/>`);
 
-  return { dish: dish, city: city, icon: icon };
+  /* ============================================================
+     ZUTATEN (64×64, farbecht — für den 3D-Zutaten-Explorer)
+     ============================================================ */
+  const ing = {};
+  const gw = (inner) => `<svg viewBox="0 0 64 64" aria-hidden="true">${inner}</svg>`;
+
+  ing.fish = gw(`
+    <defs><linearGradient id="gFish" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e8a45a"/><stop offset="1" stop-color="#9a5a24"/></linearGradient></defs>
+    <path d="M8 32 C18 18 44 18 52 30 L61 23 L58 33 L61 43 L52 36 C44 46 18 46 8 32 Z" fill="url(#gFish)"/>
+    <path d="M26 23 q4 -7 11 -7 q-2 7 -7 9 Z" fill="#b97a35"/>
+    <path d="M23 35 a11 11 0 0 0 9 5" stroke="#7c4a1c" stroke-width="2" fill="none"/>
+    <g stroke="#7c4a1c" stroke-width="1.4" opacity="0.6" fill="none">
+      <path d="M34 26 q3 6 0 12"/><path d="M42 26 q3 6 0 12"/>
+    </g>
+    <circle cx="17" cy="30" r="2.6" fill="#26150a"/><circle cx="17.9" cy="29.2" r="0.9" fill="#fff"/>`);
+
+  ing.salt = gw(`
+    <rect x="24" y="22" width="16" height="28" rx="6" fill="#f4f2ea" stroke="#c9c4b2" stroke-width="1.5"/>
+    <path d="M25 22 a7 8 0 0 1 14 0 v2 h-14 Z" fill="#cfd4dc" stroke="#a9afba" stroke-width="1.2"/>
+    <circle cx="29" cy="17" r="1.2" fill="#7c828e"/><circle cx="35" cy="17" r="1.2" fill="#7c828e"/>
+    <circle cx="32" cy="14" r="1.2" fill="#7c828e"/>
+    <rect x="27" y="34" width="10" height="10" rx="2" fill="#e4e0d2"/>
+    <circle cx="20" cy="54" r="1.4" fill="#fff"/><circle cx="27" cy="57" r="1.4" fill="#fff"/>
+    <circle cx="35" cy="56" r="1.4" fill="#fff"/><circle cx="43" cy="54" r="1.4" fill="#fff"/>`);
+
+  ing.tamarind = gw(`
+    <g transform="rotate(-18 30 34)">
+      <rect x="10" y="28" width="36" height="13" rx="6.5" fill="#7c4a22"/>
+      <g fill="none" stroke="#5d3414" stroke-width="1.6">
+        <path d="M21 28 a6 6 0 0 0 0 13"/><path d="M33 28 a6 6 0 0 0 0 13"/>
+      </g>
+      <ellipse cx="16" cy="31" rx="3.5" ry="2" fill="rgba(220,170,110,0.4)"/>
+    </g>
+    <g transform="rotate(14 38 46)">
+      <rect x="22" y="40" width="30" height="11" rx="5.5" fill="#8a5a2c"/>
+      <path d="M32 40 a5 5 0 0 0 0 11 M42 40 a5 5 0 0 0 0 11" fill="none" stroke="#6b4018" stroke-width="1.4"/>
+    </g>
+    <path d="M48 22 q8 -6 12 -2 q-6 6 -12 2 Z" fill="#5f8f3e"/>`);
+
+  ing.turmeric = gw(`
+    <path d="M10 50 q10 -18 22 -18 q12 0 20 18 Z" fill="#e8940f"/>
+    <path d="M16 47 q8 -11 16 -11" stroke="#f6b93f" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    <g transform="rotate(-24 46 24)">
+      <rect x="36" y="19" width="22" height="9" rx="4.5" fill="#c98a3a"/>
+      <circle cx="40" cy="23" r="1.6" fill="#a56a22"/><circle cx="48" cy="21" r="1.6" fill="#a56a22"/>
+      <circle cx="53" cy="25" r="1.6" fill="#a56a22"/>
+      <ellipse cx="58" cy="23" rx="2.4" ry="3" fill="#e8940f"/>
+    </g>
+    <circle cx="14" cy="28" r="1.3" fill="#f6b93f"/><circle cx="22" cy="24" r="1.3" fill="#f6b93f"/>`);
+
+  ing.lemon = gw(`
+    <circle cx="32" cy="34" r="18" fill="#f0cf30"/>
+    <circle cx="32" cy="34" r="14.5" fill="#fbf0a0"/>
+    <g stroke="#f0cf30" stroke-width="1.8">
+      <line x1="32" y1="20" x2="32" y2="48"/><line x1="18" y1="34" x2="46" y2="34"/>
+      <line x1="22" y1="24" x2="42" y2="44"/><line x1="42" y1="24" x2="22" y2="44"/>
+    </g>
+    <circle cx="32" cy="34" r="2.4" fill="#f0cf30"/>
+    <circle cx="32" cy="34" r="18" fill="none" stroke="#dcae14" stroke-width="2.4"/>`);
+
+  ing.tomato = gw(`
+    <defs><radialGradient id="gTom" cx="0.38" cy="0.32" r="0.85">
+      <stop offset="0" stop-color="#ee6a4c"/><stop offset="1" stop-color="#bb3524"/></radialGradient></defs>
+    <circle cx="32" cy="36" r="17" fill="url(#gTom)"/>
+    <g fill="#3f7a2c">
+      <path d="M32 20 l-3 -6 3 2 3 -3 0 4 4 -2 -3 5 Z"/>
+      <path d="M24 22 q4 -3 8 -2 q4 -1 8 2 q-4 4 -8 3 q-4 1 -8 -3 Z"/>
+    </g>
+    <ellipse cx="25" cy="30" rx="4.5" ry="3" fill="rgba(255,255,255,0.4)" transform="rotate(-20 25 30)"/>`);
+
+  ing.onion = gw(`
+    <defs><radialGradient id="gOn" cx="0.42" cy="0.35" r="0.9">
+      <stop offset="0" stop-color="#eed398"/><stop offset="1" stop-color="#b0812f"/></radialGradient></defs>
+    <path d="M32 12 q3 8 9 12 a15 17 0 1 1 -18 0 q6 -4 9 -12 Z" fill="url(#gOn)"/>
+    <g fill="none" stroke="rgba(130,90,25,0.55)" stroke-width="1.6">
+      <path d="M23 28 q9 -8 18 0"/><path d="M20 36 q12 -10 24 0"/>
+    </g>
+    <path d="M32 12 q-1 -5 2 -8 M32 12 q3 -4 1 -8" stroke="#8a9a4a" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+    <path d="M28 53 l-2 5 M32 54 v5 M36 53 l2 5" stroke="#c9b98a" stroke-width="1.4"/>`);
+
+  ing.fire = gw(`
+    <path d="M32 8 c8 10 14 15 14 25 a14 14 0 0 1 -28 0 c0 -10 6 -15 14 -25 Z" fill="#e85d20"/>
+    <path d="M32 20 c5 7 9 10 9 16 a9 9 0 0 1 -18 0 c0 -6 4 -9 9 -16 Z" fill="#f6a03a"/>
+    <path d="M32 32 c3 4 5 6 5 9 a5 5 0 0 1 -10 0 c0 -3 2 -5 5 -9 Z" fill="#f8d275"/>
+    <path d="M14 54 h36" stroke="#8a5a2a" stroke-width="4" stroke-linecap="round"/>
+    <path d="M20 58 h24" stroke="#6b4018" stroke-width="4" stroke-linecap="round"/>`);
+
+  ing.vineleaf = gw(`
+    <path d="M32 8 C42 14 52 14 54 24 C56 34 46 36 44 44 C42 52 34 54 32 56 C30 54 22 52 20 44 C18 36 8 34 10 24 C12 14 22 14 32 8 Z" fill="#4d7a34"/>
+    <g stroke="#8fbf6a" stroke-width="1.7" fill="none">
+      <path d="M32 12 V52"/><path d="M32 26 L18 20"/><path d="M32 26 L46 20"/>
+      <path d="M32 38 L21 36"/><path d="M32 38 L43 36"/>
+    </g>
+    <path d="M32 56 q-2 4 -6 5" stroke="#6b4a26" stroke-width="2" fill="none" stroke-linecap="round"/>`);
+
+  ing.rice = gw(`
+    <path d="M12 38 a20 12 0 0 0 40 0 Z" fill="#2c4b9e"/>
+    <path d="M12 38 a20 5 0 0 0 40 0" fill="#1b2f6b"/>
+    <path d="M15 36 q8 -12 17 -12 q9 0 17 12 Z" fill="#f6f1e0"/>
+    <g stroke="#d9cfae" stroke-width="1.6" stroke-linecap="round">
+      <line x1="24" y1="30" x2="27" y2="28"/><line x1="33" y1="27" x2="36" y2="29"/>
+      <line x1="40" y1="32" x2="43" y2="30"/><line x1="20" y1="34" x2="23" y2="32"/>
+    </g>
+    <ellipse cx="18" cy="20" rx="2.6" ry="1.4" fill="#f6f1e0" transform="rotate(-24 18 20)"/>
+    <ellipse cx="46" cy="18" rx="2.6" ry="1.4" fill="#f6f1e0" transform="rotate(24 46 18)"/>`);
+
+  ing.meat = gw(`
+    <rect x="8" y="42" width="48" height="8" rx="3" fill="#c9a45c"/>
+    <path d="M14 42 q2 -18 18 -18 q18 0 18 18 Z" fill="#b1543a"/>
+    <g fill="#8e3c28">
+      <circle cx="24" cy="34" r="1.8"/><circle cx="33" cy="30" r="1.8"/><circle cx="42" cy="35" r="1.8"/>
+      <circle cx="28" cy="39" r="1.6"/><circle cx="38" cy="39" r="1.6"/>
+    </g>
+    <ellipse cx="26" cy="29" rx="5" ry="2.4" fill="rgba(240,170,150,0.45)" transform="rotate(-14 26 29)"/>`);
+
+  ing.pepper = gw(`
+    <defs><radialGradient id="gPep" cx="0.38" cy="0.3" r="0.9">
+      <stop offset="0" stop-color="#ee5b43"/><stop offset="1" stop-color="#b1271b"/></radialGradient></defs>
+    <path d="M20 22 C14 26 12 36 14 44 C16 52 24 56 32 56 C40 56 48 52 50 44 C52 36 50 26 44 22 C40 19 24 19 20 22 Z" fill="url(#gPep)"/>
+    <g stroke="#8e2418" stroke-width="1.8" fill="none" opacity="0.7">
+      <path d="M25 22 q-2 16 0 32"/><path d="M39 22 q2 16 0 32"/>
+    </g>
+    <path d="M32 20 q-1 -6 3 -9" stroke="#3f7a2c" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <ellipse cx="24" cy="30" rx="3.4" ry="6" fill="rgba(255,255,255,0.3)" transform="rotate(-10 24 30)"/>`);
+
+  ing.zucchini = gw(`
+    <g transform="rotate(-28 30 34)">
+      <rect x="8" y="28" width="42" height="14" rx="7" fill="#3f7a2c"/>
+      <g stroke="#6fae4a" stroke-width="2" stroke-linecap="round">
+        <line x1="14" y1="32" x2="44" y2="32"/><line x1="14" y1="38" x2="44" y2="38"/>
+      </g>
+      <path d="M50 31 q6 2 6 4 q0 2 -6 4 Z" fill="#2f5620"/>
+    </g>
+    <circle cx="47" cy="49" r="8.5" fill="#dfe8b0" stroke="#3f7a2c" stroke-width="2.4"/>
+    <g fill="#c3cf8a">
+      <circle cx="44" cy="47" r="1.2"/><circle cx="50" cy="47" r="1.2"/>
+      <circle cx="47" cy="52" r="1.2"/>
+    </g>`);
+
+  ing.pomegranate = gw(`
+    <defs><radialGradient id="gPom" cx="0.4" cy="0.32" r="0.9">
+      <stop offset="0" stop-color="#d95a44"/><stop offset="1" stop-color="#a2231c"/></radialGradient></defs>
+    <circle cx="30" cy="36" r="17" fill="url(#gPom)"/>
+    <path d="M25 20 l1 -6 4 4 3 -5 2 6 4 -3 -2 6 Z" fill="#8e2418"/>
+    <path d="M30 36 m-10 3 a10 10 0 0 0 18 3 l-4 -12 Z" fill="#f2d3c3"/>
+    <g fill="#c0261d">
+      <circle cx="27" cy="43" r="2"/><circle cx="33" cy="45" r="2"/><circle cx="38" cy="41" r="2"/>
+      <circle cx="30" cy="47" r="1.8"/>
+    </g>
+    <ellipse cx="24" cy="29" rx="4" ry="2.6" fill="rgba(255,255,255,0.35)" transform="rotate(-18 24 29)"/>`);
+
+  ing.spices = gw(`
+    <path d="M6 48 h52" stroke="#8a6a3a" stroke-width="3" stroke-linecap="round"/>
+    <path d="M8 46 q7 -13 14 0 Z" fill="#c0392b"/>
+    <path d="M24 46 q8 -16 16 0 Z" fill="#e8940f"/>
+    <path d="M42 46 q7 -12 14 0 Z" fill="#8a5a2a"/>
+    <circle cx="15" cy="32" r="1.2" fill="#c0392b"/><circle cx="32" cy="26" r="1.2" fill="#e8940f"/>
+    <circle cx="49" cy="32" r="1.2" fill="#8a5a2a"/>`);
+
+  ing.bulgur = gw(`
+    <path d="M10 48 q11 -20 22 -20 q11 0 22 20 Z" fill="#d9b25a"/>
+    <g fill="#b98f3a">
+      <ellipse cx="24" cy="40" rx="2" ry="1.2"/><ellipse cx="32" cy="36" rx="2" ry="1.2"/>
+      <ellipse cx="40" cy="41" rx="2" ry="1.2"/><ellipse cx="28" cy="45" rx="2" ry="1.2"/>
+      <ellipse cx="37" cy="46" rx="2" ry="1.2"/>
+    </g>
+    <ellipse cx="14" cy="26" rx="2.2" ry="1.3" fill="#d9b25a" transform="rotate(-20 14 26)"/>
+    <ellipse cx="50" cy="24" rx="2.2" ry="1.3" fill="#d9b25a" transform="rotate(20 50 24)"/>
+    <ellipse cx="32" cy="20" rx="2.2" ry="1.3" fill="#d9b25a"/>`);
+
+  ing.pinenuts = gw(`
+    ${[[24, 26, -12], [34, 22, 8], [42, 30, 22], [22, 38, -20], [32, 36, 0], [42, 42, 14], [28, 46, -8]]
+      .map(([x, y, r]) => `
+      <g transform="rotate(${r} ${x} ${y})">
+        <path d="M${x} ${y - 6} q4.5 3 4.5 7 a4.5 5 0 0 1 -9 0 q0 -4 4.5 -7 Z" fill="#f2e4bd" stroke="#cbb98a" stroke-width="1"/>
+      </g>`).join("")}`);
+
+  ing.raisins = gw(`
+    <path d="M32 12 q1 6 0 10" stroke="#6b4a26" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+    ${[[26, 28], [38, 28], [22, 38], [32, 36], [42, 38], [28, 47], [38, 47]].map(([x, y]) => `
+      <ellipse cx="${x}" cy="${y}" rx="5.5" ry="6.5" fill="#4a2438"/>
+      <ellipse cx="${x - 1.6}" cy="${y - 2}" rx="1.6" ry="2" fill="rgba(190,140,180,0.35)"/>`).join("")}`);
+
+  ing.lamb = gw(`
+    <defs><linearGradient id="gLam" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b06f34"/><stop offset="1" stop-color="#6b3a14"/></linearGradient></defs>
+    <path d="M14 44 C10 30 24 18 36 22 C48 26 52 40 46 48 C38 56 20 56 14 44 Z" fill="url(#gLam)"/>
+    <g transform="rotate(-36 48 22)">
+      <rect x="40" y="18" width="18" height="7" rx="3.5" fill="#efe6cf"/>
+      <circle cx="58" cy="18" r="4.4" fill="#f7f0dd"/><circle cx="58" cy="26" r="4.4" fill="#f7f0dd"/>
+    </g>
+    <path d="M20 34 q8 -8 18 -6" stroke="rgba(255,220,180,0.4)" stroke-width="2.6" fill="none" stroke-linecap="round"/>`);
+
+  ing.saffron = gw(`
+    <path d="M18 50 q14 -8 28 0 q-14 6 -28 0 Z" fill="#a2231c" opacity="0.6"/>
+    <g stroke="#c0261d" stroke-width="2.2" fill="none" stroke-linecap="round">
+      <path d="M22 46 C18 36 24 24 20 14"/>
+      <path d="M32 48 C30 36 36 26 32 12"/>
+      <path d="M42 46 C46 36 40 24 44 14"/>
+    </g>
+    <g stroke="#e8611f" stroke-width="1.8" fill="none" stroke-linecap="round">
+      <path d="M27 46 C25 38 29 28 26 20"/>
+      <path d="M38 47 C40 38 36 28 39 18"/>
+    </g>`);
+
+  ing.almond = gw(`
+    <g transform="rotate(-18 24 32)">
+      <path d="M24 14 q11 8 11 19 a11 12 0 0 1 -22 0 q0 -11 11 -19 Z" fill="#b97a3f"/>
+      <path d="M24 20 q7 6 7 13" stroke="#8e5a28" stroke-width="1.6" fill="none"/>
+    </g>
+    <g transform="rotate(16 44 40)">
+      <path d="M44 24 q10 7 10 17 a10 11 0 0 1 -20 0 q0 -10 10 -17 Z" fill="#f2e4bd" stroke="#cbb98a" stroke-width="1.4"/>
+      <path d="M40 36 q4 -4 8 -2" stroke="#cbb98a" stroke-width="1.4" fill="none"/>
+    </g>`);
+
+  ing.cardamom = gw(`
+    ${[[22, 26, -24], [36, 22, 6], [42, 40, 30]].map(([x, y, r]) => `
+      <g transform="rotate(${r} ${x} ${y})">
+        <ellipse cx="${x}" cy="${y}" rx="6" ry="11" fill="#8fae59"/>
+        <path d="M${x} ${y - 11} V${y + 11}" stroke="#5f7a34" stroke-width="1.6"/>
+        <path d="M${x} ${y - 11} q3 0 4 3 M${x} ${y + 11} q-3 0 -4 -3" stroke="#5f7a34" stroke-width="1.2" fill="none"/>
+      </g>`).join("")}
+    <g fill="#3a2a12">
+      <circle cx="22" cy="50" r="1.7"/><circle cx="28" cy="53" r="1.7"/><circle cx="34" cy="50" r="1.7"/>
+    </g>`);
+
+  ing.chicken = gw(`
+    <defs><radialGradient id="gChk" cx="0.4" cy="0.32" r="0.9">
+      <stop offset="0" stop-color="#d99a55"/><stop offset="1" stop-color="#a5661f"/></radialGradient></defs>
+    <path d="M16 26 C10 36 14 48 26 50 C40 52 50 42 46 30 C42 20 24 16 16 26 Z" fill="url(#gChk)"/>
+    <g transform="rotate(32 50 44)">
+      <rect x="42" y="42" width="16" height="6" rx="3" fill="#efe6cf"/>
+      <circle cx="58" cy="42" r="3.8" fill="#f7f0dd"/><circle cx="58" cy="49" r="3.8" fill="#f7f0dd"/>
+    </g>
+    <path d="M20 28 q6 -6 14 -4" stroke="rgba(255,235,200,0.5)" stroke-width="2.4" fill="none" stroke-linecap="round"/>`);
+
+  ing.noodles = gw(`
+    <g stroke="#d9b25a" stroke-width="2.6" fill="none" stroke-linecap="round">
+      <path d="M12 40 q10 -18 40 -8"/>
+      <path d="M10 34 q16 -14 44 -2"/>
+      <path d="M14 46 q14 -10 38 -4"/>
+      <path d="M18 50 q12 -6 30 -2"/>
+    </g>
+    <g stroke="#b98f3a" stroke-width="2.2" fill="none" stroke-linecap="round">
+      <path d="M16 28 q14 -10 34 -4"/><path d="M20 22 q12 -6 26 -2"/>
+    </g>`);
+
+  ing.peas = gw(`
+    <path d="M14 24 C24 20 44 22 52 34 C42 44 22 42 14 30 Z" fill="#3f8a3f"/>
+    <path d="M14 24 q-4 4 0 6" stroke="#2f6b2c" stroke-width="2" fill="none"/>
+    <g fill="#6fbf4f" stroke="#3f8a3f" stroke-width="1.2">
+      <circle cx="24" cy="31" r="5"/><circle cx="34" cy="32" r="5"/><circle cx="43" cy="33" r="5"/>
+    </g>
+    <circle cx="22" cy="48" r="4.4" fill="#6fbf4f" stroke="#3f8a3f" stroke-width="1.2"/>
+    <circle cx="34" cy="51" r="4.4" fill="#6fbf4f" stroke="#3f8a3f" stroke-width="1.2"/>
+    <ellipse cx="23" cy="29" rx="1.6" ry="1" fill="rgba(255,255,255,0.5)"/>`);
+
+  ing.potato = gw(`
+    <ellipse cx="28" cy="30" rx="17" ry="13" fill="#b98a52" transform="rotate(-12 28 30)"/>
+    <g fill="#8e6a3a">
+      <ellipse cx="20" cy="27" rx="1.6" ry="1.1"/><ellipse cx="30" cy="24" rx="1.6" ry="1.1"/>
+      <ellipse cx="36" cy="32" rx="1.6" ry="1.1"/><ellipse cx="24" cy="35" rx="1.6" ry="1.1"/>
+    </g>
+    <g fill="#eec547" stroke="#c99a25" stroke-width="1.2">
+      <rect x="38" y="42" width="11" height="11" rx="2" transform="rotate(10 43 47)"/>
+      <rect x="20" y="46" width="10" height="10" rx="2" transform="rotate(-8 25 51)"/>
+    </g>`);
+
+  ing.bread = gw(`
+    <ellipse cx="32" cy="34" rx="22" ry="14" fill="#d9a44e"/>
+    <ellipse cx="32" cy="32" rx="22" ry="13" fill="#e5b862"/>
+    <g fill="#b1783a">
+      <circle cx="24" cy="28" r="1.8"/><circle cx="34" cy="26" r="1.8"/><circle cx="42" cy="31" r="1.8"/>
+      <circle cx="28" cy="36" r="1.6"/><circle cx="38" cy="37" r="1.6"/>
+    </g>
+    <path d="M46 44 l10 6 -4 -10 Z" fill="#f2e4c0" stroke="#d9a44e" stroke-width="1.4"/>`);
+
+  ing.chickpeas = gw(`
+    ${[[24, 26], [38, 24], [20, 40], [32, 38], [44, 38], [28, 50]].map(([x, y]) => `
+      <circle cx="${x}" cy="${y}" r="6.5" fill="#e8d3a3" stroke="#c3a267" stroke-width="1.2"/>
+      <path d="M${x - 2} ${y - 6} q2 -2 4 0" stroke="#c3a267" stroke-width="1.4" fill="none"/>
+      <circle cx="${x - 2}" cy="${y - 2}" r="1.3" fill="rgba(255,255,255,0.5)"/>`).join("")}`);
+
+  ing.garlic = gw(`
+    <path d="M32 14 q2 6 7 9 a14 15 0 1 1 -14 0 q5 -3 7 -9 Z" fill="#f2ecdd" stroke="#d3c9b0" stroke-width="1.4"/>
+    <g stroke="#d3c9b0" stroke-width="1.4" fill="none">
+      <path d="M26 26 q-3 10 0 20"/><path d="M38 26 q3 10 0 20"/><path d="M32 24 V48"/>
+    </g>
+    <g stroke="rgba(160,120,160,0.4)" stroke-width="1.2" fill="none">
+      <path d="M22 32 q-2 6 0 12"/><path d="M42 32 q2 6 0 12"/>
+    </g>
+    <path d="M32 14 q0 -4 3 -7" stroke="#b0a582" stroke-width="2" fill="none" stroke-linecap="round"/>`);
+
+  ing.loomi = gw(`
+    <circle cx="26" cy="32" r="13" fill="#6b4423"/>
+    <g stroke="#4a2c12" stroke-width="1.3" fill="none" opacity="0.8">
+      <path d="M17 27 q9 -4 18 0"/><path d="M15 34 q11 4 22 0"/><path d="M20 41 q6 3 12 0"/>
+    </g>
+    <circle cx="26" cy="21" r="1.8" fill="#3a2210"/>
+    <circle cx="45" cy="43" r="10" fill="#8a5c30"/>
+    <g stroke="#6b4018" stroke-width="1.2" fill="none" opacity="0.8">
+      <path d="M38 40 q7 -3 14 0"/><path d="M38 46 q7 3 14 0"/>
+    </g>
+    <circle cx="45" cy="34.5" r="1.4" fill="#4a2c12"/>`);
+
+  ing.flour = gw(`
+    <path d="M18 22 h28 l3 30 h-34 Z" fill="#e8dcc0" stroke="#c9bb98" stroke-width="1.5"/>
+    <path d="M18 22 q14 6 28 0 l-2 -6 q-12 4 -24 0 Z" fill="#d3c5a2"/>
+    <g stroke="#b0996b" stroke-width="1.6" fill="none" stroke-linecap="round">
+      <path d="M32 32 v12"/>
+      <path d="M32 36 l-4 -4 M32 36 l4 -4 M32 41 l-4 -4 M32 41 l4 -4"/>
+    </g>
+    <path d="M8 54 q8 -7 16 0 Z" fill="#f6f1e0"/>
+    <circle cx="12" cy="44" r="1.3" fill="#f6f1e0"/><circle cx="20" cy="42" r="1.3" fill="#f6f1e0"/>`);
+
+  ing.yeast = gw(`
+    <g fill="#d9c496" stroke="#b39a66" stroke-width="1.3">
+      <rect x="14" y="34" width="14" height="14" rx="2.5"/>
+      <rect x="32" y="38" width="12" height="12" rx="2.5"/>
+      <rect x="26" y="22" width="12" height="12" rx="2.5"/>
+    </g>
+    <g fill="none" stroke="#cfd6e0" stroke-width="1.8">
+      <circle cx="48" cy="24" r="3.4"/><circle cx="54" cy="15" r="2.6"/><circle cx="44" cy="12" r="2"/>
+    </g>`);
+
+  ing.water = gw(`
+    <defs><linearGradient id="gWat" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8fd0ee"/><stop offset="1" stop-color="#2a7ab8"/></linearGradient></defs>
+    <path d="M32 8 C42 22 48 30 48 40 a16 16 0 0 1 -32 0 C16 30 22 22 32 8 Z" fill="url(#gWat)"/>
+    <path d="M24 38 a8 10 0 0 0 4 10" stroke="rgba(255,255,255,0.65)" stroke-width="2.6" fill="none" stroke-linecap="round"/>
+    <circle cx="12" cy="22" r="2.6" fill="#8fd0ee"/><circle cx="52" cy="18" r="2" fill="#8fd0ee"/>`);
+
+  ing.tannour = gw(`
+    <path d="M12 52 C12 26 52 26 52 52 Z" fill="#b97a3f"/>
+    <path d="M16 52 C16 32 48 32 48 52 Z" fill="#a5661f" opacity="0.5"/>
+    <path d="M24 52 C24 40 40 40 40 52 Z" fill="#26150a"/>
+    <path d="M32 44 c2.5 3 4 4.5 4 7 a4 4 0 0 1 -8 0 c0 -2.5 1.5 -4 4 -7 Z" fill="#f6a03a"/>
+    <path d="M8 52 h48" stroke="#6b4018" stroke-width="3.4" stroke-linecap="round"/>
+    <path d="M44 26 q4 -5 2 -10" stroke="rgba(220,220,220,0.5)" stroke-width="2.4" fill="none" stroke-linecap="round"/>`);
+
+  ing.sesame = gw(`
+    <path d="M14 44 a18 9 0 0 0 36 0 Z" fill="#8a5c30"/>
+    <ellipse cx="32" cy="44" rx="18" ry="5" fill="#a5764a"/>
+    ${[[24, 42, -20], [32, 41, 10], [40, 43, -8], [28, 45, 24], [36, 45, -16]].map(([x, y, r]) => `
+      <ellipse cx="${x}" cy="${y}" rx="2" ry="3.2" fill="#f6f1e0" transform="rotate(${r} ${x} ${y})"/>`).join("")}
+    ${[[20, 22, 14], [30, 16, -10], [42, 20, 20], [36, 28, -18], [25, 30, 8]].map(([x, y, r]) => `
+      <ellipse cx="${x}" cy="${y}" rx="2" ry="3.2" fill="#f2e4bd" transform="rotate(${r} ${x} ${y})"/>`).join("")}`);
+
+  ing.pastry = gw(`
+    <g fill="#eec572" stroke="#c99a3f" stroke-width="1.3">
+      <path d="M10 44 q11 -5 22 0 q11 5 22 0 v6 q-11 5 -22 0 q-11 -5 -22 0 Z"/>
+      <path d="M10 34 q11 -5 22 0 q11 5 22 0 v6 q-11 5 -22 0 q-11 -5 -22 0 Z"/>
+      <path d="M10 24 q11 -5 22 0 q11 5 22 0 v6 q-11 5 -22 0 q-11 -5 -22 0 Z"/>
+    </g>
+    <path d="M14 22 q9 -4 18 0" stroke="rgba(255,246,220,0.8)" stroke-width="1.8" fill="none" stroke-linecap="round"/>`);
+
+  ing.ghee = gw(`
+    <ellipse cx="32" cy="48" rx="22" ry="7" fill="#e2dac2" stroke="#c9a24d" stroke-width="1.2"/>
+    <g>
+      <rect x="18" y="26" width="28" height="18" rx="3" fill="#f2cd5e"/>
+      <path d="M18 29 a14 4 0 0 1 28 0" fill="#f8e08a"/>
+      <path d="M46 36 q5 3 4 9 q-4 1 -6 -3" fill="#f2cd5e"/>
+    </g>
+    <ellipse cx="26" cy="30" rx="5" ry="1.8" fill="rgba(255,255,255,0.55)"/>`);
+
+  ing.syrup = gw(`
+    <path d="M22 18 h20 v6 q6 4 6 12 v14 a6 6 0 0 1 -6 6 h-20 a6 6 0 0 1 -6 -6 v-14 q0 -8 6 -12 Z"
+          fill="rgba(190,220,240,0.25)" stroke="rgba(200,220,240,0.6)" stroke-width="1.5"/>
+    <path d="M17 38 q0 -6 5 -10 h20 q5 4 5 10 v12 a5 5 0 0 1 -5 5 h-20 a5 5 0 0 1 -5 -5 Z" fill="#c9821e"/>
+    <rect x="20" y="12" width="24" height="7" rx="2.5" fill="#8a5a2a"/>
+    <path d="M32 26 q6 8 0 16" stroke="rgba(255,220,150,0.6)" stroke-width="2.6" fill="none" stroke-linecap="round"/>`);
+
+  ing.geymar = gw(`
+    <ellipse cx="32" cy="46" rx="24" ry="8" fill="#f0e9d5" stroke="#c9a24d" stroke-width="1.3"/>
+    <path d="M14 44 c-3 -12 10 -18 19 -11 c4 -9 21 -7 21 3 c8 -1 12 7 6 11 c-14 6 -35 6 -46 -3 Z" fill="#fbf7ea"/>
+    <path d="M20 42 q16 7 36 1" stroke="#e3d7ba" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+    <path d="M24 32 q6 -4 12 -1" stroke="rgba(255,255,255,0.9)" stroke-width="2" fill="none" stroke-linecap="round"/>`);
+
+  ing.dates = gw(`
+    <defs><linearGradient id="gDat" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8a4f22"/><stop offset="1" stop-color="#5a2f12"/></linearGradient></defs>
+    ${[[22, 30, -22], [36, 24, 6], [42, 42, 28]].map(([x, y, r]) => `
+      <g transform="rotate(${r} ${x} ${y})">
+        <ellipse cx="${x}" cy="${y}" rx="7.5" ry="12" fill="url(#gDat)"/>
+        <path d="M${x - 3} ${y - 8} q3 -2 6 0" stroke="rgba(230,180,120,0.5)" stroke-width="1.6" fill="none"/>
+        <ellipse cx="${x - 2.4}" cy="${y - 3}" rx="1.6" ry="4" fill="rgba(230,180,120,0.3)"/>
+      </g>`).join("")}
+    <ellipse cx="20" cy="50" rx="6" ry="3.4" fill="#5a2f12"/>
+    <ellipse cx="20" cy="49" rx="2.4" ry="1.2" fill="#c9a45c"/>`);
+
+  ing.walnut = gw(`
+    <circle cx="26" cy="30" r="15" fill="#a5764a"/>
+    <path d="M26 16 V44 M15 22 q6 8 0 16 M37 22 q-6 8 0 16" stroke="#7c5228" stroke-width="2" fill="none"/>
+    <path d="M44 38 c6 0 10 4 10 8 c0 4 -4 7 -8 7 c-2 0 -3 -1 -4 -2 c-1 1 -2 2 -4 2 c-4 0 -8 -3 -8 -7 c0 -4 4 -8 10 -8 Z" fill="#d9b280"/>
+    <path d="M44 40 v11 M38 43 q3 3 6 3 M50 43 q-3 3 -6 3" stroke="#b08a52" stroke-width="1.6" fill="none"/>`);
+
+  ing.coconut = gw(`
+    <circle cx="30" cy="34" r="18" fill="#6b4423"/>
+    <circle cx="30" cy="34" r="14.5" fill="#f6f1e0"/>
+    <circle cx="30" cy="34" r="6" fill="#e2d6b8"/>
+    <circle cx="30" cy="34" r="18" fill="none" stroke="#4a2c12" stroke-width="2"/>
+    <g stroke="#8a5c30" stroke-width="1.2" opacity="0.7">
+      <path d="M16 24 q4 -3 8 -2" fill="none"/><path d="M40 20 q4 1 6 4" fill="none"/>
+    </g>
+    <g fill="#f6f1e0">
+      <ellipse cx="50" cy="46" rx="2.6" ry="1.2" transform="rotate(-16 50 46)"/>
+      <ellipse cx="54" cy="40" rx="2.6" ry="1.2" transform="rotate(12 54 40)"/>
+      <ellipse cx="48" cy="53" rx="2.6" ry="1.2" transform="rotate(8 48 53)"/>
+    </g>`);
+
+  ing.rosewater = gw(`
+    <path d="M26 20 h8 v6 q7 5 7 14 v8 a7 7 0 0 1 -7 7 h-8 a7 7 0 0 1 -7 -7 v-8 q0 -9 7 -14 Z"
+          fill="rgba(230,170,190,0.3)" stroke="rgba(220,190,210,0.7)" stroke-width="1.5"/>
+    <path d="M21 42 q0 -8 6 -12 h6 q6 4 6 12 v6 a5 5 0 0 1 -5 5 h-8 a5 5 0 0 1 -5 -5 Z" fill="#e58aa8"/>
+    <rect x="26" y="13" width="8" height="8" rx="2" fill="#b0806b"/>
+    <g transform="translate(46 24)">
+      <circle r="7" fill="#d3547a"/>
+      <path d="M0 -4 a4 4 0 0 1 4 4 a4 4 0 0 1 -4 4 a4 4 0 0 1 -4 -4 a2.5 2.5 0 0 1 4 -2" fill="none" stroke="#f2b8ca" stroke-width="1.5"/>
+      <path d="M-6 8 q6 4 12 0" stroke="#3f7a2c" stroke-width="2" fill="none"/>
+    </g>`);
+
+  ing.tea = gw(`
+    ${[[22, 24, -30], [36, 18, 10], [42, 34, 40]].map(([x, y, r]) => `
+      <g transform="rotate(${r} ${x} ${y})">
+        <path d="M${x} ${y - 10} q7 5 7 10 q0 7 -7 10 q-7 -3 -7 -10 q0 -5 7 -10 Z" fill="#2f5620"/>
+        <path d="M${x} ${y - 8} V${y + 8}" stroke="#5f8f3e" stroke-width="1.4"/>
+      </g>`).join("")}
+    <path d="M14 52 q18 -8 36 0 q-18 6 -36 0 Z" fill="#26150a"/>
+    <circle cx="24" cy="49" r="1.2" fill="#4a2c12"/><circle cx="34" cy="51" r="1.2" fill="#4a2c12"/>
+    <circle cx="42" cy="49" r="1.2" fill="#4a2c12"/>`);
+
+  ing.sugar = gw(`
+    <g fill="#fbfaf3" stroke="#d9d2ba" stroke-width="1.4">
+      <rect x="16" y="32" width="15" height="13" rx="2"/>
+      <rect x="34" y="34" width="14" height="12" rx="2"/>
+      <rect x="25" y="19" width="14" height="12" rx="2"/>
+    </g>
+    <g stroke="#e8e2cc" stroke-width="1.2">
+      <line x1="16" y1="37" x2="31" y2="37"/><line x1="34" y1="39" x2="48" y2="39"/>
+      <line x1="25" y1="24" x2="39" y2="24"/>
+    </g>
+    <path d="M50 18 l1.6 3.6 3.6 1.6 -3.6 1.6 -1.6 3.6 -1.6 -3.6 -3.6 -1.6 3.6 -1.6 Z" fill="#fff"/>
+    <circle cx="20" cy="52" r="1.3" fill="#fff"/><circle cx="30" cy="54" r="1.3" fill="#fff"/>
+    <circle cx="40" cy="52" r="1.3" fill="#fff"/>`);
+
+  return { dish: dish, city: city, icon: icon, ing: ing };
 })();
