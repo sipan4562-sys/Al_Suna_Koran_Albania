@@ -1138,7 +1138,7 @@ function WaitlistModal({ tier, onClose }) {
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="deine@email.de"
                         autoFocus
-                        className="w-full rounded-2xl border border-white/10 bg-zinc-950/70 py-4 pl-11 pr-4 text-sm text-white placeholder-zinc-600 outline-none transition focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-400/20"
+                        className="w-full rounded-2xl border border-white/10 bg-zinc-950/70 py-4 pl-11 pr-4 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-400/20"
                       />
                     </div>
                     {error && (
