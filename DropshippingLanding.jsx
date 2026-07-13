@@ -18,9 +18,11 @@ import {
   ChevronRight,
   Cpu,
   Crown,
+  FileText,
   Flame,
   Gem,
   Globe,
+  Info,
   Layers,
   LineChart,
   Lock,
@@ -29,6 +31,7 @@ import {
   MessageSquare,
   PackageCheck,
   Rocket,
+  Scale,
   ShieldCheck,
   Sparkles,
   Store,
@@ -36,6 +39,7 @@ import {
   Timer,
   TrendingUp,
   Truck,
+  Undo2,
   Users,
   X,
   Zap,
@@ -251,10 +255,15 @@ function HeroVisual({ mx, my }) {
                 <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
               </span>
               <span className="text-[11px] font-bold uppercase tracking-[0.25em] text-emerald-300">
-                Live Supply Chain
+                Supply Chain
               </span>
             </div>
-            <Cpu className="h-4 w-4 text-zinc-500" />
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-zinc-500">
+                Demo
+              </span>
+              <Cpu className="h-4 w-4 text-zinc-500" />
+            </div>
           </div>
 
           {/* Kette */}
@@ -437,7 +446,7 @@ function Hero() {
           className="mt-12 grid max-w-md grid-cols-3 gap-6 border-t border-white/[0.07] pt-8"
         >
           {[
-            { value: "38 %", label: "Ø Netto-Marge" },
+            { value: "38 %", label: "Ziel-Marge*" },
             { value: "5–8 T.", label: "Lieferzeit EU" },
             { value: "100 %", label: "Auto-Fulfillment" },
           ].map((s) => (
@@ -446,6 +455,9 @@ function Hero() {
               <p className="mt-1 text-xs uppercase tracking-widest text-zinc-500">{s.label}</p>
             </div>
           ))}
+          <p className="col-span-3 text-[11px] leading-relaxed text-zinc-600">
+            * Beispielhafte Zielwerte des Systems — keine Zusicherung individueller Ergebnisse.
+          </p>
         </motion.div>
       </div>
 
@@ -911,7 +923,7 @@ function PricingCard({ tier, onJoin, delay }) {
           >
             {tier.price} €
           </span>
-          <span className="pb-1.5 text-sm text-zinc-500">einmalig</span>
+          <span className="pb-1.5 text-sm text-zinc-500">einmalig · inkl. MwSt.</span>
         </div>
 
         {/* Features */}
@@ -942,7 +954,8 @@ function PricingCard({ tier, onJoin, delay }) {
             Jetzt Zugang sichern
           </motion.button>
           <p className="mt-3 text-center text-xs text-zinc-500">
-            Unverbindlich · Du wirst beim Launch zuerst informiert
+            Unverbindliche Voranmeldung — kein Kauf, keine Zahlungspflicht.
+            Du wirst beim Launch zuerst informiert.
           </p>
         </div>
       </TiltCard>
@@ -974,6 +987,7 @@ function Pricing({ onJoin }) {
 
       <Reveal delay={0.2} className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-xs text-zinc-500">
         <span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-emerald-400/70" /> Kein Abo, keine versteckten Kosten</span>
+        <span className="flex items-center gap-2"><Undo2 className="h-4 w-4 text-emerald-400/70" /> 14 Tage gesetzliches Widerrufsrecht</span>
         <span className="flex items-center gap-2"><Timer className="h-4 w-4 text-emerald-400/70" /> Warteliste schließt zum Launch</span>
         <span className="flex items-center gap-2"><Users className="h-4 w-4 text-emerald-400/70" /> Mentorship auf wenige Plätze begrenzt</span>
       </Reveal>
@@ -1034,8 +1048,9 @@ function SuccessParticles() {
   );
 }
 
-function WaitlistModal({ tier, onClose }) {
+function WaitlistModal({ tier, onClose, onOpenLegal }) {
   const [email, setEmail] = useState("");
+  const [consent, setConsent] = useState(false);
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const open = Boolean(tier);
@@ -1057,6 +1072,10 @@ function WaitlistModal({ tier, onClose }) {
       setError("Bitte gib eine gültige E-Mail-Adresse ein.");
       return;
     }
+    if (!consent) {
+      setError("Bitte bestätige die Einwilligung, damit wir dich anschreiben dürfen.");
+      return;
+    }
     setError("");
     setSubmitted(true);
   };
@@ -1065,6 +1084,7 @@ function WaitlistModal({ tier, onClose }) {
     <AnimatePresence
       onExitComplete={() => {
         setEmail("");
+        setConsent(false);
         setError("");
         setSubmitted(false);
       }}
@@ -1141,6 +1161,38 @@ function WaitlistModal({ tier, onClose }) {
                         className="w-full rounded-2xl border border-white/10 bg-zinc-950/70 py-4 pl-11 pr-4 text-sm text-white placeholder:text-zinc-600 outline-none transition focus:border-emerald-400/60 focus:ring-2 focus:ring-emerald-400/20"
                       />
                     </div>
+                    {/* DSGVO-Einwilligung (Art. 6 Abs. 1 lit. a) — nicht vorangekreuzt */}
+                    <label className="flex cursor-pointer items-start gap-3 select-none">
+                      <input
+                        type="checkbox"
+                        checked={consent}
+                        onChange={(e) => setConsent(e.target.checked)}
+                        className="peer sr-only"
+                      />
+                      <span
+                        aria-hidden
+                        className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md border transition ${
+                          consent
+                            ? "border-emerald-400 bg-emerald-400"
+                            : "border-white/20 bg-zinc-950/70 peer-focus-visible:border-emerald-400/60"
+                        }`}
+                      >
+                        {consent && <Check className="h-3.5 w-3.5 text-zinc-950" strokeWidth={3} />}
+                      </span>
+                      <span className="text-xs leading-relaxed text-zinc-400">
+                        Ich willige ein, per E-Mail über den Launch und damit verbundene
+                        Angebote informiert zu werden. Die{" "}
+                        <button
+                          type="button"
+                          onClick={() => onOpenLegal("datenschutz")}
+                          className="font-semibold text-emerald-300 underline underline-offset-2 hover:text-emerald-200"
+                        >
+                          Datenschutzerklärung
+                        </button>{" "}
+                        habe ich zur Kenntnis genommen. Ich kann meine Einwilligung jederzeit
+                        widerrufen — z.&nbsp;B. über den Abmeldelink in jeder E-Mail.
+                      </span>
+                    </label>
                     {error && (
                       <motion.p
                         initial={{ opacity: 0, y: -6 }}
@@ -1163,7 +1215,7 @@ function WaitlistModal({ tier, onClose }) {
 
                   <p className="mt-4 flex items-center justify-center gap-1.5 text-center text-[11px] text-zinc-500">
                     <ShieldCheck className="h-3.5 w-3.5 text-emerald-400/70" />
-                    Kein Spam. Abmeldung jederzeit möglich.
+                    Double-Opt-in: Erst nach Bestätigung deiner E-Mail bist du eingetragen.
                   </p>
                 </motion.div>
               ) : (
@@ -1197,8 +1249,10 @@ function WaitlistModal({ tier, onClose }) {
                     transition={{ delay: 0.45, duration: 0.5, ease: EASE }}
                     className="mt-2 text-sm leading-relaxed text-zinc-400"
                   >
-                    Willkommen im inneren Kreis. Du erhältst als Erste:r Bescheid,
-                    sobald <span className="font-semibold text-emerald-300">{tier?.name}</span> live geht.
+                    Fast geschafft: Wir haben dir eine Bestätigungs-E-Mail geschickt.
+                    Klicke auf den Link darin (Double-Opt-in) — danach erfährst du als
+                    Erste:r, sobald{" "}
+                    <span className="font-semibold text-emerald-300">{tier?.name}</span> live geht.
                   </motion.p>
                   <motion.button
                     initial={{ opacity: 0 }}
@@ -1220,23 +1274,260 @@ function WaitlistModal({ tier, onClose }) {
 }
 
 /* ------------------------------------------------------------
-   Footer
+   RECHTSTEXTE — Impressum · Datenschutz · Widerruf
+   WICHTIG: Alle [Platzhalter] vor dem Livegang durch echte
+   Angaben ersetzen und im Zweifel anwaltlich prüfen lassen.
    ------------------------------------------------------------ */
-function Footer() {
+const LEGAL_DOCS = {
+  impressum: {
+    icon: FileText,
+    title: "Impressum",
+    sections: [
+      {
+        h: "Angaben gemäß § 5 DDG",
+        p: [
+          "[Vor- und Nachname bzw. Firma]",
+          "[Straße und Hausnummer]",
+          "[PLZ] [Ort], Deutschland",
+        ],
+      },
+      {
+        h: "Kontakt",
+        p: [
+          "E-Mail: [deine@email.de]",
+          "Telefon: [+49 …]",
+        ],
+      },
+      {
+        h: "Umsatzsteuer",
+        p: [
+          "Umsatzsteuer-Identifikationsnummer gemäß § 27a UStG: [DE …]",
+          "Hinweis: Als Kleinunternehmer im Sinne von § 19 UStG entfällt diese Angabe — dann diesen Abschnitt entfernen und bei den Preisen „Umsatzsteuerfrei gemäß § 19 UStG“ statt „inkl. MwSt.“ angeben.",
+        ],
+      },
+      {
+        h: "Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV",
+        p: ["[Vor- und Nachname], [Anschrift wie oben]"],
+      },
+      {
+        h: "Verbraucherstreitbeilegung",
+        p: [
+          "Wir sind nicht bereit und nicht verpflichtet, an Streitbeilegungsverfahren vor einer Verbraucherschlichtungsstelle teilzunehmen (§ 36 VSBG).",
+        ],
+      },
+    ],
+  },
+  datenschutz: {
+    icon: ShieldCheck,
+    title: "Datenschutzerklärung",
+    sections: [
+      {
+        h: "1. Verantwortlicher",
+        p: [
+          "Verantwortlich für die Datenverarbeitung auf dieser Website im Sinne der DSGVO ist: [Vor- und Nachname], [Anschrift], E-Mail: [deine@email.de].",
+        ],
+      },
+      {
+        h: "2. Warteliste (E-Mail-Erfassung)",
+        p: [
+          "Wenn du dich in die Warteliste einträgst, verarbeiten wir deine E-Mail-Adresse ausschließlich, um dich über den Launch der Programme und damit verbundene Angebote zu informieren.",
+          "Rechtsgrundlage ist deine Einwilligung (Art. 6 Abs. 1 lit. a DSGVO). Die Anmeldung erfolgt im Double-Opt-in-Verfahren: Du erhältst zunächst eine Bestätigungs-E-Mail und wirst erst nach Klick auf den Bestätigungslink in die Liste aufgenommen.",
+          "Du kannst deine Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen — über den Abmeldelink in jeder E-Mail oder formlos per Nachricht an uns. Nach Widerruf oder Wegfall des Zwecks wird deine E-Mail-Adresse gelöscht.",
+        ],
+      },
+      {
+        h: "3. E-Mail-Versanddienstleister",
+        p: [
+          "Für die Verwaltung der Warteliste und den E-Mail-Versand nutzen wir [Anbieter, z. B. Brevo / Mailchimp / ConvertKit] als Auftragsverarbeiter gemäß Art. 28 DSGVO.",
+          "[Bei Anbietern mit Sitz außerhalb der EU: Hinweis auf geeignete Garantien ergänzen, z. B. EU-Standardvertragsklauseln oder EU-US Data Privacy Framework.]",
+        ],
+      },
+      {
+        h: "4. Server-Logfiles",
+        p: [
+          "Beim Aufruf dieser Website verarbeitet der Hosting-Anbieter automatisch technische Zugriffsdaten (u. a. IP-Adresse, Datum und Uhrzeit, Browsertyp), die zur Bereitstellung und Absicherung der Seite erforderlich sind. Rechtsgrundlage ist unser berechtigtes Interesse an einem sicheren Betrieb (Art. 6 Abs. 1 lit. f DSGVO).",
+        ],
+      },
+      {
+        h: "5. Cookies & Tracking",
+        p: [
+          "Diese Website setzt keine Cookies und keine Tracking- oder Analyse-Tools ein.",
+          "Hinweis: Sobald später Tools wie Meta Pixel, TikTok Pixel oder Google Analytics eingebunden werden, ist vorher eine aktive Einwilligung über ein Consent-Banner erforderlich (§ 25 TDDDG, Art. 6 Abs. 1 lit. a DSGVO) — und diese Erklärung ist entsprechend zu ergänzen.",
+        ],
+      },
+      {
+        h: "6. Deine Rechte",
+        p: [
+          "Du hast das Recht auf Auskunft (Art. 15 DSGVO), Berichtigung (Art. 16), Löschung (Art. 17), Einschränkung der Verarbeitung (Art. 18), Datenübertragbarkeit (Art. 20) und Widerspruch (Art. 21) sowie das Recht, dich bei einer Datenschutz-Aufsichtsbehörde zu beschweren (Art. 77 DSGVO).",
+        ],
+      },
+    ],
+  },
+  widerruf: {
+    icon: Undo2,
+    title: "Widerrufsbelehrung",
+    sections: [
+      {
+        h: "Widerrufsrecht",
+        p: [
+          "Verbrauchern steht bei Fernabsatzverträgen ein gesetzliches Widerrufsrecht zu (§§ 312g, 355 BGB):",
+          "Du hast das Recht, binnen vierzehn Tagen ohne Angabe von Gründen diesen Vertrag zu widerrufen. Die Widerrufsfrist beträgt vierzehn Tage ab dem Tag des Vertragsschlusses.",
+          "Um dein Widerrufsrecht auszuüben, musst du uns ([Name], [Anschrift], E-Mail: [deine@email.de]) mittels einer eindeutigen Erklärung (z. B. per E-Mail) über deinen Entschluss informieren, diesen Vertrag zu widerrufen. Du kannst dafür das unten stehende Muster-Widerrufsformular verwenden, das ist jedoch nicht vorgeschrieben.",
+          "Zur Wahrung der Widerrufsfrist reicht es aus, dass du die Mitteilung über die Ausübung des Widerrufsrechts vor Ablauf der Widerrufsfrist absendest.",
+        ],
+      },
+      {
+        h: "Folgen des Widerrufs",
+        p: [
+          "Wenn du diesen Vertrag widerrufst, erstatten wir dir alle Zahlungen, die wir von dir erhalten haben, unverzüglich und spätestens binnen vierzehn Tagen ab dem Tag, an dem die Mitteilung über deinen Widerruf bei uns eingegangen ist. Für die Rückzahlung verwenden wir dasselbe Zahlungsmittel, das du bei der ursprünglichen Transaktion eingesetzt hast; in keinem Fall werden dir wegen der Rückzahlung Entgelte berechnet.",
+        ],
+      },
+      {
+        h: "Vorzeitiges Erlöschen des Widerrufsrechts",
+        p: [
+          "Digitale Inhalte (z. B. „Deep-Dive Knowledge“): Das Widerrufsrecht erlischt vorzeitig, wenn wir mit der Ausführung des Vertrags begonnen haben, nachdem du ausdrücklich zugestimmt hast, dass wir vor Ablauf der Widerrufsfrist mit der Ausführung beginnen, und du deine Kenntnis davon bestätigt hast, dass du durch deine Zustimmung dein Widerrufsrecht verlierst (§ 356 Abs. 5 BGB). Diese Zustimmung wird im Bestellprozess ausdrücklich abgefragt.",
+          "Dienstleistungen (z. B. „Personal Mentorship“): Das Widerrufsrecht erlischt, wenn wir die Dienstleistung vollständig erbracht haben und mit der Ausführung erst begonnen haben, nachdem du dazu deine ausdrückliche Zustimmung gegeben und gleichzeitig deine Kenntnis davon bestätigt hast, dass du dein Widerrufsrecht bei vollständiger Vertragserfüllung verlierst (§ 356 Abs. 4 BGB).",
+        ],
+      },
+      {
+        h: "Muster-Widerrufsformular",
+        p: [
+          "(Wenn du den Vertrag widerrufen willst, fülle bitte dieses Formular aus und sende es zurück.)",
+          "An: [Name], [Anschrift], E-Mail: [deine@email.de]",
+          "Hiermit widerrufe(n) ich/wir (*) den von mir/uns (*) abgeschlossenen Vertrag über den Kauf der folgenden Waren (*) / die Erbringung der folgenden Dienstleistung (*): …",
+          "Bestellt am (*) / erhalten am (*): … · Name des/der Verbraucher(s): … · Anschrift des/der Verbraucher(s): … · Datum: …",
+          "(*) Unzutreffendes streichen.",
+        ],
+      },
+    ],
+  },
+};
+
+function LegalModal({ docKey, onClose }) {
+  const open = Boolean(docKey);
+  // Inhalt während der Exit-Animation behalten
+  const [current, setCurrent] = useState(docKey);
+  useEffect(() => {
+    if (docKey) setCurrent(docKey);
+  }, [docKey]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  const doc = current ? LEGAL_DOCS[current] : null;
+
   return (
-    <footer className="relative z-10 border-t border-white/[0.06] py-10">
-      <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-5 sm:flex-row sm:px-8">
-        <div className="flex items-center gap-2">
-          <div className="grid h-6 w-6 place-items-center rounded-md bg-gradient-to-br from-emerald-400 to-teal-500">
-            <Rocket className="h-3 w-3 text-zinc-950" strokeWidth={2.5} />
+    <AnimatePresence>
+      {open && doc && (
+        <motion.div
+          className="fixed inset-0 z-[60] grid place-items-center p-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <motion.div
+            className="absolute inset-0 bg-zinc-950/85 backdrop-blur-md"
+            onClick={onClose}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          />
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label={doc.title}
+            initial={{ opacity: 0, scale: 0.92, y: 32 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ type: "spring", stiffness: 280, damping: 26 }}
+            className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-zinc-900/95 shadow-2xl backdrop-blur-2xl"
+          >
+            {/* Kopf */}
+            <div className="flex items-center justify-between border-b border-white/[0.07] px-7 py-5">
+              <div className="flex items-center gap-3">
+                <div className="grid h-10 w-10 place-items-center rounded-xl border border-emerald-400/25 bg-emerald-400/10">
+                  <doc.icon className="h-5 w-5 text-emerald-300" />
+                </div>
+                <h3 className="text-lg font-extrabold tracking-tight text-white">{doc.title}</h3>
+              </div>
+              <button
+                onClick={onClose}
+                aria-label="Schließen"
+                className="grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-white/5 text-zinc-400 transition hover:border-emerald-400/40 hover:text-emerald-300"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Inhalt */}
+            <div className="overflow-y-auto px-7 py-6">
+              {/* Betreiber-Hinweis: nach dem Ausfüllen der Platzhalter entfernen */}
+              <div className="mb-6 flex gap-3 rounded-2xl border border-amber-400/25 bg-amber-400/[0.07] p-4">
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+                <p className="text-xs leading-relaxed text-amber-200/90">
+                  <span className="font-bold">Hinweis für den Betreiber:</span> Ersetze alle
+                  [Platzhalter] durch deine echten Angaben und lass die Texte vor dem Livegang
+                  idealerweise anwaltlich prüfen. Diesen Hinweiskasten danach entfernen.
+                </p>
+              </div>
+              <div className="space-y-6">
+                {doc.sections.map((s) => (
+                  <div key={s.h}>
+                    <h4 className="text-sm font-bold uppercase tracking-widest text-emerald-300">{s.h}</h4>
+                    <div className="mt-2 space-y-2">
+                      {s.p.map((para, i) => (
+                        <p key={i} className="text-sm leading-relaxed text-zinc-400">{para}</p>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/* ------------------------------------------------------------
+   Footer mit Pflicht-Links
+   ------------------------------------------------------------ */
+function Footer({ onOpenLegal }) {
+  return (
+    <footer className="relative z-10 border-t border-white/[0.06] py-12">
+      <div className="mx-auto max-w-7xl px-5 sm:px-8">
+        <div className="flex flex-col items-center justify-between gap-6 sm:flex-row">
+          <div className="flex items-center gap-2">
+            <div className="grid h-6 w-6 place-items-center rounded-md bg-gradient-to-br from-emerald-400 to-teal-500">
+              <Rocket className="h-3 w-3 text-zinc-950" strokeWidth={2.5} />
+            </div>
+            <span className="text-xs font-bold tracking-[0.2em] text-zinc-400">
+              NEXGEN<span className="text-emerald-400">·</span>COMMERCE
+            </span>
           </div>
-          <span className="text-xs font-bold tracking-[0.2em] text-zinc-400">
-            NEXGEN<span className="text-emerald-400">·</span>COMMERCE
-          </span>
+          <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs font-semibold text-zinc-400">
+            <button onClick={() => onOpenLegal("impressum")} className="flex items-center gap-1.5 transition hover:text-emerald-300">
+              <FileText className="h-3.5 w-3.5" /> Impressum
+            </button>
+            <button onClick={() => onOpenLegal("datenschutz")} className="flex items-center gap-1.5 transition hover:text-emerald-300">
+              <ShieldCheck className="h-3.5 w-3.5" /> Datenschutz
+            </button>
+            <button onClick={() => onOpenLegal("widerruf")} className="flex items-center gap-1.5 transition hover:text-emerald-300">
+              <Scale className="h-3.5 w-3.5" /> Widerrufsrecht
+            </button>
+          </nav>
         </div>
-        <p className="max-w-md text-center text-[11px] leading-relaxed text-zinc-600 sm:text-right">
-          © 2026 NexGen Commerce. Alle Angaben ohne Gewähr — Ergebnisse hängen von
-          individuellem Einsatz ab. Kein Erfolgsversprechen.
+        <p className="mt-8 text-center text-[11px] leading-relaxed text-zinc-600">
+          © 2026 NexGen Commerce. Alle dargestellten Kennzahlen (z. B. ROAS, Margen, Umsätze,
+          Bestellzahlen) sind beispielhafte Illustrationen zur Veranschaulichung des Systems und
+          keine Zusicherung individueller Ergebnisse. Erfolg hängt von persönlichem Einsatz,
+          Marktumfeld und Budget ab — kein Erfolgsversprechen. Alle Preise inkl. gesetzlicher
+          Umsatzsteuer. Verbrauchern steht ein 14-tägiges Widerrufsrecht zu.
         </p>
       </div>
     </footer>
@@ -1248,6 +1539,7 @@ function Footer() {
    ------------------------------------------------------------ */
 export default function DropshippingLanding() {
   const [activeTier, setActiveTier] = useState(null);
+  const [legalDoc, setLegalDoc] = useState(null);
 
   return (
     <div className="min-h-screen scroll-smooth bg-zinc-950 font-sans text-white antialiased selection:bg-emerald-400/30 selection:text-emerald-100">
@@ -1259,8 +1551,13 @@ export default function DropshippingLanding() {
         <Explainer />
         <Pricing onJoin={setActiveTier} />
       </main>
-      <Footer />
-      <WaitlistModal tier={activeTier} onClose={() => setActiveTier(null)} />
+      <Footer onOpenLegal={setLegalDoc} />
+      <WaitlistModal
+        tier={activeTier}
+        onClose={() => setActiveTier(null)}
+        onOpenLegal={setLegalDoc}
+      />
+      <LegalModal docKey={legalDoc} onClose={() => setLegalDoc(null)} />
     </div>
   );
 }
