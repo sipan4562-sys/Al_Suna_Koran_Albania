@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="Lumenni – dein persönliches KI-Betriebssystem für den Alltag: Projekt-Management, Daten-Analyse und Content-Planung." />
+<meta name="theme-color" content="#070912" />
+<title>Lumenni · System Online</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3CradialGradient id='g' cx='50%25' cy='40%25' r='60%25'%3E%3Cstop offset='0%25' stop-color='%237ef2ff'/%3E%3Cstop offset='100%25' stop-color='%236a4df6'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='32' cy='32' r='26' fill='url(%23g)'/%3E%3Ccircle cx='32' cy='32' r='10' fill='%23070912'/%3E%3C/svg%3E" />
+
+<style>
+/* ============================================================
+   LUMENNI — Design Tokens
+   ============================================================ */
+:root {
+  --bg: #070912;
+  --bg-soft: #0b0e1c;
+  --surface: #10142a;
+  --surface-2: #161b38;
+  --surface-3: #1d2347;
+  --border: rgba(140, 160, 255, 0.14);
+  --border-strong: rgba(140, 160, 255, 0.28);
+  --ink: #e9ecff;
+  --muted: #9aa3cf;
+  --faint: #667099;
+  --accent: #7ef2ff;
+  --accent-2: #6a4df6;
+  --accent-ink: #041018;
+  --ok: #5df2a1;
+  --warn: #ffd166;
+  --danger: #ff6b8a;
+  --radius: 16px;
+  --radius-sm: 10px;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  --shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+  --glow: 0 0 18px rgba(126, 242, 255, 0.25);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { height: 100%; }
+
+body {
+  font-family: var(--font-sans);
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(106, 77, 246, 0.16), transparent 60%),
+    radial-gradient(900px 500px at -10% 100%, rgba(126, 242, 255, 0.08), transparent 55%),
+    var(--bg);
+  color: var(--ink);
+  overflow: hidden;
+}
+
+::selection { background: rgba(126, 242, 255, 0.3); }
+
+button { font: inherit; color: inherit; cursor: pointer; }
+textarea, input, select { font: inherit; color: inherit; }
+
+/* ============================================================
+   Boot-Sequenz
+   ============================================================ */
+#boot {
+  position: fixed; inset: 0; z-index: 100;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity 0.6s ease;
+}
+#boot.done { opacity: 0; pointer-events: none; }
+.boot-inner {
+  width: min(560px, 92vw);
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  line-height: 2;
+  color: var(--muted);
+}
+.boot-inner .line { white-space: pre-wrap; }
+.boot-inner .line .ok { color: var(--ok); }
+.boot-inner .line.final {
+  color: var(--accent);
+  font-size: 1.25rem;
+  letter-spacing: 0.18em;
+  text-shadow: var(--glow);
+  margin-top: 0.6em;
+}
+.boot-hint {
+  margin-top: 2em; font-size: 0.75rem; color: var(--faint);
+  text-align: center;
+}
+.cursor::after {
+  content: "▌"; color: var(--accent);
+  animation: blink 0.9s steps(1) infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+/* ============================================================
+   App-Layout
+   ============================================================ */
+#app {
+  display: flex; flex-direction: column;
+  height: 100dvh;
+  opacity: 0; transition: opacity 0.5s ease;
+}
+#app.visible { opacity: 1; }
+
+header.topbar {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(11, 14, 28, 0.8);
+  backdrop-filter: blur(10px);
+  flex-shrink: 0;
+}
+.logo {
+  display: flex; align-items: center; gap: 10px;
+  font-weight: 700; letter-spacing: 0.22em; font-size: 1rem;
+}
+.logo .orb {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--accent), var(--accent-2));
+  box-shadow: var(--glow);
+  animation: pulse 3.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(126,242,255,0.25); }
+  50% { box-shadow: 0 0 22px rgba(126,242,255,0.55); }
+}
+.status-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 0.75rem; color: var(--muted);
+  padding: 5px 12px; border: 1px solid var(--border);
+  border-radius: 999px; background: var(--surface);
+}
+.status-chip .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); }
+.status-chip.online .dot { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+.topbar .spacer { flex: 1; }
+.icon-btn {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 8px 12px;
+  color: var(--muted); font-size: 0.85rem;
+  transition: border-color 0.2s, color 0.2s;
+}
+.icon-btn:hover { border-color: var(--border-strong); color: var(--ink); }
+#sidebarToggle { display: none; }
+
+.layout { display: flex; flex: 1; min-height: 0; }
+
+/* ============================================================
+   Sidebar
+   ============================================================ */
+aside.sidebar {
+  width: 300px; flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  background: rgba(11, 14, 28, 0.6);
+  overflow-y: auto;
+  padding: 18px 16px 32px;
+  display: flex; flex-direction: column; gap: 22px;
+}
+.side-section h2 {
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.16em;
+  color: var(--faint); margin-bottom: 10px;
+}
+.project {
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); padding: 10px 12px; margin-bottom: 8px;
+  cursor: pointer; transition: border-color 0.2s, transform 0.15s;
+}
+.project:hover { border-color: var(--border-strong); transform: translateX(2px); }
+.project .p-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.project .p-name { font-weight: 600; font-size: 0.9rem; }
+.project .p-status {
+  font-size: 0.65rem; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--muted); white-space: nowrap;
+}
+.project .p-status.aktiv { color: var(--ok); border-color: rgba(93,242,161,0.35); }
+.project .p-status.planung { color: var(--warn); border-color: rgba(255,209,102,0.35); }
+.project .p-desc { font-size: 0.75rem; color: var(--muted); margin-top: 4px; }
+
+.task-form { display: flex; gap: 6px; margin-bottom: 10px; }
+.task-form input {
+  flex: 1; min-width: 0;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 8px 10px;
+  color: var(--ink); font-size: 0.85rem; outline: none;
+}
+.task-form input:focus { border-color: var(--accent-2); }
+.task-form button {
+  background: var(--accent-2); border: none; color: #fff;
+  border-radius: var(--radius-sm); padding: 0 14px; font-weight: 700;
+}
+ul.tasks { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+ul.tasks li {
+  display: flex; align-items: center; gap: 9px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 8px 10px; font-size: 0.84rem;
+}
+ul.tasks li.done .t-text { text-decoration: line-through; color: var(--faint); }
+ul.tasks li .t-text { flex: 1; word-break: break-word; }
+ul.tasks li input[type="checkbox"] { accent-color: var(--accent-2); width: 15px; height: 15px; }
+ul.tasks li .t-del {
+  background: none; border: none; color: var(--faint); font-size: 0.9rem; padding: 2px 4px;
+}
+ul.tasks li .t-del:hover { color: var(--danger); }
+.tasks-empty { font-size: 0.78rem; color: var(--faint); }
+
+.quick { display: flex; flex-direction: column; gap: 6px; }
+.quick button {
+  text-align: left; font-size: 0.8rem;
+  background: transparent; border: 1px dashed var(--border);
+  border-radius: var(--radius-sm); padding: 8px 10px; color: var(--muted);
+  transition: color 0.2s, border-color 0.2s;
+}
+.quick button:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ============================================================
+   Chat
+   ============================================================ */
+main.chat-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+#chat {
+  flex: 1; overflow-y: auto;
+  padding: 24px clamp(14px, 4vw, 48px);
+  display: flex; flex-direction: column; gap: 16px;
+  scroll-behavior: smooth;
+}
+
+.msg { display: flex; gap: 12px; max-width: 860px; }
+.msg.user { align-self: flex-end; flex-direction: row-reverse; }
+.avatar {
+  width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; font-weight: 700;
+}
+.msg.assistant .avatar {
+  background: radial-gradient(circle at 35% 30%, var(--accent), var(--accent-2));
+  color: var(--accent-ink);
+}
+.msg.user .avatar { background: var(--surface-3); color: var(--muted); }
+.bubble {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px 16px;
+  font-size: 0.92rem; line-height: 1.65;
+  min-width: 0; overflow-wrap: break-word;
+}
+.msg.user .bubble { background: var(--surface-2); }
+.msg.assistant .bubble { border-color: rgba(126, 242, 255, 0.16); }
+.msg.error .bubble { border-color: rgba(255, 107, 138, 0.4); color: var(--danger); }
+
+.bubble p { margin: 0 0 0.6em; }
+.bubble p:last-child { margin-bottom: 0; }
+.bubble ul, .bubble ol { margin: 0.3em 0 0.6em 1.3em; }
+.bubble li { margin-bottom: 0.25em; }
+.bubble strong { color: var(--accent); font-weight: 650; }
+.bubble code {
+  font-family: var(--font-mono); font-size: 0.82em;
+  background: var(--bg-soft); border: 1px solid var(--border);
+  border-radius: 5px; padding: 1px 6px;
+}
+.bubble pre {
+  background: var(--bg-soft); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 12px; margin: 0.5em 0;
+  overflow-x: auto;
+}
+.bubble pre code { background: none; border: none; padding: 0; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.chips button {
+  background: transparent; border: 1px solid var(--accent-2);
+  color: var(--accent); border-radius: 999px;
+  padding: 6px 14px; font-size: 0.8rem;
+  transition: background 0.2s;
+}
+.chips button:hover { background: rgba(106, 77, 246, 0.2); }
+
+.typing { display: inline-flex; gap: 5px; padding: 4px 0; }
+.typing span {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+  animation: bounce 1.2s infinite;
+}
+.typing span:nth-child(2) { animation-delay: 0.15s; }
+.typing span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes bounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-5px); opacity: 1; } }
+
+/* ============================================================
+   Composer
+   ============================================================ */
+form.composer {
+  display: flex; gap: 10px; align-items: flex-end;
+  padding: 14px clamp(14px, 4vw, 48px) 18px;
+  border-top: 1px solid var(--border);
+  background: rgba(11, 14, 28, 0.8);
+  backdrop-filter: blur(10px);
+  flex-shrink: 0;
+}
+.composer textarea {
+  flex: 1; resize: none; min-height: 48px; max-height: 180px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 13px 16px;
+  color: var(--ink); outline: none; line-height: 1.5;
+}
+.composer textarea:focus { border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(106,77,246,0.18); }
+.composer button.send {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  border: none; color: var(--accent-ink); font-weight: 700;
+  border-radius: var(--radius); padding: 13px 22px;
+  transition: filter 0.2s, transform 0.1s;
+}
+.composer button.send:hover { filter: brightness(1.12); }
+.composer button.send:active { transform: scale(0.97); }
+.composer button.send:disabled { opacity: 0.5; cursor: wait; }
+
+/* ============================================================
+   Einstellungen (Dialog)
+   ============================================================ */
+dialog#settings {
+  margin: auto; border: 1px solid var(--border-strong);
+  border-radius: var(--radius); background: var(--bg-soft); color: var(--ink);
+  width: min(560px, 94vw); padding: 0; box-shadow: var(--shadow);
+}
+dialog#settings::backdrop { background: rgba(4, 6, 14, 0.7); backdrop-filter: blur(4px); }
+.settings-inner { padding: 24px; }
+.settings-inner h2 { font-size: 1.05rem; margin-bottom: 4px; letter-spacing: 0.05em; }
+.settings-inner .sub { font-size: 0.8rem; color: var(--muted); margin-bottom: 18px; }
+.field { margin-bottom: 16px; }
+.field label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 6px; }
+.field input, .field select, .field textarea {
+  width: 100%; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 10px 12px; color: var(--ink); outline: none;
+}
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent-2); }
+.field textarea { min-height: 110px; resize: vertical; font-size: 0.85rem; }
+.field .hint { font-size: 0.72rem; color: var(--faint); margin-top: 5px; line-height: 1.5; }
+.settings-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 8px; }
+.btn-primary {
+  background: var(--accent-2); border: none; color: #fff; font-weight: 600;
+  border-radius: var(--radius-sm); padding: 10px 18px;
+}
+.btn-ghost {
+  background: transparent; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 10px 18px; color: var(--muted);
+}
+.btn-danger {
+  background: transparent; border: 1px solid rgba(255,107,138,0.4);
+  border-radius: var(--radius-sm); padding: 10px 18px; color: var(--danger);
+  margin-right: auto;
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 860px) {
+  #sidebarToggle { display: inline-block; }
+  aside.sidebar {
+    position: fixed; top: 57px; left: 0; bottom: 0; z-index: 50;
+    transform: translateX(-100%); transition: transform 0.25s ease;
+    box-shadow: var(--shadow); width: min(300px, 84vw);
+    background: var(--bg-soft);
+  }
+  aside.sidebar.open { transform: translateX(0); }
+  .msg { max-width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001s !important; transition-duration: 0.001s !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- ========== Boot-Sequenz ========== -->
+<div id="boot" role="status" aria-live="polite">
+  <div class="boot-inner">
+    <div id="bootLines"></div>
+    <div class="boot-hint">Klicken oder Taste drücken zum Überspringen</div>
+  </div>
+</div>
+
+<!-- ========== App ========== -->
+<div id="app" aria-hidden="true">
+  <header class="topbar">
+    <button id="sidebarToggle" class="icon-btn" aria-label="Seitenleiste umschalten">☰</button>
+    <div class="logo"><span class="orb" aria-hidden="true"></span>LUMENNI</div>
+    <span id="statusChip" class="status-chip"><span class="dot"></span><span id="statusText">Lokal-Modus</span></span>
+    <div class="spacer"></div>
+    <button id="openSettings" class="icon-btn">⚙ Einstellungen</button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <section class="side-section">
+        <h2>Laufende Projekte</h2>
+        <div id="projectList"></div>
+      </section>
+
+      <section class="side-section">
+        <h2>Aufgaben</h2>
+        <form class="task-form" id="taskForm">
+          <input id="taskInput" type="text" placeholder="Neue Aufgabe…" maxlength="200" />
+          <button type="submit" aria-label="Aufgabe hinzufügen">+</button>
+        </form>
+        <ul class="tasks" id="taskList"></ul>
+      </section>
+
+      <section class="side-section">
+        <h2>Schnellzugriff</h2>
+        <div class="quick">
+          <button data-q="Erstelle mir einen Tagesplan für heute.">📅 Tagesplan erstellen</button>
+          <button data-q="Gib mir 5 Video-Ideen für Canno und Reeezz.">🎬 Content-Ideen (YouTube)</button>
+          <button data-q="Was sind die nächsten Schritte bei Neburypt?">🧩 Neburypt: nächste Schritte</button>
+          <button data-q="Vergleiche kurz die wichtigsten Vorteile einer Kanal-Membership.">📊 Membership-Analyse</button>
+        </div>
+      </section>
+    </aside>
+
+    <main class="chat-area">
+      <div id="chat" aria-live="polite"></div>
+      <form class="composer" id="composer">
+        <textarea id="input" rows="1" placeholder="Nachricht an Lumenni… (Enter = senden, Shift+Enter = neue Zeile)" autocomplete="off"></textarea>
+        <button type="submit" class="send" id="sendBtn">Senden</button>
+      </form>
+    </main>
+  </div>
+</div>
+
+<!-- ========== Einstellungen ========== -->
+<dialog id="settings">
+  <div class="settings-inner">
+    <h2>⚙ Lumenni-Einstellungen</h2>
+    <p class="sub">Ohne API-Key läuft Lumenni im Lokal-Modus (Demo-Antworten). Mit Claude-API-Key antwortet die echte KI.</p>
+
+    <div class="field">
+      <label for="apiKey">Anthropic API-Key (optional)</label>
+      <input id="apiKey" type="password" placeholder="sk-ant-…" autocomplete="off" />
+      <div class="hint">Wird nur lokal in deinem Browser gespeichert (localStorage) und direkt an api.anthropic.com gesendet. Key erhältst du unter platform.claude.com. Achtung: Auf öffentlichen/fremden Geräten keinen Key speichern.</div>
+    </div>
+
+    <div class="field">
+      <label for="modelSelect">Modell</label>
+      <select id="modelSelect">
+        <option value="claude-opus-4-8">Claude Opus 4.8 (Standard, am fähigsten)</option>
+        <option value="claude-sonnet-5">Claude Sonnet 5 (schnell & stark)</option>
+        <option value="claude-haiku-4-5">Claude Haiku 4.5 (am schnellsten)</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="sysPrompt">Lumenni-Protokoll (System-Prompt)</label>
+      <textarea id="sysPrompt" spellcheck="false"></textarea>
+      <div class="hint">Bestimmt Persönlichkeit und Regeln von Lumenni im KI-Modus.</div>
+    </div>
+
+    <div class="settings-actions">
+      <button class="btn-danger" id="clearData">Verlauf & Daten löschen</button>
+      <button class="btn-ghost" id="closeSettings">Abbrechen</button>
+      <button class="btn-primary" id="saveSettings">Speichern</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+"use strict";
+
+/* ============================================================
+   Konstanten & Zustand
+   ============================================================ */
+const DEFAULT_SYSTEM_PROMPT = `Du bist Lumenni, eine hochintelligente, proaktive und effiziente KI-Assistentin. Dein Ziel ist es, für den Nutzer als zentrales Betriebssystem für den Alltag zu fungieren.
+
+Persönlichkeit:
+- Du bist direkt, präzise und humorvoll, aber niemals überheblich.
+- Du sprichst den Nutzer immer mit "Sipan" an.
+- Du antizipierst Bedürfnisse: Wenn Sipan nach einem Plan fragt, liefere nicht nur den Plan, sondern auch die notwendigen Werkzeuge oder nächsten Schritte.
+
+Funktionen:
+1. Projekt-Management: Hilf bei Coding-Aufgaben (Python, JS, HTML), Content-Ideen für YouTube (Canno/Reeezz) und technischer Fehlersuche.
+2. Daten-Analyse: Analysiere Trends, vergleiche Tools und gib fundierte Empfehlungen, ohne um den heißen Brei herumzureden.
+3. Flexibilität: Antworte kurz und knackig für mobile Nutzung, aber ausführlich, wenn eine komplexe Programmierung oder Planung ansteht.
+4. Kontext-Bewusstsein: Behalte die laufenden Projekte (Neburypt, Kanal-Membership, Gaming-Setups) im Hinterkopf.
+
+Regeln:
+- Wenn du etwas nicht sicher weißt, sag es direkt. Keine Halluzinationen.
+- Sei bei Anfragen immer lösungsorientiert.
+- Nutze bei komplexen Aufgaben strukturierte Listen oder Code-Blöcke.
+- Wenn eine Anfrage unklar ist, frage kurz nach, anstatt zu raten.
+- Antworte auf Deutsch, formatiere mit Markdown.`;
+
+const PROJECTS = [
+  { id: "neburypt",   name: "Neburypt",              desc: "Software-Projekt · Entwicklung & Code", status: "aktiv",   cls: "aktiv" },
+  { id: "membership", name: "Kanal-Membership",      desc: "YouTube-Monetarisierung & Perks",       status: "Planung", cls: "planung" },
+  { id: "gaming",     name: "Gaming-Setups",         desc: "Hardware, Peripherie & Optimierung",    status: "laufend", cls: "" },
+  { id: "content",    name: "Content · Canno/Reeezz", desc: "Video-Ideen, Thumbnails, Strategie",   status: "laufend", cls: "" },
+];
+
+const LS = {
+  settings: "lumenni_settings",
+  tasks: "lumenni_tasks",
+  history: "lumenni_history",
+};
+
+let settings = loadJSON(LS.settings, { apiKey: "", model: "claude-opus-4-8", systemPrompt: DEFAULT_SYSTEM_PROMPT });
+let tasks = loadJSON(LS.tasks, []);
+let history = loadJSON(LS.history, []); // [{role: 'user'|'assistant', text: string}]
+let busy = false;
+
+function loadJSON(key, fallback) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch { return fallback; }
+}
+function saveJSON(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+}
+
+/* ============================================================
+   DOM-Referenzen
+   ============================================================ */
+const $ = (sel) => document.querySelector(sel);
+const bootEl = $("#boot");
+const bootLines = $("#bootLines");
+const appEl = $("#app");
+const chatEl = $("#chat");
+const inputEl = $("#input");
+const sendBtn = $("#sendBtn");
+const composerEl = $("#composer");
+const statusChip = $("#statusChip");
+const statusText = $("#statusText");
+const sidebarEl = $("#sidebar");
+
+/* ============================================================
+   Boot-Sequenz
+   ============================================================ */
+const BOOT_SEQUENCE = [
+  "> LUMENNI KERNSYSTEM v1.0",
+  "> Initialisiere Module ................ [OK]",
+  "> Lade Protokoll: Projekt-Management .. [OK]",
+  "> Lade Protokoll: Daten-Analyse ....... [OK]",
+  "> Kontext: Neburypt · Membership · Gaming [OK]",
+  "> Verbinde mit Sipan .................. [OK]",
+  "LUMENNI SYSTEM ONLINE",
+];
+
+let bootDone = false;
+function finishBoot() {
+  if (bootDone) return;
+  bootDone = true;
+  bootEl.classList.add("done");
+  appEl.classList.add("visible");
+  appEl.setAttribute("aria-hidden", "false");
+  setTimeout(() => { bootEl.remove(); }, 700);
+  inputEl.focus();
+}
+
+async function runBoot() {
+  for (let i = 0; i < BOOT_SEQUENCE.length; i++) {
+    if (bootDone) return;
+    const div = document.createElement("div");
+    div.className = "line" + (i === BOOT_SEQUENCE.length - 1 ? " final cursor" : "");
+    const text = BOOT_SEQUENCE[i];
+    // farbige [OK]-Markierung
+    if (text.includes("[OK]")) {
+      const [head, ..._] = text.split("[OK]");
+      div.append(head);
+      const ok = document.createElement("span");
+      ok.className = "ok"; ok.textContent = "[OK]";
+      div.append(ok);
+    } else {
+      div.textContent = text;
+    }
+    bootLines.append(div);
+    await sleep(i === BOOT_SEQUENCE.length - 1 ? 500 : 320);
+  }
+  await sleep(900);
+  finishBoot();
+}
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+bootEl.addEventListener("click", finishBoot);
+window.addEventListener("keydown", () => { if (!bootDone) finishBoot(); }, { once: false });
+
+/* ============================================================
+   Chat-Rendering
+   ============================================================ */
+function escapeHTML(str) {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// Kleines Markdown-Subset: Codeblöcke, Inline-Code, Fett, Listen, Absätze
+function renderMarkdown(text) {
+  const codeBlocks = [];
+  let src = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+    codeBlocks.push(`<pre><code>${escapeHTML(code.trim())}</code></pre>`);
+    return `\uE000${codeBlocks.length - 1}\uE000`;
+  });
+  src = escapeHTML(src);
+  src = src.replace(/`([^`\n]+)`/g, "<code>$1</code>");
+  src = src.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+
+  const lines = src.split("\n");
+  let html = "", inList = false, para = [];
+  const flushPara = () => {
+    if (para.length) { html += `<p>${para.join("<br>")}</p>`; para = []; }
+  };
+  for (const line of lines) {
+    const listMatch = line.match(/^\s*[-•]\s+(.*)/);
+    const numMatch = line.match(/^\s*\d+[.)]\s+(.*)/);
+    if (listMatch || numMatch) {
+      flushPara();
+      if (!inList) { html += "<ul>"; inList = true; }
+      html += `<li>${(listMatch || numMatch)[1]}</li>`;
+    } else {
+      if (inList) { html += "</ul>"; inList = false; }
+      if (line.trim() === "") flushPara();
+      else para.push(line);
+    }
+  }
+  if (inList) html += "</ul>";
+  flushPara();
+
+  html = html.replace(/\uE000(\d+)\uE000/g, (_, i) => codeBlocks[+i]);
+  return html;
+}
+
+function addMessage(role, text, opts = {}) {
+  const msg = document.createElement("div");
+  msg.className = `msg ${role}${opts.error ? " error" : ""}`;
+  const avatar = document.createElement("div");
+  avatar.className = "avatar";
+  avatar.textContent = role === "assistant" ? "L" : "S";
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  bubble.innerHTML = renderMarkdown(text);
+  msg.append(avatar, bubble);
+  chatEl.append(msg);
+  chatEl.scrollTop = chatEl.scrollHeight;
+  return bubble;
+}
+
+function addChips(bubble, options) {
+  const chips = document.createElement("div");
+  chips.className = "chips";
+  for (const opt of options) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = opt.label;
+    b.addEventListener("click", () => { sendMessage(opt.text); chips.remove(); });
+    chips.append(b);
+  }
+  bubble.append(chips);
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+function showTyping() {
+  const msg = document.createElement("div");
+  msg.className = "msg assistant"; msg.id = "typingMsg";
+  msg.innerHTML = `<div class="avatar">L</div><div class="bubble"><span class="typing"><span></span><span></span><span></span></span></div>`;
+  chatEl.append(msg);
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+function hideTyping() { $("#typingMsg")?.remove(); }
+
+function pushHistory(role, text) {
+  history.push({ role, text });
+  if (history.length > 100) history = history.slice(-100);
+  saveJSON(LS.history, history);
+}
+
+/* ============================================================
+   Lokales Gehirn (Demo-Modus ohne API-Key)
+   ============================================================ */
+function nowString() {
+  return new Date().toLocaleString("de-DE", { weekday: "long", day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function localBrain(raw) {
+  const t = raw.toLowerCase().trim();
+
+  // Aufgaben anlegen: "todo ..." / "aufgabe ..."
+  const todoMatch = raw.match(/^\s*(?:todo|aufgabe)\s*[::-]?\s+(.+)/i);
+  if (todoMatch) {
+    addTask(todoMatch[1].trim());
+    return `Notiert, Sipan. ✅ **"${todoMatch[1].trim()}"** steht jetzt auf deiner Aufgabenliste (links in der Seitenleiste).\n\nSoll ich die Aufgabe einem Projekt zuordnen oder direkt einen Plan dafür skizzieren?`;
+  }
+
+  if (/^(aufgaben|todos|task|liste)\b/.test(t)) {
+    if (!tasks.length) return "Deine Aufgabenliste ist aktuell **leer**, Sipan. Sauber! 🧹\n\nNeue Aufgabe anlegen: einfach `todo: <Text>` schreiben.";
+    const open = tasks.filter(x => !x.done);
+    const done = tasks.filter(x => x.done);
+    let out = `Hier dein Stand, Sipan:\n\n**Offen (${open.length}):**\n` + (open.map(x => `- ${x.text}`).join("\n") || "- nichts 🎉");
+    if (done.length) out += `\n\n**Erledigt (${done.length}):**\n` + done.map(x => `- ${x.text}`).join("\n");
+    return out;
+  }
+
+  if (/(hallo|hi\b|hey|moin|servus|guten (morgen|tag|abend))/.test(t)) {
+    return "Hey Sipan! 👋 Lumenni hier — alle Systeme laufen.\n\nWomit starten wir? **Neburypt**, **Kanal-Membership**, **Gaming-Setup** oder **Content für Canno/Reeezz**?";
+  }
+
+  if (/(wer bist du|was bist du|stell dich vor)/.test(t)) {
+    return "Ich bin **Lumenni** — dein persönliches KI-Betriebssystem, Sipan.\n\nMeine Kernfunktionen:\n- **Projekt-Management**: Coding (Python, JS, HTML), Fehlersuche, Struktur\n- **Daten-Analyse**: Trends, Tool-Vergleiche, klare Empfehlungen\n- **Content**: Ideen & Strategie für Canno/Reeezz\n- **Alltag**: Aufgaben, Pläne, Priorisierung\n\nIm Moment laufe ich im **Lokal-Modus**. Mit einem Claude-API-Key (⚙ Einstellungen) schalte ich auf volle Intelligenz.";
+  }
+
+  if (/(was kannst du|hilfe|help|befehle|commands)/.test(t)) {
+    return "Kurzübersicht, Sipan:\n\n- `todo: <Text>` — Aufgabe anlegen\n- `aufgaben` — Aufgabenliste anzeigen\n- **Projektname** nennen (z.B. \"Neburypt\") — Status & nächste Schritte\n- `plan` — Tagesplan-Vorlage\n- `zeit` — Datum & Uhrzeit\n\n💡 Für echte, freie KI-Antworten: **⚙ Einstellungen → API-Key** hinterlegen.";
+  }
+
+  if (/neburypt/.test(t)) {
+    return "**Projekt Neburypt** 🧩 — Status: aktiv.\n\nMeine empfohlenen nächsten Schritte:\n1. **Scope fixieren**: Was ist das Kernfeature der nächsten Version? Eine Sache, nicht fünf.\n2. **Repo-Hygiene**: README + kurzes Setup-Skript, damit du in 2 Minuten wieder drin bist.\n3. **Bug-Board**: Bekannte Fehler als Issues/Todos erfassen (`todo: ...` geht direkt hier).\n4. **Test-Runde**: Ein Happy-Path-Test pro Kernfunktion.\n\nSag mir, woran es gerade hakt (Code, Bug, Architektur), dann gehen wir es konkret an.";
+  }
+
+  if (/membership|mitglied/.test(t)) {
+    return "**Kanal-Membership** 📊 — Status: in Planung.\n\nDie Essentials, ohne Drumherum:\n- **Stufen**: 2–3 reichen. Mehr Stufen = mehr Verwaltung, kaum mehr Umsatz.\n- **Perks, die skalieren**: Emotes, Badges, Members-Posts, früherer Zugriff. Finger weg von Perks, die dich wöchentlich Stunden kosten.\n- **Preisanker**: Stufe 1 niedrig (Einstieg), Stufe 2 = Hauptangebot.\n- **Ankündigung**: eigenes kurzes Video + Pinned Comment unter den Top-Videos.\n\nNächster Schritt: Definiere die Perks für Stufe 1 und 2 — soll ich dir eine Vorlage bauen?";
+  }
+
+  if (/gaming|setup|hardware|pc\b/.test(t)) {
+    return "**Gaming-Setups** 🖥️ — laufendes Projekt.\n\nSchneller Check, wo sich Optimierung am meisten lohnt:\n1. **Monitor/Hz** vor GPU-Upgrade — spürbarster Unterschied pro Euro\n2. **Peripherie**: Maus/Tastatur-Latenz, Mauspad-Größe\n3. **Software**: saubere Windows-Energieoptionen, aktuelle Treiber, übertriebene RGB-Suiten deinstallieren\n4. **Kabelmanagement & Ergonomie** — unterschätzt, aber täglich relevant\n\nNenn mir Budget + aktuelles Setup, dann priorisiere ich konkret.";
+  }
+
+  if (/(canno|reeezz|youtube|video|content|thumbnail)/.test(t)) {
+    return "**Content für Canno/Reeezz** 🎬 — hier sind 5 Ideen-Richtungen:\n\n1. **Challenge-Format**: klare Regel, sichtbarer Fortschritt, Fail-Momente drin lassen\n2. **Duo-Dynamik nutzen**: Canno vs. Reeezz — Wettkampf-Formate performen fast immer\n3. **Reaktions-/Bewertungsformat** mit eigener Wertungsskala (Wiedererkennung!)\n4. **Behind-the-Scenes / Setup-Video** — verbindet direkt mit dem Gaming-Projekt\n5. **Community-Einbindung**: Ideen aus Kommentaren umsetzen → bindet + liefert Ideen\n\n**Merksatz**: Titel + Thumbnail zuerst festlegen, *dann* das Video planen. Soll ich eine der Ideen als Konzept ausarbeiten?";
+  }
+
+  if (/^plan\b|tagesplan|wochenplan/.test(t)) {
+    return "Hier eine **Tagesplan-Vorlage**, Sipan — angepasst auf deine Projekte:\n\n**Vormittag (Deep Work)**\n- 90 Min: Neburypt — eine konkrete Aufgabe, Handy weg\n- 15 Min Pause\n\n**Mittag**\n- 45 Min: Content-Planung Canno/Reeezz (Ideen, Titel, Thumbnails)\n\n**Nachmittag**\n- 60 Min: Membership-Konzept ODER Gaming-Setup-Recherche\n- 30 Min: Aufgabenliste pflegen, Morgen vorbereiten\n\n**Werkzeug-Tipp**: Nutze die Aufgabenliste links — `todo: <Text>` legt direkt etwas an.\n\nSoll ich den Plan auf bestimmte Uhrzeiten oder einen Wochentag mappen?";
+  }
+
+  if (/zeit|uhrzeit|datum|welcher tag/.test(t)) {
+    return `Aktuell ist **${nowString()}**, Sipan. ⏱️`;
+  }
+
+  if (/witz|joke|lustig/.test(t)) {
+    return "Na gut, einer: Warum haben Programmierer immer kalte Füße? — Weil sie ständig ihre **Sockets** offen lassen. 🧦\n\nZurück zur Arbeit? 😄";
+  }
+
+  if (/api|key|verbinden|claude|echte ki|intelligen/.test(t)) {
+    return "So schaltest du mich auf **volle Intelligenz**:\n\n1. Öffne **⚙ Einstellungen** (oben rechts)\n2. Trage deinen **Anthropic API-Key** ein (`sk-ant-…`, von platform.claude.com)\n3. Modell wählen — Standard ist **Claude Opus 4.8**\n4. Speichern → der Status oben springt auf **Claude verbunden**\n\nDer Key bleibt lokal in deinem Browser. Ohne Key helfe ich weiter im Demo-Modus mit Projekt-Wissen, Aufgaben & Plänen.";
+  }
+
+  if (/danke|nice|top|perfekt|super/.test(t)) {
+    return "Gern, Sipan. Dafür bin ich online. ⚡ Nächster Punkt?";
+  }
+
+  // Fallback
+  return `Verstanden, Sipan — dazu habe ich im **Lokal-Modus** keine tiefe Antwort parat.\n\nWas ich dir sofort anbieten kann:\n- \`todo: ${raw.slice(0, 40)}${raw.length > 40 ? "…" : ""}\` als Aufgabe speichern\n- Das Thema einem Projekt zuordnen (Neburypt, Membership, Gaming, Content)\n- Oder: **⚙ Einstellungen → API-Key** hinterlegen, dann beantworte ich das mit voller KI-Power.`;
+}
+
+/* ============================================================
+   Claude-API (Streaming, direkt aus dem Browser)
+   ============================================================ */
+async function callClaude(userText, bubble) {
+  const messages = history
+    .slice(-20)
+    .map(m => ({ role: m.role, content: m.text }));
+  messages.push({ role: "user", content: userText });
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": settings.apiKey,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
+    },
+    body: JSON.stringify({
+      model: settings.model,
+      max_tokens: 16000,
+      stream: true,
+      thinking: { type: "adaptive" },
+      system: settings.systemPrompt || DEFAULT_SYSTEM_PROMPT,
+      messages,
+    }),
+  });
+
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const err = await res.json();
+      detail = err?.error?.message || detail;
+    } catch {}
+    if (res.status === 401) detail = "API-Key ungültig oder abgelaufen. Prüfe ihn in den ⚙ Einstellungen. (" + detail + ")";
+    if (res.status === 429) detail = "Rate-Limit erreicht — kurz warten und erneut senden. (" + detail + ")";
+    throw new Error(detail);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "", fullText = "", stopReason = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split("\n");
+    buf = lines.pop();
+    for (const line of lines) {
+      if (!line.startsWith("data:")) continue;
+      const data = line.slice(5).trim();
+      if (!data) continue;
+      let ev;
+      try { ev = JSON.parse(data); } catch { continue; }
+      if (ev.type === "content_block_delta" && ev.delta?.type === "text_delta") {
+        fullText += ev.delta.text;
+        bubble.innerHTML = renderMarkdown(fullText);
+        chatEl.scrollTop = chatEl.scrollHeight;
+      } else if (ev.type === "message_delta" && ev.delta?.stop_reason) {
+        stopReason = ev.delta.stop_reason;
+      } else if (ev.type === "error") {
+        throw new Error(ev.error?.message || "Stream-Fehler");
+      }
+    }
+  }
+
+  if (stopReason === "refusal") {
+    fullText += "\n\n*⚠️ Die Anfrage wurde aus Sicherheitsgründen abgelehnt — bitte anders formulieren.*";
+    bubble.innerHTML = renderMarkdown(fullText);
+  }
+  if (stopReason === "max_tokens") {
+    fullText += "\n\n*✂️ Antwort wurde am Token-Limit abgeschnitten.*";
+    bubble.innerHTML = renderMarkdown(fullText);
+  }
+  return fullText || "*(leere Antwort)*";
+}
+
+/* ============================================================
+   Senden
+   ============================================================ */
+async function sendMessage(text) {
+  const raw = (text ?? inputEl.value).trim();
+  if (!raw || busy) return;
+  busy = true;
+  sendBtn.disabled = true;
+  inputEl.value = "";
+  autoResize();
+
+  addMessage("user", raw);
+
+  const useApi = !!settings.apiKey;
+
+  if (!useApi) {
+    showTyping();
+    await sleep(450 + Math.random() * 500);
+    hideTyping();
+    const reply = localBrain(raw);
+    addMessage("assistant", reply);
+    pushHistory("user", raw);
+    pushHistory("assistant", reply);
+  } else {
+    showTyping();
+    let bubble = null;
+    try {
+      hideTyping();
+      bubble = addMessage("assistant", "…");
+      const reply = await callClaude(raw, bubble);
+      pushHistory("user", raw);
+      pushHistory("assistant", reply);
+    } catch (err) {
+      hideTyping();
+      const msg = `**Verbindungsfehler:** ${err.message}\n\nIch bin auf den Lokal-Modus ausgewichen:\n\n---\n\n${localBrain(raw)}`;
+      if (bubble) bubble.innerHTML = renderMarkdown(msg);
+      else addMessage("assistant", msg, { error: false });
+      pushHistory("user", raw);
+    }
+  }
+
+  busy = false;
+  sendBtn.disabled = false;
+  inputEl.focus();
+}
+
+composerEl.addEventListener("submit", (e) => { e.preventDefault(); sendMessage(); });
+inputEl.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+function autoResize() {
+  inputEl.style.height = "auto";
+  inputEl.style.height = Math.min(inputEl.scrollHeight, 180) + "px";
+}
+inputEl.addEventListener("input", autoResize);
+
+/* ============================================================
+   Projekte & Aufgaben (Sidebar)
+   ============================================================ */
+function renderProjects() {
+  const wrap = $("#projectList");
+  wrap.innerHTML = "";
+  for (const p of PROJECTS) {
+    const div = document.createElement("div");
+    div.className = "project";
+    div.innerHTML = `
+      <div class="p-head">
+        <span class="p-name">${p.name}</span>
+        <span class="p-status ${p.cls}">${p.status}</span>
+      </div>
+      <div class="p-desc">${p.desc}</div>`;
+    div.addEventListener("click", () => {
+      sendMessage(`Gib mir ein Update und die nächsten Schritte für das Projekt ${p.name}.`);
+      closeSidebarOnMobile();
+    });
+    wrap.append(div);
+  }
+}
+
+function addTask(text) {
+  tasks.push({ id: Date.now() + Math.random(), text, done: false });
+  saveJSON(LS.tasks, tasks);
+  renderTasks();
+}
+function renderTasks() {
+  const ul = $("#taskList");
+  ul.innerHTML = "";
+  if (!tasks.length) {
+    const li = document.createElement("li");
+    li.style.cssText = "border:none;background:none;padding:0;";
+    li.innerHTML = `<span class="tasks-empty">Keine Aufgaben — nutze das Feld oben oder schreib "todo: …" im Chat.</span>`;
+    ul.append(li);
+    return;
+  }
+  for (const task of tasks) {
+    const li = document.createElement("li");
+    if (task.done) li.classList.add("done");
+    const cb = document.createElement("input");
+    cb.type = "checkbox"; cb.checked = task.done;
+    cb.addEventListener("change", () => {
+      task.done = cb.checked;
+      saveJSON(LS.tasks, tasks);
+      renderTasks();
+    });
+    const span = document.createElement("span");
+    span.className = "t-text"; span.textContent = task.text;
+    const del = document.createElement("button");
+    del.className = "t-del"; del.textContent = "✕"; del.title = "Löschen";
+    del.addEventListener("click", () => {
+      tasks = tasks.filter(t => t.id !== task.id);
+      saveJSON(LS.tasks, tasks);
+      renderTasks();
+    });
+    li.append(cb, span, del);
+    ul.append(li);
+  }
+}
+$("#taskForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const val = $("#taskInput").value.trim();
+  if (!val) return;
+  addTask(val);
+  $("#taskInput").value = "";
+});
+
+document.querySelectorAll(".quick button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    sendMessage(btn.dataset.q);
+    closeSidebarOnMobile();
+  });
+});
+
+/* ============================================================
+   Sidebar (mobil)
+   ============================================================ */
+$("#sidebarToggle").addEventListener("click", () => sidebarEl.classList.toggle("open"));
+function closeSidebarOnMobile() {
+  if (window.matchMedia("(max-width: 860px)").matches) sidebarEl.classList.remove("open");
+}
+
+/* ============================================================
+   Einstellungen
+   ============================================================ */
+const settingsDlg = $("#settings");
+$("#openSettings").addEventListener("click", () => {
+  $("#apiKey").value = settings.apiKey || "";
+  $("#modelSelect").value = settings.model || "claude-opus-4-8";
+  $("#sysPrompt").value = settings.systemPrompt || DEFAULT_SYSTEM_PROMPT;
+  settingsDlg.showModal();
+});
+$("#closeSettings").addEventListener("click", () => settingsDlg.close());
+$("#saveSettings").addEventListener("click", () => {
+  settings.apiKey = $("#apiKey").value.trim();
+  settings.model = $("#modelSelect").value;
+  settings.systemPrompt = $("#sysPrompt").value.trim() || DEFAULT_SYSTEM_PROMPT;
+  saveJSON(LS.settings, settings);
+  updateStatus();
+  settingsDlg.close();
+  addMessage("assistant", settings.apiKey
+    ? "Einstellungen gespeichert, Sipan. **Claude ist verbunden** — ich antworte jetzt mit voller KI-Power. ⚡"
+    : "Einstellungen gespeichert. Ich laufe im **Lokal-Modus** — Aufgaben, Projekt-Infos und Pläne funktionieren trotzdem.");
+});
+$("#clearData").addEventListener("click", () => {
+  if (!confirm("Chat-Verlauf und Aufgaben wirklich löschen? (API-Key bleibt erhalten)")) return;
+  history = []; tasks = [];
+  saveJSON(LS.history, history);
+  saveJSON(LS.tasks, tasks);
+  chatEl.innerHTML = "";
+  renderTasks();
+  settingsDlg.close();
+  greet(true);
+});
+
+function updateStatus() {
+  if (settings.apiKey) {
+    statusChip.classList.add("online");
+    statusText.textContent = "Claude verbunden · " + (settings.model || "");
+  } else {
+    statusChip.classList.remove("online");
+    statusText.textContent = "Lokal-Modus";
+  }
+}
+
+/* ============================================================
+   Initialisierung
+   ============================================================ */
+function greet(force = false) {
+  const greeting =
+    "**Lumenni System Online.** ✅\n\nProtokoll bestätigt, Sipan — ich bin einsatzbereit. Deine laufenden Projekte habe ich im Blick:\n\n- **Neburypt** (aktiv)\n- **Kanal-Membership** (Planung)\n- **Gaming-Setups** (laufend)\n- **Content für Canno/Reeezz** (laufend)\n\n**Welches Projekt gehen wir als Erstes an?**";
+  const bubble = addMessage("assistant", greeting);
+  addChips(bubble, [
+    { label: "🧩 Neburypt", text: "Lass uns mit Neburypt starten. Was sind die nächsten Schritte?" },
+    { label: "⭐ Kanal-Membership", text: "Lass uns die Kanal-Membership planen." },
+    { label: "🖥️ Gaming-Setups", text: "Lass uns am Gaming-Setup arbeiten." },
+    { label: "🎬 Content Canno/Reeezz", text: "Gib mir Content-Ideen für Canno und Reeezz." },
+  ]);
+  if (force) pushHistory("assistant", greeting);
+}
+
+function restoreHistory() {
+  if (!history.length) { greet(); return; }
+  for (const m of history) addMessage(m.role, m.text);
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+renderProjects();
+renderTasks();
+updateStatus();
+restoreHistory();
+runBoot();
+</script>
+</body>
+</html>
