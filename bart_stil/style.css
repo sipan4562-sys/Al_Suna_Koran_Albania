@@ -738,6 +738,28 @@ footer {
   background: var(--bg-2);
 }
 footer .foot-in { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; }
+.made-by {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+.made-by > span { color: var(--faint); }
+a.ig {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.8rem 0.35rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+a.ig svg { width: 18px; height: 18px; flex: none; }
+a.ig:hover { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 
 .to-top {
   position: fixed;
