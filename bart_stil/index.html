@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="de" data-theme="dark">
+<html lang="de" dir="ltr" data-theme="dark">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Bart_stil · Bartstile ansehen und Schritt für Schritt nachmachen</title>
-<meta name="description" content="Bart_stil zeigt alle gängigen Bartstile mit Illustration, Trimmer-Einstellungen und einem 1:1-Tutorial am echten Beispielfoto – vom Stoppelbart über den Vollbart bis zum Zwirbelbart." />
+<meta name="description" content="Bart_stil zeigt alle gängigen Bartstile mit Illustration, Trimmer-Einstellungen und einem 1:1-Tutorial an einem animierten Gesicht – auf Deutsch, Englisch und Arabisch." />
 <meta name="theme-color" content="#14100d" />
 <link rel="stylesheet" href="style.css" />
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧔</text></svg>" />
@@ -21,24 +21,32 @@
       </svg>
       Bart<b>_stil</b>
     </a>
+
     <nav class="main">
-      <a href="#tutorial">1:1&nbsp;Tutorial</a>
-      <a href="#stile">Alle Stile</a>
-      <a href="#finder">Gesichtsform</a>
-      <a href="#werkzeug">Werkzeug</a>
-      <a href="#pflege">Pflege</a>
-      <a href="#faq">FAQ</a>
+      <a href="#tutorial" data-i18n="nav.tutorial"></a>
+      <a href="#stile" data-i18n="nav.styles"></a>
+      <a href="#finder" data-i18n="nav.finder"></a>
+      <a href="#werkzeug" data-i18n="nav.kit"></a>
+      <a href="#pflege" data-i18n="nav.care"></a>
+      <a href="#faq" data-i18n="nav.faq"></a>
     </nav>
-    <a class="icon-btn" href="https://www.instagram.com/rezzzzzzzzxvhdcjh?igsh=MTVqNzgzMWJyNTRxYg%3D%3D&amp;utm_source=qr"
-       target="_blank" rel="noopener noreferrer"
-       title="Instagram des Website-Erstellers" aria-label="Instagram des Website-Erstellers">
+
+    <div class="lang-switch" id="langSwitch" role="group" aria-label="Sprache / Language / اللغة">
+      <button type="button" data-lang="de" lang="de">DE</button>
+      <button type="button" data-lang="en" lang="en">EN</button>
+      <button type="button" data-lang="ar" lang="ar">ع</button>
+    </div>
+
+    <a class="icon-btn" id="igLink"
+       href="https://www.instagram.com/rezzzzzzzzxvhdcjh?igsh=MTVqNzgzMWJyNTRxYg%3D%3D&amp;utm_source=qr"
+       target="_blank" rel="noopener noreferrer">
       <svg viewBox="0 0 24 24" style="width:19px;height:19px" aria-hidden="true">
         <rect x="2.5" y="2.5" width="19" height="19" rx="5.5" fill="none" stroke="currentColor" stroke-width="1.9"/>
         <circle cx="12" cy="12" r="4.4" fill="none" stroke="currentColor" stroke-width="1.9"/>
         <circle cx="17.6" cy="6.4" r="1.3" fill="currentColor"/>
       </svg>
     </a>
-    <button class="icon-btn" id="themeBtn" title="Hell / Dunkel umschalten" aria-label="Hell oder Dunkel umschalten">◐</button>
+    <button class="icon-btn" id="themeBtn">◐</button>
   </div>
 </header>
 
@@ -48,21 +56,17 @@
   <section class="hero">
     <div class="wrap hero-grid">
       <div>
-        <span class="eyebrow">Bartstile ansehen · verstehen · nachmachen</span>
-        <h1>Jeder Bart ist <em>eine Technik</em>, kein Zufall.</h1>
-        <p class="lead">
-          <b>Bart_stil</b> zeigt dir alle gängigen Bartformen als Illustration – mit Wuchsdauer,
-          Trimmer-Einstellungen in Millimetern und einem Schritt-für-Schritt-Tutorial für jeden
-          einzelnen Stil. Dazu ein 1:1-Tutorial an einem echten Gesicht.
-        </p>
+        <span class="eyebrow" data-i18n="hero.eyebrow"></span>
+        <h1 data-i18n-html="hero.title"></h1>
+        <p class="lead" data-i18n-html="hero.lead"></p>
         <div class="cta-row">
-          <a class="btn btn-primary" href="#tutorial">1:1&nbsp;Tutorial starten →</a>
-          <a class="btn btn-ghost" href="#stile">Alle Stile ansehen</a>
+          <a class="btn btn-primary" href="#tutorial" data-i18n-html="hero.cta1"></a>
+          <a class="btn btn-ghost" href="#stile" data-i18n="hero.cta2"></a>
         </div>
         <div class="stat-row">
-          <div class="stat"><b id="stCount">–</b><span>Bartstile mit Anleitung</span></div>
-          <div class="stat"><b id="stSteps">–</b><span>Einzelschritte</span></div>
-          <div class="stat"><b>6</b><span>Gesichtsformen</span></div>
+          <div class="stat"><b id="stCount">–</b><span data-i18n="hero.s1"></span></div>
+          <div class="stat"><b id="stSteps">–</b><span data-i18n="hero.s2"></span></div>
+          <div class="stat"><b>6</b><span data-i18n="hero.s3"></span></div>
         </div>
       </div>
       <div class="hero-art" id="heroArt"></div>
@@ -73,27 +77,18 @@
   <section class="tut" id="tutorial">
     <div class="wrap">
       <div class="sec-head">
-        <span class="kicker">Das 1:1-Tutorial</span>
-        <h2>Von diesem Gesicht zu deinem Bart</h2>
-        <p>
-          Als Beispiel dient ein echtes Foto mit einem kurzen, gewachsenen Stoppelbart – dem Punkt,
-          an dem fast jeder Bart beginnt. Das Gesicht ist zum Schutz der Privatsphäre unkenntlich
-          gemacht; der Bartbereich bleibt scharf, denn genau darum geht es. Klicke einen Schritt an,
-          um die passende Hilfslinie im Foto einzublenden.
-        </p>
+        <span class="kicker" data-i18n="tut.kicker"></span>
+        <h2 data-i18n="tut.h2"></h2>
+        <p data-i18n="tut.intro"></p>
       </div>
 
       <div class="tut-grid">
         <div class="photo-wrap">
-          <div class="photo-stage">
-            <img src="assets/beispiel-zensiert.jpg" width="800" height="1208"
-                 alt="Beispielfoto: Gesicht mit kurzem Stoppelbart, Augen- und Nasenpartie zur Anonymisierung verpixelt" />
-            <svg class="guides" id="guides" viewBox="0 0 800 1208" aria-hidden="true"></svg>
+          <div class="face-stage" id="faceStage">
+            <svg class="guides" id="guides" viewBox="0 0 340 300" aria-hidden="true"></svg>
           </div>
           <div class="guide-legend" id="guideLegend"></div>
-          <p class="photo-cap">
-            Beispielfoto · Gesichtspartie bewusst verpixelt · Hilfslinien sind schematisch
-          </p>
+          <p class="photo-cap" data-i18n="tut.caption"></p>
         </div>
 
         <div class="steps" id="photoSteps"></div>
@@ -105,12 +100,9 @@
   <section id="stile">
     <div class="wrap">
       <div class="sec-head">
-        <span class="kicker">Die Sammlung</span>
-        <h2>Alle Bartstile</h2>
-        <p>
-          Filtere nach Kategorie, Schwierigkeit oder Gesichtsform. Ein Klick auf eine Karte öffnet
-          das vollständige Tutorial mit Werkzeugliste, Millimeter-Angaben und typischen Fehlern.
-        </p>
+        <span class="kicker" data-i18n="list.kicker"></span>
+        <h2 data-i18n="list.h2"></h2>
+        <p data-i18n="list.intro"></p>
       </div>
 
       <div class="toolbar">
@@ -118,45 +110,28 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
             <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" stroke-linecap="round" />
           </svg>
-          <input type="search" id="q" placeholder="Stil suchen – z. B. Vollbart, Goatee, Zwirbel…" aria-label="Bartstil suchen" />
+          <input type="search" id="q" />
         </label>
-        <select class="sel" id="fFace" aria-label="Nach Gesichtsform filtern">
-          <option value="">Alle Gesichtsformen</option>
-        </select>
-        <select class="sel" id="fLevel" aria-label="Nach Schwierigkeit filtern">
-          <option value="">Jede Schwierigkeit</option>
-          <option value="0">Einsteiger</option>
-          <option value="1">Fortgeschritten</option>
-          <option value="2">Profi</option>
-        </select>
-        <button class="chip" id="fFav" aria-pressed="false">★ Nur Favoriten</button>
+        <select class="sel" id="fFace"></select>
+        <select class="sel" id="fLevel"></select>
+        <button class="chip" id="fFav" aria-pressed="false"></button>
       </div>
 
       <div class="cat-row" id="catRow" style="margin-bottom:1.4rem"></div>
-
       <div class="grid" id="grid"></div>
     </div>
   </section>
 
   <!-- ================================================= GESICHTSFORM -->
-  <section id="finder" style="background:var(--bg-2);border-block:1px solid var(--line)">
+  <section id="finder" class="tinted">
     <div class="wrap">
       <div class="sec-head">
-        <span class="kicker">Gesichtsform-Finder</span>
-        <h2>Welcher Bart passt zu dir?</h2>
-        <p>
-          Ein Bart verändert die wahrgenommene Gesichtsform. Die Regel dahinter ist simpel: Was zu
-          rund wirkt, wird gestreckt – was zu lang wirkt, wird verbreitert. Wähle deine Form.
-        </p>
+        <span class="kicker" data-i18n="finder.kicker"></span>
+        <h2 data-i18n="finder.h2"></h2>
+        <p data-i18n="finder.intro"></p>
       </div>
       <div class="finder" id="faceBtns"></div>
-      <div class="face-out" id="faceOut">
-        <h3>Wähle oben eine Gesichtsform</h3>
-        <p style="color:var(--muted);margin:0">
-          Nicht sicher? Miss im Spiegel: Stirnbreite, Wangenknochenbreite, Kieferbreite und
-          Gesichtslänge. Der größte dieser Werte bestimmt die Form.
-        </p>
-      </div>
+      <div class="face-out" id="faceOut"></div>
     </div>
   </section>
 
@@ -164,37 +139,23 @@
   <section id="werkzeug">
     <div class="wrap">
       <div class="sec-head">
-        <span class="kicker">Ausrüstung</span>
-        <h2>Was du wirklich brauchst</h2>
-        <p>Fünf Dinge decken 95 % aller Stile ab. Alles andere ist Komfort.</p>
+        <span class="kicker" data-i18n="kit.kicker"></span>
+        <h2 data-i18n="kit.h2"></h2>
+        <p data-i18n="kit.intro"></p>
       </div>
-      <div class="info-grid">
-        <div class="info"><div class="num">01</div><h3>Barttrimmer mit Aufsätzen</h3><p>Das wichtigste Werkzeug. Achte auf feine Abstufungen (0,5-mm-Schritte) und einen Aufsatz, der über 12 mm hinausgeht, wenn du längere Bärte planst.</p></div>
-        <div class="info"><div class="num">02</div><h3>Präzisionstrimmer</h3><p>Schmaler Klingenkopf für Kanten, Wangen- und Halslinie. Damit entstehen die geraden Linien, die einen Bart „geschnitten“ statt „gewachsen“ aussehen lassen.</p></div>
-        <div class="info"><div class="num">03</div><h3>Bartschere</h3><p>Ab etwa 2 cm Länge unverzichtbar. Der Trimmer schneidet alles gleich lang, die Schere formt – vor allem Kinnspitzen und Rundungen.</p></div>
-        <div class="info"><div class="num">04</div><h3>Kamm &amp; Bürste</h3><p>Feiner Kamm für Schnurrbart, grober für den Bart, Wildschweinborsten für die tägliche Formgebung und die Verteilung des Hauttalgs.</p></div>
-        <div class="info"><div class="num">05</div><h3>Öl, Balsam, Wachs</h3><p>Öl pflegt die Haut darunter, Balsam gibt Längen Kontrolle, Wachs hält Schnurrbartformen. In dieser Reihenfolge kaufen.</p></div>
-        <div class="info"><div class="num">06</div><h3>Zwei Spiegel</h3><p>Klingt banal, ist aber der Unterschied zwischen symmetrisch und schief: Ohne Seitenansicht kontrollierst du Halslinie und Koteletten nur nach Gefühl.</p></div>
-      </div>
+      <div class="info-grid" id="kitGrid"></div>
     </div>
   </section>
 
   <!-- ================================================= PFLEGE -->
-  <section id="pflege" style="background:var(--bg-2);border-block:1px solid var(--line)">
+  <section id="pflege" class="tinted">
     <div class="wrap">
       <div class="sec-head">
-        <span class="kicker">Routine</span>
-        <h2>Der Pflegeplan</h2>
-        <p>Ein Bart scheitert selten am Schnitt, sondern an der Pflege dazwischen.</p>
+        <span class="kicker" data-i18n="care.kicker"></span>
+        <h2 data-i18n="care.h2"></h2>
+        <p data-i18n="care.intro"></p>
       </div>
-      <div class="plan">
-        <div class="plan-row"><b>Täglich</b><p>Bürsten oder kämmen in Wuchsrichtung. 2–5 Tropfen Bartöl in die <em>Haut</em> einmassieren – dort entsteht der Juckreiz, nicht im Haar. Bei gestylten Schnurrbärten: Wachs erneuern.</p></div>
-        <div class="plan-row"><b>Alle 2–3 Tage</b><p>Hals- und Wangenlinie nachrasieren. Diese beiden Kanten machen den Unterschied zwischen gepflegt und vergessen.</p></div>
-        <div class="plan-row"><b>2–3× pro Woche</b><p>Mit Bartshampoo waschen, danach Balsam. Normales Haarshampoo entfettet zu stark und macht das Barthaar stumpf.</p></div>
-        <div class="plan-row"><b>Alle 1–2 Wochen</b><p>Länge korrigieren: Spitzen kürzen, Ausreißer entfernen, Symmetrie prüfen. Immer an trockenem Bart.</p></div>
-        <div class="plan-row"><b>Alle 4–6 Wochen</b><p>Form komplett überarbeiten – Wangenlinie neu setzen, Übergänge nachziehen, ggf. beim Barbier gegenprüfen lassen.</p></div>
-        <div class="plan-row"><b>Nie</b><p>Bart nass schneiden, gegen den Strich am Hals rasieren oder „nur schnell die eine Seite ausgleichen“. Alle drei enden regelmäßig in einer Neurasur.</p></div>
-      </div>
+      <div class="plan" id="carePlan"></div>
     </div>
   </section>
 
@@ -202,16 +163,10 @@
   <section id="faq">
     <div class="wrap">
       <div class="sec-head">
-        <span class="kicker">Häufige Fragen</span>
-        <h2>Kurz beantwortet</h2>
+        <span class="kicker" data-i18n="faq.kicker"></span>
+        <h2 data-i18n="faq.h2"></h2>
       </div>
-      <details class="faq"><summary>Wie lange dauert es, bis ein Vollbart wächst?</summary><p>Barthaar wächst etwa 1–1,5 cm pro Monat. Für einen dichten Vollbart rechnest du mit 6–8 Wochen, für einen Garibaldi mit 4–6 Monaten, für einen Bandholz mit rund einem Jahr. Die „Awkward Phase“ in Woche 2–3 sieht bei jedem lückig aus – sie ist kein Zeichen für schlechten Wuchs.</p></details>
-      <details class="faq"><summary>Wo genau gehört die Halslinie hin?</summary><p>Zwei Finger über den Adamsapfel legen – dort beginnt der Bart. Die Linie läuft in einem flachen U zu beiden Ohrläppchen. Der häufigste Fehler ist, entlang des Kieferknochens zu rasieren: Das lässt Kinn und Kiefer optisch verschwinden.</p></details>
-      <details class="faq"><summary>Und die Wangenlinie?</summary><p>Eine gedachte, leicht gebogene Linie vom Ohrläppchen zum Mundwinkel. Bei lückigem Wangenwuchs setzt du sie tiefer an, das lässt den Bart dichter wirken. Zu hoch angesetzt kostet dich zwei Wochen Nachwuchs.</p></details>
-      <details class="faq"><summary>Mein Bart wächst fleckig – welcher Stil funktioniert?</summary><p>Alles, was nicht auf die Wangen angewiesen ist: Kinnbart, Kreisbart, Van Dyke, Balbo, Hollywoodian oder ein Schnurrbart. Ein Millimeter mehr Länge kaschiert Lücken zusätzlich, weil die Haare sich gegenseitig stützen.</p></details>
-      <details class="faq"><summary>Warum juckt der Bart?</summary><p>Fast immer die Haut, nicht das Haar: Der Bart entzieht der Haut Talg, sie trocknet aus. Bartöl direkt in die Haut einmassieren, nicht nur über die Längen. In den ersten zwei Wochen zusätzlich kratzen frisch geschnittene, spitze Haarenden – das gibt sich.</p></details>
-      <details class="faq"><summary>Trocken oder nass schneiden?</summary><p>Immer trocken. Nasses Barthaar ist bis zu 30 % länger als trockenes – wer nass schneidet, nimmt regelmäßig zu viel ab.</p></details>
-      <details class="faq"><summary>Was tun, wenn eine Seite kürzer geraten ist?</summary><p>Nichts. Der Reflex, die andere Seite „anzugleichen“, endet fast immer bei einem deutlich kürzeren Bart. Eine Woche wachsen lassen und dann nur die längere Seite minimal anpassen.</p></details>
+      <div id="faqList"></div>
     </div>
   </section>
 </main>
@@ -219,10 +174,10 @@
 <footer>
   <div class="wrap foot-in">
     <div>
-      <strong style="color:var(--ink);font-family:var(--font-display);font-size:1.05rem">Bart_stil</strong><br />
-      Bartstile ansehen, verstehen und Schritt für Schritt nachmachen.
+      <strong class="foot-brand">Bart_stil</strong><br />
+      <span data-i18n="foot.tagline"></span>
       <div class="made-by">
-        <span>Website erstellt von</span>
+        <span data-i18n="foot.madeBy"></span>
         <a class="ig" href="https://www.instagram.com/rezzzzzzzzxvhdcjh?igsh=MTVqNzgzMWJyNTRxYg%3D%3D&amp;utm_source=qr"
            target="_blank" rel="noopener noreferrer">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -230,25 +185,27 @@
             <circle cx="12" cy="12" r="4.4" fill="none" stroke="currentColor" stroke-width="1.9"/>
             <circle cx="17.6" cy="6.4" r="1.3" fill="currentColor"/>
           </svg>
-          @rezzzzzzzzxvhdcjh
+          <span dir="ltr">@rezzzzzzzzxvhdcjh</span>
         </a>
       </div>
     </div>
-    <div style="max-width:46ch">
-      Alle Angaben sind Erfahrungswerte zur Selbstpflege und ersetzen keinen Barbierbesuch.
-      Das Beispielfoto wurde vom Abgebildeten selbst bereitgestellt und zur Anonymisierung verpixelt.
+    <div style="max-width:52ch">
+      <span data-i18n="foot.disclaimer"></span>
       <br /><span id="year"></span>
     </div>
   </div>
 </footer>
 
-<button class="icon-btn to-top" id="toTop" title="Nach oben" aria-label="Nach oben">↑</button>
+<button class="icon-btn to-top" id="toTop" aria-label="↑">↑</button>
 
 <dialog class="sheet" id="sheet">
   <div class="sheet-in" id="sheetIn"></div>
 </dialog>
 
 <script src="data.js"></script>
+<script src="lang.de.js"></script>
+<script src="lang.en.js"></script>
+<script src="lang.ar.js"></script>
 <script src="beards.js"></script>
 <script src="app.js"></script>
 </body>

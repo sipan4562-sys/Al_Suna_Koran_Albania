@@ -240,21 +240,59 @@ const BeardArt = (() => {
     }
 
     /* --- Augen & Brauen --- */
+    const brows = opts.animate ? ' class="bs-brow"' : '';
     parts.push(
-      `<path d="M66,86 Q79,79 93,86" fill="none" stroke="var(--hair)" stroke-width="5" stroke-linecap="round"/>` +
+      `<g${brows}>` +
+        `<path d="M66,86 Q79,79 93,86" fill="none" stroke="var(--hair)" stroke-width="5" stroke-linecap="round"/>` +
         `<path d="M134,86 Q121,79 107,86" fill="none" stroke="var(--hair)" stroke-width="5" stroke-linecap="round"/>` +
+        `</g>` +
         `<ellipse cx="79" cy="99" rx="8.5" ry="4.8" fill="var(--eye-white)"/>` +
         `<ellipse cx="121" cy="99" rx="8.5" ry="4.8" fill="var(--eye-white)"/>` +
-        `<circle cx="79" cy="99" r="3.3" fill="var(--eye)"/>` +
-        `<circle cx="121" cy="99" r="3.3" fill="var(--eye)"/>`
+        `<circle cx="79" cy="99" r="3.3" fill="var(--eye)"${
+          opts.animate ? ' class="bs-pupil"' : ''
+        }/>` +
+        `<circle cx="121" cy="99" r="3.3" fill="var(--eye)"${
+          opts.animate ? ' class="bs-pupil"' : ''
+        }/>`
     );
 
+    /* --- Lider: nur für das animierte Tutorial-Gesicht --- */
+    if (opts.animate) {
+      parts.push(
+        `<rect class="bs-lid" x="69.5" y="92" width="19" height="13" fill="var(--skin)"/>` +
+          `<rect class="bs-lid" x="111.5" y="92" width="19" height="13" fill="var(--skin)"/>`
+      );
+    }
+
     const cls = opts.cls ? ` class="${opts.cls}"` : '';
+    const label = opts.label || 'Bartstil-Illustration';
+
+    /* Ohne Rand: das kompakte Kartenformat */
+    if (!opts.pad) {
+      return (
+        `<svg${cls} viewBox="0 0 200 260" xmlns="http://www.w3.org/2000/svg" ` +
+        `role="img" aria-label="${label}">${parts.join('')}</svg>`
+      );
+    }
+
+    /* Mit Rand: Platz für Hilfslinien und Beschriftungen */
+    const p = opts.pad;
     return (
-      `<svg${cls} viewBox="0 0 200 260" xmlns="http://www.w3.org/2000/svg" ` +
-      `role="img" aria-label="${opts.label || 'Bartstil-Illustration'}">${parts.join('')}</svg>`
+      `<svg${cls} viewBox="0 0 ${p.w} ${p.h}" xmlns="http://www.w3.org/2000/svg" ` +
+      `role="img" aria-label="${label}">` +
+      `<g transform="translate(${p.x},${p.y})">` +
+      `<g class="${opts.animate ? 'bs-anim' : ''}">${parts.join('')}</g>` +
+      `</g></svg>`
     );
   }
 
-  return { render };
+  /* Maße des Tutorial-Gesichts – app.js zeichnet die Hilfslinien
+     in genau dieses Koordinatensystem.                             */
+  const STAGE = { x: 70, y: 18, w: 340, h: 300 };
+
+  function renderTutorial(art, label) {
+    return render(art, { animate: true, pad: STAGE, cls: 'tut-face', label: label });
+  }
+
+  return { render, renderTutorial, STAGE };
 })();
