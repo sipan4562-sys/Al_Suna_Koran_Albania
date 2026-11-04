@@ -1,0 +1,1610 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Lernseite über ChatGPT auf Deutsch, Englisch und Maltesisch: Grundlagen, Alltag, gute Prompts, Grenzen, Datenschutz und ein Quiz.">
+<meta name="theme-color" content="#f5f7fb">
+<title>ChatGPT verstehen · PromptLab</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2312a37f'/%3E%3Cstop offset='1' stop-color='%235a47d1'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='9' fill='url(%23g)'/%3E%3Cpath d='M9 9h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8l-5 4v-4H9a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z' fill='white'/%3E%3C/svg%3E">
+
+<style>
+/* =========================================================
+   PromptLab · ChatGPT-Lernseite
+   Design tokens (hell, modern)
+   ========================================================= */
+:root{
+  --bg:#f5f7fb;
+  --surface:#ffffff;
+  --surface-2:#f2f4f9;
+  --surface-3:#e8ecf4;
+  --ink:#121729;
+  --ink-2:#2b3248;
+  --muted:#525b73;
+  --faint:#7d869b;
+  --border:#e1e6ef;
+  --border-strong:#cbd2e0;
+
+  --teal:#0a7d64;   --teal-soft:#e2f4ee;
+  --violet:#5a47d1; --violet-soft:#eeebfc;
+  --blue:#1d67c4;   --blue-soft:#e5effc;
+  --amber:#9a5500;  --amber-soft:#fff3e0;
+  --rose:#bf2f4a;   --rose-soft:#fdecef;
+  --green:#137a3a;  --green-soft:#e4f6ea;
+
+  --radius:20px;
+  --radius-sm:12px;
+  --shadow-sm:0 1px 2px rgba(18,23,41,.05);
+  --shadow:0 1px 2px rgba(18,23,41,.04),0 8px 24px rgba(18,23,41,.06);
+  --shadow-lg:0 2px 4px rgba(18,23,41,.04),0 28px 64px rgba(18,23,41,.13);
+  --maxw:1120px;
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;
+  --header-h:64px;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  margin:0;font-family:var(--font);font-size:17px;line-height:1.65;
+  color:var(--ink);background:var(--bg);
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+}
+h1,h2,h3{margin:0;line-height:1.15;letter-spacing:-.02em;color:var(--ink)}
+p{margin:0}
+a{color:var(--teal)}
+ul,ol{margin:0;padding:0}
+button{font:inherit}
+:focus-visible{outline:3px solid rgba(10,125,100,.45);outline-offset:3px;border-radius:8px}
+.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.container{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+@media (max-width:600px){.container{padding:0 16px}}
+
+.skip{position:absolute;left:16px;top:-80px;z-index:100;background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none;font-weight:700}
+.skip:focus{top:12px}
+
+/* Icons (SVG sprite) */
+.ic{display:inline-block;width:1.15em;height:1.15em;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none;vertical-align:-.2em}
+
+/* ---------- Header ---------- */
+.topbar{
+  position:sticky;top:0;z-index:50;
+  background:rgba(245,247,251,.86);
+  -webkit-backdrop-filter:saturate(1.6) blur(14px);backdrop-filter:saturate(1.6) blur(14px);
+  border-bottom:1px solid var(--border);
+}
+.topbar-inner{display:flex;align-items:center;gap:20px;min-height:var(--header-h)}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);font-weight:800;font-size:1.08rem;letter-spacing:-.02em;flex:none}
+.brand-mark{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;color:#fff;
+  background:linear-gradient(135deg,#12a37f,#5a47d1);box-shadow:0 4px 12px rgba(18,163,127,.28)}
+.brand-mark .ic{width:18px;height:18px}
+.nav{display:flex;gap:2px;margin-left:auto}
+.nav a{padding:8px 12px;border-radius:999px;text-decoration:none;color:var(--muted);font-weight:600;font-size:.92rem;white-space:nowrap;transition:background .2s,color .2s}
+.nav a:hover{color:var(--ink);background:var(--surface-3)}
+.nav a.is-active{color:var(--teal);background:var(--teal-soft)}
+.lang{display:flex;gap:2px;padding:3px;border-radius:999px;background:var(--surface-3);flex:none}
+.lang button{appearance:none;border:0;background:transparent;cursor:pointer;color:var(--muted);font-weight:700;font-size:.8rem;letter-spacing:.05em;padding:6px 11px;border-radius:999px;transition:background .2s,color .2s}
+.lang button:hover{color:var(--ink)}
+.lang button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-sm),0 0 0 1px var(--border)}
+.progress{position:absolute;left:0;right:0;bottom:-1px;height:3px;pointer-events:none}
+.progress span{display:block;height:100%;transform-origin:0 50%;transform:scaleX(0);background:linear-gradient(90deg,var(--teal),var(--violet))}
+
+@media (max-width:980px){
+  .topbar-inner{flex-wrap:wrap;gap:6px 16px;padding-top:10px}
+  .lang{margin-left:auto}
+  .nav{order:3;flex-basis:100%;margin:0;padding-bottom:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .nav::-webkit-scrollbar{display:none}
+  .nav a{padding:6px 12px;font-size:.88rem}
+}
+
+/* ---------- Buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:999px;border:1px solid transparent;font-weight:700;font-size:1rem;line-height:1.2;text-decoration:none;cursor:pointer;transition:transform .15s,box-shadow .2s,background .2s,border-color .2s}
+.btn-primary{background:var(--teal);color:#fff;box-shadow:0 6px 18px rgba(10,125,100,.25)}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(10,125,100,.3);background:#08705a}
+.btn-ghost{background:var(--surface);color:var(--ink);border-color:var(--border-strong)}
+.btn-ghost:hover{border-color:var(--ink)}
+
+/* ---------- Hero ---------- */
+.hero{
+  position:relative;padding:72px 0 64px;overflow:hidden;
+  background:
+    radial-gradient(55% 70% at 88% 8%, #dcf2ea 0, rgba(220,242,234,0) 70%),
+    radial-gradient(45% 60% at 5% 0%, #ebe8fd 0, rgba(235,232,253,0) 70%),
+    var(--bg);
+}
+.hero-grid{display:grid;grid-template-columns:1.08fr .92fr;gap:56px;align-items:center}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:6px 14px 6px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--border);font-size:.86rem;font-weight:600;color:var(--ink-2);box-shadow:var(--shadow-sm)}
+.pill .ic{color:var(--teal)}
+h1{margin-top:20px;font-size:clamp(2.3rem,5.4vw,3.9rem);font-weight:800;letter-spacing:-.035em;line-height:1.04}
+.hl{background:linear-gradient(90deg,var(--teal),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero-lead{margin-top:20px;max-width:56ch;font-size:clamp(1.05rem,1.6vw,1.2rem);color:var(--muted)}
+.hero-cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:32px}
+
+.chat{margin:0;justify-self:end;width:100%;max-width:460px;display:flex;flex-direction:column;gap:14px;padding:18px;background:var(--surface);border:1px solid var(--border);border-radius:24px;box-shadow:var(--shadow-lg)}
+.chat-head{display:flex;gap:6px;padding:2px 4px 4px}
+.chat-head span{width:10px;height:10px;border-radius:50%;background:var(--surface-3)}
+.msg{max-width:88%;padding:12px 16px;border-radius:18px;font-size:.96rem;line-height:1.55}
+.msg-who{display:block;margin-bottom:2px;font-size:.7rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;opacity:.75}
+.msg-user{align-self:flex-end;background:var(--teal);color:#fff;border-bottom-right-radius:6px}
+.msg-ai{align-self:flex-start;background:var(--surface-2);border:1px solid var(--border);border-bottom-left-radius:6px;color:var(--ink-2)}
+.chat-input{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 8px 8px 16px;border:1px solid var(--border);border-radius:999px;color:var(--faint);font-size:.92rem}
+.send{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:var(--ink);color:#fff;flex:none}
+.send .ic{width:16px;height:16px}
+
+.path{margin-top:56px}
+.path-title{font-size:.8rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin-bottom:12px}
+.toc{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;list-style:none}
+.toc a{display:flex;align-items:center;gap:10px;height:100%;padding:12px 14px;border-radius:14px;background:var(--surface);border:1px solid var(--border);text-decoration:none;color:var(--ink);font-weight:650;font-size:.93rem;line-height:1.3;transition:transform .15s,box-shadow .2s,border-color .2s}
+.toc a:hover{transform:translateY(-2px);box-shadow:var(--shadow);border-color:var(--c)}
+.toc b{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;flex:none;background:var(--cs);color:var(--c);font-size:.85rem}
+.toc b .ic{width:15px;height:15px}
+
+/* ---------- Sections ---------- */
+.section{padding:96px 0;scroll-margin-top:var(--header-h)}
+.section.band{background:var(--surface);border-block:1px solid var(--border)}
+.sec-head{max-width:760px;margin-bottom:44px}
+.sec-head.center{margin-left:auto;margin-right:auto;text-align:center}
+.sec-head.center .sec-meta{justify-content:center}
+.sec-meta{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.sec-num{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--cs);color:var(--c);font-weight:800;font-size:1.1rem}
+.eyebrow{font-size:.8rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--c)}
+h2{font-size:clamp(1.8rem,3.6vw,2.6rem);font-weight:800;letter-spacing:-.03em}
+.lead{margin-top:16px;max-width:65ch;font-size:1.12rem;color:var(--muted)}
+.sec-head.center .lead{margin-left:auto;margin-right:auto}
+.sub{margin:56px 0 18px;font-size:1.3rem;font-weight:800}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px;box-shadow:var(--shadow)}
+.card h3{font-size:1.18rem;font-weight:750}
+.card p{color:var(--muted)}
+.icon-tile{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;flex:none;background:var(--cs);color:var(--c)}
+.icon-tile .ic{width:22px;height:22px}
+
+.grid{display:grid;gap:20px}
+.grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.grid-5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.split + .grid,.split + .card{margin-top:20px}
+
+/* Section 1 */
+.prose h3{font-size:1.3rem}
+.prose p{margin-top:12px;font-size:1.02rem}
+.demo-label,.example-label{font-size:.76rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--c)}
+.demo-sentence{margin-top:14px;font-size:clamp(1.15rem,2vw,1.35rem);font-weight:650;line-height:1.45;color:var(--ink)}
+.blank{display:inline-block;padding:0 10px;border-radius:8px;background:var(--cs);color:var(--c);border-bottom:2px solid var(--c)}
+.blank.pop{animation:pop .35s ease}
+@keyframes pop{from{transform:scale(.8);opacity:.3}to{transform:scale(1);opacity:1}}
+.demo-hint{margin-top:18px;font-size:.88rem;color:var(--faint)!important}
+.demo-words{display:grid;gap:8px;margin-top:10px}
+.word{position:relative;overflow:hidden;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font-weight:650;text-align:left;cursor:pointer;transition:border-color .2s,box-shadow .2s}
+.word::before{content:"";position:absolute;inset:0 auto 0 0;width:calc(var(--p) * 100%);background:var(--cs);opacity:.8}
+.word > *{position:relative}
+.word b{font-variant-numeric:tabular-nums;color:var(--muted);font-weight:700;font-size:.92rem}
+.word:hover{border-color:var(--border-strong)}
+.word[aria-pressed="true"]{border-color:var(--c);box-shadow:0 0 0 3px var(--cs)}
+.demo-note{margin-top:16px;font-size:.9rem}
+.fact h3{margin-top:16px;font-size:1.08rem}
+.fact p{margin-top:8px;font-size:.96rem}
+
+/* Section 2 */
+.use{display:flex;flex-direction:column}
+.use-head{display:flex;align-items:center;gap:14px}
+.use > p{margin-top:14px}
+.prompt{margin-top:18px;padding:14px 16px;border-radius:14px;background:var(--surface-2);border:1px solid var(--border)}
+.prompt-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+.prompt-label{font-size:.74rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--c)}
+.copy{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:.8rem;font-weight:650;cursor:pointer;transition:color .2s,border-color .2s}
+.copy .ic{width:14px;height:14px}
+.copy:hover{color:var(--ink);border-color:var(--border-strong)}
+.copy.is-done{color:var(--green);border-color:var(--green)}
+.card .prompt-text{color:var(--ink-2);font-size:.98rem}
+.tip{display:flex;gap:10px;align-items:flex-start;margin-top:auto;padding-top:16px;font-size:.92rem}
+.tip .ic{color:var(--amber);margin-top:.2em}
+.card .tip span{color:var(--muted)}
+
+/* Section 3 */
+.formula{padding:32px}
+.parts{display:grid;grid-template-columns:1fr auto 1fr auto 1fr auto 1fr;gap:12px;align-items:stretch}
+.part{padding:16px;border-radius:14px;background:var(--pcs);border:1px solid var(--pcb)}
+.part-chip{font-weight:800;color:var(--pc)}
+.card .part-q{margin-top:4px;font-size:.92rem;color:var(--ink-2)}
+.plus{align-self:center;font-weight:800;font-size:1.3rem;color:var(--faint)}
+.formula-label{margin-top:28px;font-weight:750;color:var(--ink)!important;font-size:.95rem}
+.assembled{margin-top:10px;padding:18px 20px;border-radius:14px;background:var(--surface-2);border:1px dashed var(--border-strong);font-size:1.05rem;line-height:2;color:var(--ink)!important}
+.seg{padding:2px 6px;border-radius:6px;background:var(--pcs);color:inherit;border-bottom:2px solid var(--pc);-webkit-box-decoration-break:clone;box-decoration-break:clone}
+.p-role{--pc:var(--violet);--pcs:var(--violet-soft);--pcb:#dcd6fa}
+.p-task{--pc:var(--teal);--pcs:var(--teal-soft);--pcb:#c5e8dc}
+.p-ctx{--pc:var(--amber);--pcs:var(--amber-soft);--pcb:#f6dcb4}
+.p-fmt{--pc:var(--blue);--pcs:var(--blue-soft);--pcb:#cadff8}
+.tip-head{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.tip-num{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;flex:none;background:var(--cs);color:var(--c);font-weight:800}
+.cmp{padding:12px 14px;border-radius:12px;border:1px solid}
+.cmp + .cmp{margin-top:10px}
+.cmp-label{display:inline-flex;align-items:center;gap:6px;font-size:.74rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase}
+.cmp-label .ic{width:14px;height:14px;stroke-width:2.6}
+.card .cmp p{margin-top:4px;color:var(--ink-2);font-size:.97rem}
+.cmp-bad{background:var(--rose-soft);border-color:#f5ccd4}
+.cmp-bad .cmp-label{color:var(--rose)}
+.cmp-good{background:var(--green-soft);border-color:#c2e7cf}
+.cmp-good .cmp-label{color:var(--green)}
+.tip-wide{grid-column:1 / -1}
+.followups{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;list-style:none}
+.followups li{padding:8px 14px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border);font-weight:600;font-size:.93rem;color:var(--ink-2)}
+
+/* Section 4 */
+.callout{background:linear-gradient(165deg,var(--amber-soft) 0%,var(--surface) 65%)}
+.callout h3{margin-top:16px;font-size:1.35rem}
+.callout p{margin-top:10px;font-size:1.02rem}
+.example{margin:0;display:flex;flex-direction:column;gap:12px}
+.example .msg{max-width:92%}
+.annot{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:12px;background:var(--amber-soft);border:1px solid #f3d9b0;font-size:.93rem}
+.annot .ic{color:var(--amber);margin-top:.2em}
+.card .annot span{color:#6b3b00}
+.limit{padding:22px}
+.limit h3{margin-top:14px;font-size:1.03rem}
+.limit p{margin-top:6px;font-size:.93rem}
+.checklist{display:grid;grid-template-columns:.9fr 1.3fr;gap:32px;align-items:start;margin-top:20px}
+.checklist h3{display:flex;align-items:center;gap:10px;font-size:1.3rem}
+.checklist h3 .ic{color:var(--c)}
+.rule{margin-top:16px;padding:14px 16px;border-radius:12px;background:var(--cs)}
+.card .rule{color:var(--ink-2)}
+.checks{list-style:none;display:grid;gap:14px}
+.checks li,.list li{display:flex;gap:12px;align-items:flex-start;color:var(--ink-2)}
+.mark{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;flex:none;margin-top:1px}
+.mark .ic{width:15px;height:15px;stroke-width:2.6}
+.mark-ok{background:var(--green-soft);color:var(--green)}
+.mark-x{background:var(--rose-soft);color:var(--rose)}
+
+/* Section 5 */
+.postcard{display:flex;gap:16px;align-items:center;margin-bottom:20px;padding:20px 24px;border-radius:var(--radius);background:linear-gradient(115deg,var(--rose-soft),#fff8f1);border:1px solid #f3d2d9}
+.postcard .icon-tile{background:var(--surface);box-shadow:var(--shadow-sm)}
+.postcard p{color:var(--ink-2);font-size:1.05rem}
+.panel h3{display:flex;align-items:center;gap:10px;font-size:1.2rem}
+.panel-dont{border-top:4px solid var(--rose)}
+.panel-dont h3 .ic{color:var(--rose)}
+.panel-do{border-top:4px solid var(--green)}
+.panel-do h3 .ic{color:var(--green)}
+.list{list-style:none;display:grid;gap:14px;margin-top:20px}
+.anon h3{font-size:1.2rem}
+.anon-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center;margin-top:16px}
+.anon-arrow{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--surface-2);color:var(--muted)}
+mark.pii{background:#ffd3db;color:inherit;border-radius:4px;padding:0 3px}
+mark.ph{background:#c6eed5;color:inherit;border-radius:4px;padding:0 3px;font-weight:650}
+.warn{display:flex;gap:14px;align-items:flex-start;margin-top:20px;padding:18px 20px;border-radius:16px;background:var(--amber-soft);border:1px solid #f3d9b0;color:#5f3400}
+.warn .ic{color:var(--amber);width:22px;height:22px;margin-top:.1em}
+
+/* ---------- Quiz ---------- */
+.quiz-section{background:
+  radial-gradient(50% 60% at 50% 0%, #e3f4ee 0, rgba(227,244,238,0) 70%), var(--bg)}
+.quiz{max-width:780px;margin:0 auto;padding:32px;box-shadow:var(--shadow-lg)}
+.q-top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}
+.q-count{font-size:.85rem;font-weight:750;color:var(--muted)}
+.q-dots{display:flex;gap:6px;list-style:none}
+.q-dots li{width:28px;height:6px;border-radius:99px;background:var(--surface-3)}
+.q-dots li.current{background:var(--ink)}
+.q-dots li.ok{background:var(--green)}
+.q-dots li.bad{background:var(--rose)}
+.q-title{font-size:clamp(1.2rem,2.4vw,1.5rem);line-height:1.3;outline:none}
+.q-options{display:grid;gap:10px;margin-top:22px}
+.opt{display:flex;align-items:center;gap:14px;width:100%;padding:14px 16px;border-radius:14px;border:1.5px solid var(--border);background:var(--surface);color:var(--ink);font-size:1rem;line-height:1.45;text-align:left;cursor:pointer;transition:border-color .15s,background .15s,opacity .2s,transform .1s}
+.opt:not([aria-disabled]):hover{border-color:var(--teal);background:var(--teal-soft)}
+.opt:not([aria-disabled]):active{transform:scale(.995)}
+.opt[aria-disabled]{cursor:default}
+.opt-key{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:none;background:var(--surface-3);color:var(--muted);font-weight:800;font-size:.85rem}
+.opt-text{flex:1}
+.opt-mark{width:24px;height:24px;display:grid;place-items:center;flex:none}
+.opt-mark .ic{width:20px;height:20px;stroke-width:2.6}
+.opt.is-correct{border-color:var(--green);background:var(--green-soft)}
+.opt.is-correct .opt-key{background:var(--green);color:#fff}
+.opt.is-correct .opt-mark{color:var(--green)}
+.opt.is-wrong{border-color:var(--rose);background:var(--rose-soft)}
+.opt.is-wrong .opt-key{background:var(--rose);color:#fff}
+.opt.is-wrong .opt-mark{color:var(--rose)}
+.opt.is-dim{opacity:.55}
+.fb{margin-top:18px;padding:16px 18px;border-radius:14px;animation:fade .3s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.fb-ok{background:var(--green-soft);border:1px solid #c2e7cf}
+.fb-bad{background:var(--rose-soft);border:1px solid #f5ccd4}
+.fb-title{display:flex;align-items:center;gap:8px;font-weight:800;font-size:1.05rem}
+.fb-ok .fb-title{color:var(--green)}
+.fb-bad .fb-title{color:var(--rose)}
+.card .fb p.fb-text{margin-top:4px;color:var(--ink-2)}
+.fb-link{display:inline-flex;align-items:center;gap:6px;margin-top:10px;font-weight:700;color:var(--rose);text-decoration:none}
+.fb-link:hover{text-decoration:underline}
+.q-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;min-height:50px;margin-top:22px}
+.card .q-hint{margin-right:auto;font-size:.92rem;color:var(--faint)}
+.result{text-align:center}
+.score{width:128px;height:128px;margin:0 auto 20px;border-radius:50%;display:grid;place-items:center;background:var(--sc-soft);border:6px solid var(--sc);color:var(--sc);font-size:2.6rem;font-weight:800;letter-spacing:-.03em;line-height:1}
+.score small{font-size:1.15rem;color:var(--muted);font-weight:700}
+.card .result-msg{max-width:52ch;margin:10px auto 0}
+.result-list{list-style:none;display:grid;gap:8px;margin:26px 0;text-align:left}
+.result-list li{display:flex;gap:12px;align-items:flex-start;padding:10px 14px;border-radius:12px;background:var(--surface-2);font-size:.95rem;color:var(--ink-2)}
+
+/* ---------- Footer ---------- */
+.footer{padding:36px 0;background:var(--surface);border-top:1px solid var(--border);font-size:.92rem;color:var(--muted)}
+.footer-inner{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 24px}
+.footer a{font-weight:700;text-decoration:none}
+.footer a:hover{text-decoration:underline}
+
+/* ---------- Responsive ---------- */
+@media (max-width:1060px){
+  .grid-5{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media (max-width:980px){
+  .section{scroll-margin-top:108px}
+  .hero-grid{grid-template-columns:1fr;gap:40px}
+  .chat{justify-self:start}
+  .toc{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .parts{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .plus{display:none}
+  .checklist{grid-template-columns:1fr;gap:20px}
+}
+@media (max-width:720px){
+  .grid-2,.split{grid-template-columns:1fr}
+  .grid-5{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .anon-grid{grid-template-columns:1fr}
+  .anon-arrow{justify-self:center;transform:rotate(90deg)}
+  .section{padding:68px 0}
+  .card,.formula{padding:22px}
+  .quiz{padding:22px}
+}
+@media (max-width:520px){
+  body{font-size:16px}
+  .hero{padding:44px 0 48px}
+  .toc{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .grid-4,.grid-5,.parts{grid-template-columns:1fr}
+  .postcard{flex-direction:column;align-items:flex-start}
+  .q-top{flex-direction:column;align-items:flex-start;gap:10px}
+  .hero-cta .btn{flex:1 1 auto}
+}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+
+<body>
+<a class="skip" href="#main" data-i18n="ui.skip">Zum Inhalt springen</a>
+
+<!-- Icon sprite -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3l2.2 6.8L21 12l-6.8 2.2L12 21l-2.2-6.8L3 12l6.8-2.2z"/></symbol>
+  <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></symbol>
+  <symbol id="i-message" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 22h4"/><path d="M15.1 14c.2-1 .7-1.7 1.4-2.5A4.6 4.6 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.8 1.3 1.5 1.4 2.5"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-calc" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01M8 19h.01M12 19h.01M16 19h.01"/></symbol>
+  <symbol id="i-scale" viewBox="0 0 24 24"><path d="m16 16 3-8 3 8c-.9.7-1.9 1-3 1s-2.1-.3-3-1z"/><path d="m2 16 3-8 3 8c-.9.7-1.9 1-3 1s-2.1-.3-3-1z"/><path d="M7 21h10M12 3v18M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/></symbol>
+  <symbol id="i-megaphone" viewBox="0 0 24 24"><path d="m3 11 18-5v12L3 14z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+  <symbol id="i-restart" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.8 9.8 0 0 0-6.7 2.7L3 8"/><path d="M3 3v5h5"/></symbol>
+</svg>
+
+<!-- ===================== HEADER ===================== -->
+<header class="topbar">
+  <div class="container topbar-inner">
+    <a class="brand" href="#top">
+      <span class="brand-mark"><svg class="ic"><use href="#i-chat"/></svg></span>
+      <span>PromptLab</span>
+    </a>
+    <nav class="nav" id="nav" aria-label="Abschnitte" data-i18n-aria="ui.navLabel">
+      <a href="#basics" data-i18n="nav.basics">Grundlagen</a>
+      <a href="#everyday" data-i18n="nav.everyday">Alltag</a>
+      <a href="#prompts" data-i18n="nav.prompts">Prompts</a>
+      <a href="#limits" data-i18n="nav.limits">Grenzen</a>
+      <a href="#privacy" data-i18n="nav.privacy">Datenschutz</a>
+      <a href="#quiz" data-i18n="nav.quiz">Quiz</a>
+    </nav>
+    <div class="lang" role="group" aria-label="Sprache wählen" data-i18n-aria="ui.langLabel">
+      <button type="button" data-lang="de" lang="de" title="Deutsch" aria-pressed="true">DE</button>
+      <button type="button" data-lang="en" lang="en" title="English" aria-pressed="false">EN</button>
+      <button type="button" data-lang="mt" lang="mt" title="Malti" aria-pressed="false">MT</button>
+    </div>
+  </div>
+  <div class="progress" aria-hidden="true"><span></span></div>
+</header>
+
+<main id="main">
+
+<!-- ===================== HERO ===================== -->
+<section class="hero" id="top">
+  <div class="container">
+    <div class="hero-grid">
+      <div>
+        <p class="pill"><svg class="ic"><use href="#i-sparkle"/></svg><span data-i18n="hero.eyebrow">Lernseite · kostenlos · ca. 15 Minuten</span></p>
+        <h1 data-i18n="hero.title">ChatGPT verstehen und <span class="hl">sicher nutzen</span></h1>
+        <p class="hero-lead" data-i18n="hero.lead">Eine kurze, verständliche Einführung: Was ChatGPT ist, wie es dir im Alltag hilft, wie du gute Fragen stellst – und worauf du achten musst. Am Ende testest du dein Wissen im Quiz.</p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="#basics"><span data-i18n="hero.cta1">Jetzt lernen</span><svg class="ic"><use href="#i-arrow-right"/></svg></a>
+          <a class="btn btn-ghost" href="#quiz" data-i18n="hero.cta2">Direkt zum Quiz</a>
+        </div>
+      </div>
+
+      <figure class="chat">
+        <div class="chat-head" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="msg msg-user"><span class="msg-who" data-i18n="chat.you">Du</span><p data-i18n="hero.q">Erkläre mir in 3 Sätzen, wie Photosynthese funktioniert.</p></div>
+        <div class="msg msg-ai"><span class="msg-who">ChatGPT</span><p data-i18n="hero.a">Pflanzen nehmen Licht, Wasser und Kohlendioxid auf. Mit der Energie des Lichts bauen sie daraus Zucker als Nahrung. Dabei entsteht Sauerstoff, den sie an die Luft abgeben.</p></div>
+        <div class="chat-input" aria-hidden="true"><span data-i18n="hero.input">Nachricht schreiben …</span><span class="send"><svg class="ic"><use href="#i-arrow-up"/></svg></span></div>
+      </figure>
+    </div>
+
+    <nav class="path" aria-labelledby="pathTitle">
+      <p class="path-title" id="pathTitle" data-i18n="hero.path">Dein Lernpfad</p>
+      <ol class="toc">
+        <li><a href="#basics" style="--c:var(--teal);--cs:var(--teal-soft)"><b>1</b><span data-i18n="nav.basics">Grundlagen</span></a></li>
+        <li><a href="#everyday" style="--c:var(--violet);--cs:var(--violet-soft)"><b>2</b><span data-i18n="nav.everyday">Alltag</span></a></li>
+        <li><a href="#prompts" style="--c:var(--blue);--cs:var(--blue-soft)"><b>3</b><span data-i18n="nav.prompts">Prompts</span></a></li>
+        <li><a href="#limits" style="--c:var(--amber);--cs:var(--amber-soft)"><b>4</b><span data-i18n="nav.limits">Grenzen</span></a></li>
+        <li><a href="#privacy" style="--c:var(--rose);--cs:var(--rose-soft)"><b>5</b><span data-i18n="nav.privacy">Datenschutz</span></a></li>
+        <li><a href="#quiz" style="--c:var(--teal);--cs:var(--teal-soft)"><b><svg class="ic"><use href="#i-sparkle"/></svg></b><span data-i18n="nav.quiz">Quiz</span></a></li>
+      </ol>
+    </nav>
+  </div>
+</section>
+
+<!-- ===================== 1 · WAS IST CHATGPT ===================== -->
+<section id="basics" class="section band" style="--c:var(--teal);--cs:var(--teal-soft)">
+  <div class="container">
+    <header class="sec-head">
+      <div class="sec-meta"><span class="sec-num" aria-hidden="true">1</span><span class="eyebrow" data-i18n="s1.eyebrow">Abschnitt 1</span></div>
+      <h2 data-i18n="s1.title">Was ist ChatGPT?</h2>
+      <p class="lead" data-i18n="s1.lead">ChatGPT ist ein KI-Chatprogramm des Unternehmens OpenAI. Du schreibst eine Frage oder Aufgabe in ganz normaler Sprache – und ChatGPT antwortet in ganzen Sätzen, fast wie in einem Gespräch.</p>
+    </header>
+
+    <div class="split">
+      <div class="card prose">
+        <h3 data-i18n="s1.howTitle">Wie funktioniert das?</h3>
+        <p data-i18n="s1.how1">Im Kern steckt ein sogenanntes <b>großes Sprachmodell</b> (Large Language Model, LLM). Es wurde mit riesigen Mengen an Texten trainiert und hat dabei gelernt, welche Wörter typischerweise aufeinander folgen. Wenn du etwas fragst, berechnet es Wort für Wort, welche Fortsetzung am besten passt.</p>
+        <p data-i18n="s1.how2">Dabei denkt ChatGPT nicht wie ein Mensch nach. Es hat aus Milliarden von Beispielen gelernt, wie gute Antworten typischerweise aussehen – und ahmt dieses Muster nach.</p>
+      </div>
+
+      <div class="card demo">
+        <p class="demo-label" data-i18n="s1.demoTitle">Beispiel: So wählt das Modell das nächste Wort</p>
+        <p class="demo-sentence"><span data-i18n="s1.demoSentence">Am Morgen trinke ich gern eine Tasse</span> <span class="blank" id="blank">Kaffee</span></p>
+        <p class="demo-hint" data-i18n="s1.demoHint">Tippe auf ein Wort, um den Satz zu vervollständigen:</p>
+        <div class="demo-words" role="group" aria-label="Mögliche nächste Wörter" data-i18n-aria="s1.wordsLabel">
+          <button type="button" class="word" style="--p:.64" aria-pressed="true"><span data-i18n="s1.w1">Kaffee</span><b data-p="0.64">64 %</b></button>
+          <button type="button" class="word" style="--p:.27" aria-pressed="false"><span data-i18n="s1.w2">Tee</span><b data-p="0.27">27 %</b></button>
+          <button type="button" class="word" style="--p:.06" aria-pressed="false"><span data-i18n="s1.w3">Kakao</span><b data-p="0.06">6 %</b></button>
+          <button type="button" class="word" style="--p:.03" aria-pressed="false"><span data-i18n="s1.w4">Wasser</span><b data-p="0.03">3 %</b></button>
+        </div>
+        <p class="demo-note" data-i18n="s1.demoNote">Vereinfachte Darstellung mit Beispielwerten. Das Modell wählt meist eine wahrscheinliche Fortsetzung – es „weiß“ nichts im menschlichen Sinn, sondern erkennt Muster in Sprache.</p>
+      </div>
+    </div>
+
+    <div class="grid grid-4" style="margin-top:20px">
+      <article class="card fact">
+        <span class="icon-tile"><svg class="ic"><use href="#i-cpu"/></svg></span>
+        <h3 data-i18n="s1.c1t">Ein Sprachmodell</h3>
+        <p data-i18n="s1.c1d">ChatGPT erzeugt Texte, indem es Muster aus seinen Trainingsdaten nutzt. Es kann schreiben, erklären, übersetzen und sogar programmieren.</p>
+      </article>
+      <article class="card fact">
+        <span class="icon-tile"><svg class="ic"><use href="#i-user"/></svg></span>
+        <h3 data-i18n="s1.c2t">Kein Mensch, kein Lexikon</h3>
+        <p data-i18n="s1.c2d">ChatGPT hat kein Bewusstsein und versteht die Welt nicht wie ein Mensch. Seine Antworten klingen oft sehr sicher – auch wenn sie falsch sind.</p>
+      </article>
+      <article class="card fact">
+        <span class="icon-tile"><svg class="ic"><use href="#i-message"/></svg></span>
+        <h3 data-i18n="s1.c3t">Ein Gespräch mit Gedächtnis</h3>
+        <p data-i18n="s1.c3d">Innerhalb eines Chats merkt sich ChatGPT, was vorher gesagt wurde. So kannst du nachfragen und Antworten Schritt für Schritt verbessern.</p>
+      </article>
+      <article class="card fact">
+        <span class="icon-tile"><svg class="ic"><use href="#i-globe"/></svg></span>
+        <h3 data-i18n="s1.c4t">Viele Sprachen</h3>
+        <p data-i18n="s1.c4d">Du kannst ChatGPT auf Deutsch, Englisch, Maltesisch und in vielen weiteren Sprachen nutzen – die Qualität ist aber nicht in allen Sprachen gleich gut.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 2 · ALLTAG ===================== -->
+<section id="everyday" class="section" style="--c:var(--violet);--cs:var(--violet-soft)">
+  <div class="container">
+    <header class="sec-head">
+      <div class="sec-meta"><span class="sec-num" aria-hidden="true">2</span><span class="eyebrow" data-i18n="s2.eyebrow">Abschnitt 2</span></div>
+      <h2 data-i18n="s2.title">Wie nutze ich ChatGPT im Alltag?</h2>
+      <p class="lead" data-i18n="s2.lead">ChatGPT ist wie ein vielseitiger Assistent. Hier sind vier typische Einsatzbereiche – jeweils mit einem Beispiel-Prompt zum Ausprobieren.</p>
+    </header>
+
+    <div class="grid grid-2">
+      <article class="card use">
+        <div class="use-head"><span class="icon-tile"><svg class="ic"><use href="#i-pen"/></svg></span><h3 data-i18n="s2.c1t">Texte schreiben</h3></div>
+        <p data-i18n="s2.c1d">E-Mails, Bewerbungen, Einladungen oder Social-Media-Beiträge: ChatGPT liefert einen ersten Entwurf, den du dann anpasst.</p>
+        <div class="prompt">
+          <div class="prompt-top"><span class="prompt-label" data-i18n="s2.promptLabel">Beispiel-Prompt</span><button type="button" class="copy"><svg class="ic"><use href="#i-copy"/></svg><span data-i18n="ui.copy">Kopieren</span></button></div>
+          <p class="prompt-text" data-i18n="s2.c1p">Schreibe eine freundliche E-Mail an meine Vermieterin. Ich möchte einen Termin vereinbaren, weil der Wasserhahn in der Küche tropft. Maximal 5 Sätze.</p>
+        </div>
+        <p class="tip"><svg class="ic"><use href="#i-info"/></svg><span data-i18n="s2.c1tip"><b>Tipp:</b> Lies den Entwurf immer durch und ergänze persönliche Details selbst.</span></p>
+      </article>
+
+      <article class="card use">
+        <div class="use-head"><span class="icon-tile"><svg class="ic"><use href="#i-list"/></svg></span><h3 data-i18n="s2.c2t">Zusammenfassen</h3></div>
+        <p data-i18n="s2.c2d">Lange Artikel, Berichte oder Protokolle werden auf das Wichtigste gekürzt.</p>
+        <div class="prompt">
+          <div class="prompt-top"><span class="prompt-label" data-i18n="s2.promptLabel">Beispiel-Prompt</span><button type="button" class="copy"><svg class="ic"><use href="#i-copy"/></svg><span data-i18n="ui.copy">Kopieren</span></button></div>
+          <p class="prompt-text" data-i18n="s2.c2p">Fasse den folgenden Text in 5 Stichpunkten zusammen. Markiere die wichtigste Aussage fett: [Text hier einfügen]</p>
+        </div>
+        <p class="tip"><svg class="ic"><use href="#i-info"/></svg><span data-i18n="s2.c2tip"><b>Tipp:</b> Vergleiche die Zusammenfassung mit dem Original – manchmal fehlen wichtige Details.</span></p>
+      </article>
+
+      <article class="card use">
+        <div class="use-head"><span class="icon-tile"><svg class="ic"><use href="#i-bulb"/></svg></span><h3 data-i18n="s2.c3t">Ideen entwickeln</h3></div>
+        <p data-i18n="s2.c3d">Geschenkideen, Namen fürs Vereinsfest, Rezepte aus Resten im Kühlschrank: ChatGPT hilft dir beim Brainstorming.</p>
+        <div class="prompt">
+          <div class="prompt-top"><span class="prompt-label" data-i18n="s2.promptLabel">Beispiel-Prompt</span><button type="button" class="copy"><svg class="ic"><use href="#i-copy"/></svg><span data-i18n="ui.copy">Kopieren</span></button></div>
+          <p class="prompt-text" data-i18n="s2.c3p">Ich habe Reis, Paprika, Eier und Käse. Schlage mir 3 einfache Abendessen vor, die in 30 Minuten fertig sind.</p>
+        </div>
+        <p class="tip"><svg class="ic"><use href="#i-info"/></svg><span data-i18n="s2.c3tip"><b>Tipp:</b> Bitte um mehr – oder ganz andere – Vorschläge, wenn dir keiner gefällt.</span></p>
+      </article>
+
+      <article class="card use">
+        <div class="use-head"><span class="icon-tile"><svg class="ic"><use href="#i-book"/></svg></span><h3 data-i18n="s2.c4t">Lernen &amp; verstehen</h3></div>
+        <p data-i18n="s2.c4d">Schwierige Themen einfach erklärt, Vokabeln üben oder dich abfragen lassen – ChatGPT ist geduldig.</p>
+        <div class="prompt">
+          <div class="prompt-top"><span class="prompt-label" data-i18n="s2.promptLabel">Beispiel-Prompt</span><button type="button" class="copy"><svg class="ic"><use href="#i-copy"/></svg><span data-i18n="ui.copy">Kopieren</span></button></div>
+          <p class="prompt-text" data-i18n="s2.c4p">Erkläre mir den Unterschied zwischen Wetter und Klima so, als wäre ich 12 Jahre alt. Stelle mir danach 3 Fragen, um mein Wissen zu prüfen.</p>
+        </div>
+        <p class="tip"><svg class="ic"><use href="#i-info"/></svg><span data-i18n="s2.c4tip"><b>Tipp:</b> Lass dich abfragen, statt nur zu lesen – so bleibt mehr hängen.</span></p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 3 · GUTE PROMPTS ===================== -->
+<section id="prompts" class="section band" style="--c:var(--blue);--cs:var(--blue-soft)">
+  <div class="container">
+    <header class="sec-head">
+      <div class="sec-meta"><span class="sec-num" aria-hidden="true">3</span><span class="eyebrow" data-i18n="s3.eyebrow">Abschnitt 3</span></div>
+      <h2 data-i18n="s3.title">Gute Prompts schreiben</h2>
+      <p class="lead" data-i18n="s3.lead">Ein Prompt ist deine Anweisung an ChatGPT. Je klarer du formulierst, desto besser wird die Antwort. Eine einfache Formel hilft dabei:</p>
+    </header>
+
+    <div class="card formula">
+      <div class="parts">
+        <div class="part p-role"><span class="part-chip" data-i18n="s3.f1">Rolle</span><p class="part-q" data-i18n="s3.f1q">Wer soll ChatGPT sein?</p></div>
+        <span class="plus" aria-hidden="true">+</span>
+        <div class="part p-task"><span class="part-chip" data-i18n="s3.f2">Aufgabe</span><p class="part-q" data-i18n="s3.f2q">Was genau soll passieren?</p></div>
+        <span class="plus" aria-hidden="true">+</span>
+        <div class="part p-ctx"><span class="part-chip" data-i18n="s3.f3">Kontext</span><p class="part-q" data-i18n="s3.f3q">Was muss ChatGPT über dich und die Situation wissen?</p></div>
+        <span class="plus" aria-hidden="true">+</span>
+        <div class="part p-fmt"><span class="part-chip" data-i18n="s3.f4">Format</span><p class="part-q" data-i18n="s3.f4q">Wie soll die Antwort aussehen? (Länge, Liste, Tabelle, Ton)</p></div>
+      </div>
+      <p class="formula-label" data-i18n="s3.formulaLabel">Zusammengesetzt ergibt das zum Beispiel:</p>
+      <p class="assembled">
+        <mark class="seg p-role" data-i18n="s3.f1ex">Du bist ein geduldiger Mathe-Nachhilfelehrer.</mark>
+        <mark class="seg p-task" data-i18n="s3.f2ex">Erkläre mir, wie man Prozente berechnet.</mark>
+        <mark class="seg p-ctx" data-i18n="s3.f3ex">Ich bin in der 7. Klasse und finde das Thema schwierig.</mark>
+        <mark class="seg p-fmt" data-i18n="s3.f4ex">Nutze ein Alltagsbeispiel und höchstens 6 Sätze.</mark>
+      </p>
+    </div>
+
+    <h3 class="sub" data-i18n="s3.tipsTitle">5 Tipps mit Beispielen</h3>
+    <div class="grid grid-2">
+      <article class="card">
+        <div class="tip-head"><span class="tip-num">1</span><h3 data-i18n="s3.t1t">Sei konkret</h3></div>
+        <div class="cmp cmp-bad"><span class="cmp-label"><svg class="ic"><use href="#i-x"/></svg><span data-i18n="s3.bad">Statt</span></span><p data-i18n="s3.t1bad">„Schreib was über Hunde.“</p></div>
+        <div class="cmp cmp-good"><span class="cmp-label"><svg class="ic"><use href="#i-check"/></svg><span data-i18n="s3.good">Besser</span></span><p data-i18n="s3.t1good">„Schreibe einen kurzen Steckbrief über Labradore für eine Familie, die ihren ersten Hund sucht.“</p></div>
+      </article>
+      <article class="card">
+        <div class="tip-head"><span class="tip-num">2</span><h3 data-i18n="s3.t2t">Gib Kontext</h3></div>
+        <div class="cmp cmp-bad"><span class="cmp-label"><svg class="ic"><use href="#i-x"/></svg><span data-i18n="s3.bad">Statt</span></span><p data-i18n="s3.t2bad">„Wie lerne ich besser?“</p></div>
+        <div class="cmp cmp-good"><span class="cmp-label"><svg class="ic"><use href="#i-check"/></svg><span data-i18n="s3.good">Besser</span></span><p data-i18n="s3.t2good">„Ich bereite mich auf eine Englischprüfung in 3 Wochen vor und habe täglich 30 Minuten Zeit. Erstelle mir einen Lernplan.“</p></div>
+      </article>
+      <article class="card">
+        <div class="tip-head"><span class="tip-num">3</span><h3 data-i18n="s3.t3t">Lege das Format fest</h3></div>
+        <div class="cmp cmp-bad"><span class="cmp-label"><svg class="ic"><use href="#i-x"/></svg><span data-i18n="s3.bad">Statt</span></span><p data-i18n="s3.t3bad">„Erzähl mir was über gesunde Ernährung.“</p></div>
+        <div class="cmp cmp-good"><span class="cmp-label"><svg class="ic"><use href="#i-check"/></svg><span data-i18n="s3.good">Besser</span></span><p data-i18n="s3.t3good">„Nenne 5 einfache Tipps für gesunde Ernährung als Liste – mit je einem Satz Erklärung.“</p></div>
+      </article>
+      <article class="card">
+        <div class="tip-head"><span class="tip-num">4</span><h3 data-i18n="s3.t4t">Gib ein Beispiel vor</h3></div>
+        <div class="cmp cmp-bad"><span class="cmp-label"><svg class="ic"><use href="#i-x"/></svg><span data-i18n="s3.bad">Statt</span></span><p data-i18n="s3.t4bad">„Schreib einen Instagram-Text für mein Café.“</p></div>
+        <div class="cmp cmp-good"><span class="cmp-label"><svg class="ic"><use href="#i-check"/></svg><span data-i18n="s3.good">Besser</span></span><p data-i18n="s3.t4good">„Schreibe einen Instagram-Text für mein Café im Stil dieses Beispiels: ‚Montag? Nicht mit uns! ☕ Heute gibt’s Zimtschnecken frisch aus dem Ofen.‘“</p></div>
+      </article>
+      <article class="card tip-wide">
+        <div class="tip-head"><span class="tip-num">5</span><h3 data-i18n="s3.t5t">Verbessere im Gespräch</h3></div>
+        <p data-i18n="s3.t5d">Die erste Antwort passt noch nicht? Kein Problem – frag einfach nach:</p>
+        <ul class="followups">
+          <li data-i18n="s3.t5a">„Mach es kürzer.“</li>
+          <li data-i18n="s3.t5b">„Erkläre es einfacher.“</li>
+          <li data-i18n="s3.t5c">„Gib mir drei Alternativen.“</li>
+          <li data-i18n="s3.t5e">„Formuliere es freundlicher.“</li>
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 4 · GRENZEN UND FEHLER ===================== -->
+<section id="limits" class="section" style="--c:var(--amber);--cs:var(--amber-soft)">
+  <div class="container">
+    <header class="sec-head">
+      <div class="sec-meta"><span class="sec-num" aria-hidden="true">4</span><span class="eyebrow" data-i18n="s4.eyebrow">Abschnitt 4</span></div>
+      <h2 data-i18n="s4.title">Grenzen und Fehler</h2>
+      <p class="lead" data-i18n="s4.lead">ChatGPT ist beeindruckend – aber nicht fehlerfrei. Weil es Texte nach Wahrscheinlichkeit erzeugt, kann es Dinge erfinden, die überzeugend klingen, aber falsch sind.</p>
+    </header>
+
+    <div class="split">
+      <div class="card callout">
+        <span class="icon-tile"><svg class="ic"><use href="#i-alert"/></svg></span>
+        <h3 data-i18n="s4.halTitle">Was sind Halluzinationen?</h3>
+        <p data-i18n="s4.halText">Wenn eine KI falsche Informationen erfindet und sie als Tatsache präsentiert, spricht man von einer <b>Halluzination</b>. Das können ausgedachte Zahlen, Zitate, Quellen, Gesetze oder sogar Personen sein.</p>
+        <p data-i18n="s4.halText2">Das Tückische: Erfundene Angaben sehen genauso aus wie echte – mit Namen, Jahreszahlen und Details. Erkennen kann man sie nur, wenn man nachprüft.</p>
+      </div>
+
+      <figure class="card example">
+        <figcaption class="example-label" data-i18n="s4.exLabel">Beispiel (zur Veranschaulichung ausgedacht)</figcaption>
+        <div class="msg msg-user"><span class="msg-who" data-i18n="chat.you">Du</span><p data-i18n="s4.exQ">Nenne mir ein Buch über die Geschichte Maltas – mit Autor und Erscheinungsjahr.</p></div>
+        <div class="msg msg-ai"><span class="msg-who">ChatGPT</span><p data-i18n="s4.exA">Gern! „Die Steine von Valletta“ von Martin Kessler, erschienen 2009.</p></div>
+        <p class="annot"><svg class="ic"><use href="#i-alert"/></svg><span data-i18n="s4.exNote">Klingt glaubwürdig – doch genau solche Angaben erfindet KI manchmal: Titel, Autor und Jahr wirken echt, das Buch gibt es aber gar nicht. Suche es deshalb selbst, z. B. in einem Bibliothekskatalog.</span></p>
+      </figure>
+    </div>
+
+    <h3 class="sub" data-i18n="s4.limitsTitle">Typische Schwächen</h3>
+    <div class="grid grid-5">
+      <article class="card limit">
+        <span class="icon-tile"><svg class="ic"><use href="#i-help"/></svg></span>
+        <h3 data-i18n="s4.l1t">Erfundene Fakten</h3>
+        <p data-i18n="s4.l1d">Zahlen, Zitate und Quellenangaben können ausgedacht sein – auch wenn sie präzise wirken.</p>
+      </article>
+      <article class="card limit">
+        <span class="icon-tile"><svg class="ic"><use href="#i-clock"/></svg></span>
+        <h3 data-i18n="s4.l2t">Veraltetes Wissen</h3>
+        <p data-i18n="s4.l2d">Das Modell lernt aus Daten bis zu einem bestimmten Zeitpunkt. Aktuelle Ereignisse kennt es oft nicht oder nur ungenau.</p>
+      </article>
+      <article class="card limit">
+        <span class="icon-tile"><svg class="ic"><use href="#i-calc"/></svg></span>
+        <h3 data-i18n="s4.l3t">Rechen- und Logikfehler</h3>
+        <p data-i18n="s4.l3d">Bei Rechnungen, Datumsangaben und mehrstufigen Aufgaben passieren Fehler. Nachrechnen lohnt sich.</p>
+      </article>
+      <article class="card limit">
+        <span class="icon-tile"><svg class="ic"><use href="#i-scale"/></svg></span>
+        <h3 data-i18n="s4.l4t">Vorurteile (Bias)</h3>
+        <p data-i18n="s4.l4d">Die Trainingsdaten stammen von Menschen – und enthalten auch deren Vorurteile. Antworten können einseitig sein.</p>
+      </article>
+      <article class="card limit">
+        <span class="icon-tile"><svg class="ic"><use href="#i-megaphone"/></svg></span>
+        <h3 data-i18n="s4.l5t">Zu selbstsicherer Ton</h3>
+        <p data-i18n="s4.l5d">ChatGPT klingt oft sicher, auch wenn es sich irrt. Ein überzeugender Ton ist kein Beweis.</p>
+      </article>
+    </div>
+
+    <div class="card checklist">
+      <div>
+        <h3><svg class="ic"><use href="#i-search"/></svg><span data-i18n="s4.checkTitle">So prüfst du Ergebnisse</span></h3>
+        <p class="rule" data-i18n="s4.rule"><b>Faustregel:</b> Nutze ChatGPT als Startpunkt – nicht als letzte Instanz.</p>
+      </div>
+      <ul class="checks">
+        <li><span class="mark mark-ok"><svg class="ic"><use href="#i-check"/></svg></span><span data-i18n="s4.k1">Fakten mit einer zweiten, vertrauenswürdigen Quelle vergleichen (z. B. offizielle Websites, Fachbücher, seriöse Nachrichten).</span></li>
+        <li><span class="mark mark-ok"><svg class="ic"><use href="#i-check"/></svg></span><span data-i18n="s4.k2">Nach Quellen fragen – und diese dann selbst öffnen und lesen.</span></li>
+        <li><span class="mark mark-ok"><svg class="ic"><use href="#i-check"/></svg></span><span data-i18n="s4.k3">Bei Gesundheit, Recht und Geld immer Fachleute fragen (Ärztin, Anwalt, Beratungsstelle).</span></li>
+        <li><span class="mark mark-ok"><svg class="ic"><use href="#i-check"/></svg></span><span data-i18n="s4.k4">Zahlen und Rechnungen selbst nachrechnen.</span></li>
+        <li><span class="mark mark-ok"><svg class="ic"><use href="#i-check"/></svg></span><span data-i18n="s4.k5">Gesunden Menschenverstand nutzen: Klingt etwas zu gut oder seltsam, genauer hinschauen.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== 5 · DATENSCHUTZ ===================== -->
+<section id="privacy" class="section band" style="--c:var(--rose);--cs:var(--rose-soft)">
+  <div class="container">
+    <header class="sec-head">
+      <div class="sec-meta"><span class="sec-num" aria-hidden="true">5</span><span class="eyebrow" data-i18n="s5.eyebrow">Abschnitt 5</span></div>
+      <h2 data-i18n="s5.title">Datenschutz: Was gehört nicht in den Chat?</h2>
+      <p class="lead" data-i18n="s5.lead">Alles, was du eintippst, wird an die Server des Anbieters geschickt und kann dort gespeichert werden. Je nach Einstellung können deine Chats auch genutzt werden, um die KI weiter zu verbessern.</p>
+    </header>
+
+    <div class="postcard">
+      <span class="icon-tile"><svg class="ic"><use href="#i-mail"/></svg></span>
+      <p data-i18n="s5.postcard"><b>Die Postkarten-Regel:</b> Schreib nur in den Chat, was du auch auf eine Postkarte schreiben würdest – die unterwegs jeder lesen kann.</p>
+    </div>
+
+    <div class="split">
+      <div class="card panel panel-dont">
+        <h3><svg class="ic"><use href="#i-lock"/></svg><span data-i18n="s5.dontTitle">Nicht eingeben</span></h3>
+        <ul class="list">
+          <li><span class="mark mark-x"><svg class="ic"><use href="#i-x"/></svg></span><span data-i18n="s5.d1">Passwörter, PINs und TAN-Codes</span></li>
+          <li><span class="mark mark-x"><svg class="ic"><use href="#i-x"/></svg></span><span data-i18n="s5.d2">Bank- und Kreditkartendaten</span></li>
+          <li><span class="mark mark-x"><svg class="ic"><use href="#i-x"/></svg></span><span data-i18n="s5.d3">Ausweis-, Pass- oder Sozialversicherungsnummer</span></li>
+          <li><span class="mark mark-x"><svg class="ic"><use href="#i-x"/></svg></span><span data-i18n="s5.d4">Gesundheitsdaten, die dich identifizieren</span></li>
+          <li><span class="mark mark-x"><svg class="ic"><use href="#i-x"/></svg></span><span data-i18n="s5.d5">Private Daten anderer: Namen, Adressen, Telefonnummern, Fotos</span></li>
+          <li><span class="mark mark-x"><svg class="ic"><use href="#i-x"/></svg></span><span data-i18n="s5.d6">Vertrauliches aus Arbeit oder Schule (Kundendaten, interne Dokumente)</span></li>
+        </ul>
+      </div>
+      <div class="card panel panel-do">
+        <h3><svg class="ic"><use href="#i-shield"/></svg><span data-i18n="s5.doTitle">So schützt du dich</span></h3>
+        <ul class="list">
+          <li><span class="mark mark-ok"><svg class="ic"><use href="#i-check"/></svg></span><span data-i18n="s5.p1"><b>Anonymisieren:</b> Ersetze echte Namen und Daten durch Platzhalter wie [Name] oder [Firma].</span></li>
+          <li><span class="mark mark-ok"><svg class="ic"><use href="#i-check"/></svg></span><span data-i18n="s5.p2"><b>Einstellungen prüfen:</b> Lege fest, ob deine Chats zum Training genutzt werden dürfen, und lösche alte Verläufe.</span></li>
+          <li><span class="mark mark-ok"><svg class="ic"><use href="#i-check"/></svg></span><span data-i18n="s5.p3"><b>Konto absichern:</b> Nutze ein starkes, einzigartiges Passwort und die Zwei-Faktor-Authentifizierung.</span></li>
+          <li><span class="mark mark-ok"><svg class="ic"><use href="#i-check"/></svg></span><span data-i18n="s5.p4"><b>Vorsicht bei Dateien:</b> Lade keine Dokumente hoch, die persönliche Daten enthalten.</span></li>
+          <li><span class="mark mark-ok"><svg class="ic"><use href="#i-check"/></svg></span><span data-i18n="s5.p5"><b>Bei der Arbeit:</b> Halte dich an die Regeln deines Arbeitgebers zur KI-Nutzung.</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card anon" style="margin-top:20px">
+      <h3 data-i18n="s5.exTitle">Beispiel: Daten anonymisieren</h3>
+      <div class="anon-grid">
+        <div class="cmp cmp-bad"><span class="cmp-label"><svg class="ic"><use href="#i-x"/></svg><span data-i18n="s5.exBadLabel">Riskant</span></span><p data-i18n="s5.exBad">„Schreibe eine Mahnung an <mark class="pii">Anna Berger</mark>, <mark class="pii">Hauptstraße 12, 10115 Berlin</mark>, <mark class="pii">IBAN DE12 3456 …</mark> – sie schuldet mir 250 €.“</p></div>
+        <span class="anon-arrow" aria-hidden="true"><svg class="ic"><use href="#i-arrow-right"/></svg></span>
+        <div class="cmp cmp-good"><span class="cmp-label"><svg class="ic"><use href="#i-check"/></svg><span data-i18n="s5.exGoodLabel">Sicher</span></span><p data-i18n="s5.exGood">„Schreibe eine höfliche Zahlungserinnerung an eine Kundin. Sie schuldet mir seit 30 Tagen 250 €. Verwende Platzhalter wie <mark class="ph">[Name]</mark> und <mark class="ph">[Adresse]</mark>.“</p></div>
+      </div>
+    </div>
+
+    <div class="warn">
+      <svg class="ic"><use href="#i-alert"/></svg>
+      <p data-i18n="s5.warn"><b>Wichtig:</b> Ein Chatbot braucht nie dein Passwort, deine PIN oder einen TAN-Code, um dir zu helfen. Fragt ein Chat oder eine Nachricht danach, ist das ein Warnsignal für Betrug (Phishing).</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== QUIZ ===================== -->
+<section id="quiz" class="section quiz-section" style="--c:var(--teal);--cs:var(--teal-soft)">
+  <div class="container">
+    <header class="sec-head center">
+      <div class="sec-meta"><span class="sec-num" aria-hidden="true"><svg class="ic"><use href="#i-sparkle"/></svg></span><span class="eyebrow" data-i18n="quiz.eyebrow">Zum Abschluss</span></div>
+      <h2 data-i18n="quiz.title">Teste dein Wissen</h2>
+      <p class="lead" data-i18n="quiz.lead">5 Fragen – wähle jeweils eine Antwort. Du bekommst sofort Feedback, ob sie stimmt.</p>
+    </header>
+    <div class="card quiz" id="quizCard">
+      <noscript><p>Für das Quiz wird JavaScript benötigt. · The quiz requires JavaScript. · Il-kwiż jeħtieġ JavaScript.</p></noscript>
+    </div>
+    <p class="sr-only" id="quizLive" aria-live="polite"></p>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="container footer-inner">
+    <p data-i18n="footer.text"><b>PromptLab</b> – eine unabhängige Lernseite. Nicht mit OpenAI verbunden; „ChatGPT“ ist eine Marke von OpenAI.</p>
+    <a href="#top"><span data-i18n="footer.top">Nach oben</span> ↑</a>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var LANGS = ["de", "en", "mt"];
+  var STORAGE_KEY = "promptlab-lang";
+
+  /* ------------------------------------------------------------------
+     Übersetzungen.
+     Deutsch steht direkt im HTML und wird beim Start ausgelesen.
+     Hier stehen Englisch und Maltesisch (gleiche Schlüssel wie data-i18n).
+     ------------------------------------------------------------------ */
+  var T = {
+    en: {
+      "ui.skip": `Skip to content`,
+      "ui.navLabel": `Sections`,
+      "ui.langLabel": `Choose language`,
+      "ui.copy": `Copy`,
+      "nav.basics": `Basics`,
+      "nav.everyday": `Everyday use`,
+      "nav.prompts": `Prompts`,
+      "nav.limits": `Limits`,
+      "nav.privacy": `Privacy`,
+      "nav.quiz": `Quiz`,
+      "chat.you": `You`,
+
+      "hero.eyebrow": `Learning guide · free · about 15 minutes`,
+      "hero.title": `Understand ChatGPT and <span class="hl">use it safely</span>`,
+      "hero.lead": `A short, clear introduction: what ChatGPT is, how it helps you in everyday life, how to ask good questions – and what to watch out for. At the end, you can test your knowledge in the quiz.`,
+      "hero.cta1": `Start learning`,
+      "hero.cta2": `Go to the quiz`,
+      "hero.q": `Explain in 3 sentences how photosynthesis works.`,
+      "hero.a": `Plants take in light, water and carbon dioxide. Using the energy from light, they turn these into sugar as food. In the process, they release oxygen into the air.`,
+      "hero.input": `Write a message …`,
+      "hero.path": `Your learning path`,
+
+      "s1.eyebrow": `Section 1`,
+      "s1.title": `What is ChatGPT?`,
+      "s1.lead": `ChatGPT is an AI chat program made by the company OpenAI. You type a question or task in everyday language – and ChatGPT answers in full sentences, almost like a conversation.`,
+      "s1.howTitle": `How does it work?`,
+      "s1.how1": `At its core is a so-called <b>large language model</b> (LLM). It was trained on huge amounts of text and learned which words typically follow each other. When you ask something, it works out, word by word, which continuation fits best.`,
+      "s1.how2": `ChatGPT doesn't think the way a person does. It has learned from billions of examples what good answers typically look like – and reproduces that pattern.`,
+      "s1.demoTitle": `Example: how the model picks the next word`,
+      "s1.demoSentence": `In the morning I like to drink a cup of`,
+      "s1.demoHint": `Tap a word to complete the sentence:`,
+      "s1.wordsLabel": `Possible next words`,
+      "s1.w1": `coffee`,
+      "s1.w2": `tea`,
+      "s1.w3": `cocoa`,
+      "s1.w4": `water`,
+      "s1.demoNote": `Simplified illustration with sample values. The model usually picks a likely continuation – it doesn't “know” things the way humans do; it recognizes patterns in language.`,
+      "s1.c1t": `A language model`,
+      "s1.c1d": `ChatGPT generates text by using patterns from its training data. It can write, explain, translate and even program.`,
+      "s1.c2t": `Not a person, not an encyclopedia`,
+      "s1.c2d": `ChatGPT has no consciousness and doesn't understand the world like a human does. Its answers often sound very confident – even when they are wrong.`,
+      "s1.c3t": `A conversation with memory`,
+      "s1.c3d": `Within a chat, ChatGPT remembers what was said earlier. So you can ask follow-up questions and improve answers step by step.`,
+      "s1.c4t": `Many languages`,
+      "s1.c4d": `You can use ChatGPT in German, English, Maltese and many other languages – but the quality is not equally good in every language.`,
+
+      "s2.eyebrow": `Section 2`,
+      "s2.title": `How do I use ChatGPT in everyday life?`,
+      "s2.lead": `ChatGPT is like a versatile assistant. Here are four typical uses – each with an example prompt you can try yourself.`,
+      "s2.promptLabel": `Example prompt`,
+      "s2.c1t": `Writing texts`,
+      "s2.c1d": `Emails, job applications, invitations or social media posts: ChatGPT gives you a first draft that you then adjust.`,
+      "s2.c1p": `Write a friendly email to my landlady. I'd like to arrange an appointment because the kitchen tap is dripping. 5 sentences maximum.`,
+      "s2.c1tip": `<b>Tip:</b> Always read the draft and add personal details yourself.`,
+      "s2.c2t": `Summarizing`,
+      "s2.c2d": `Long articles, reports or meeting notes are shortened to the essentials.`,
+      "s2.c2p": `Summarize the following text in 5 bullet points. Put the most important statement in bold: [paste text here]`,
+      "s2.c2tip": `<b>Tip:</b> Compare the summary with the original – important details are sometimes missing.`,
+      "s2.c3t": `Developing ideas`,
+      "s2.c3d": `Gift ideas, names for a club party, recipes from leftovers in the fridge: ChatGPT helps you brainstorm.`,
+      "s2.c3p": `I have rice, peppers, eggs and cheese. Suggest 3 simple dinners that are ready in 30 minutes.`,
+      "s2.c3tip": `<b>Tip:</b> Ask for more – or completely different – suggestions if you don't like any of them.`,
+      "s2.c4t": `Learning &amp; understanding`,
+      "s2.c4d": `Difficult topics explained simply, vocabulary practice or quizzing yourself – ChatGPT is patient.`,
+      "s2.c4p": `Explain the difference between weather and climate as if I were 12 years old. Then ask me 3 questions to check what I've learned.`,
+      "s2.c4tip": `<b>Tip:</b> Let it quiz you instead of just reading – you'll remember more.`,
+
+      "s3.eyebrow": `Section 3`,
+      "s3.title": `Writing good prompts`,
+      "s3.lead": `A prompt is your instruction to ChatGPT. The clearer you are, the better the answer. A simple formula helps:`,
+      "s3.f1": `Role`,
+      "s3.f1q": `Who should ChatGPT be?`,
+      "s3.f2": `Task`,
+      "s3.f2q": `What exactly should happen?`,
+      "s3.f3": `Context`,
+      "s3.f3q": `What does ChatGPT need to know about you and the situation?`,
+      "s3.f4": `Format`,
+      "s3.f4q": `What should the answer look like? (length, list, table, tone)`,
+      "s3.formulaLabel": `Put together, this gives you for example:`,
+      "s3.f1ex": `You are a patient maths tutor.`,
+      "s3.f2ex": `Explain how to calculate percentages.`,
+      "s3.f3ex": `I'm in year 7 and find this topic difficult.`,
+      "s3.f4ex": `Use an everyday example and no more than 6 sentences.`,
+      "s3.tipsTitle": `5 tips with examples`,
+      "s3.bad": `Instead of`,
+      "s3.good": `Better`,
+      "s3.t1t": `Be specific`,
+      "s3.t1bad": `“Write something about dogs.”`,
+      "s3.t1good": `“Write a short profile of Labradors for a family looking for their first dog.”`,
+      "s3.t2t": `Give context`,
+      "s3.t2bad": `“How can I study better?”`,
+      "s3.t2good": `“I'm preparing for an English exam in 3 weeks and have 30 minutes a day. Create a study plan for me.”`,
+      "s3.t3t": `Specify the format`,
+      "s3.t3bad": `“Tell me something about healthy eating.”`,
+      "s3.t3good": `“List 5 simple tips for healthy eating – each with a one-sentence explanation.”`,
+      "s3.t4t": `Provide an example`,
+      "s3.t4bad": `“Write an Instagram post for my café.”`,
+      "s3.t4good": `“Write an Instagram post for my café in the style of this example: ‘Monday? Not with us! ☕ Fresh cinnamon rolls straight from the oven today.’”`,
+      "s3.t5t": `Improve it in conversation`,
+      "s3.t5d": `Not happy with the first answer yet? No problem – just follow up:`,
+      "s3.t5a": `“Make it shorter.”`,
+      "s3.t5b": `“Explain it more simply.”`,
+      "s3.t5c": `“Give me three alternatives.”`,
+      "s3.t5e": `“Make it sound friendlier.”`,
+
+      "s4.eyebrow": `Section 4`,
+      "s4.title": `Limits and mistakes`,
+      "s4.lead": `ChatGPT is impressive – but not error-free. Because it generates text based on probability, it can invent things that sound convincing but are wrong.`,
+      "s4.halTitle": `What are hallucinations?`,
+      "s4.halText": `When an AI makes up false information and presents it as fact, this is called a <b>hallucination</b>. It can involve invented numbers, quotes, sources, laws or even people.`,
+      "s4.halText2": `The tricky part: invented details look exactly like real ones – with names, years and specifics. You can only spot them by checking.`,
+      "s4.exLabel": `Example (made up for illustration)`,
+      "s4.exQ": `Name a book about the history of Malta – with author and year of publication.`,
+      "s4.exA": `Sure! “The Stones of Valletta” by Martin Kessler, published in 2009.`,
+      "s4.exNote": `Sounds believable – but AI sometimes invents exactly this kind of detail: title, author and year look real, yet the book doesn't exist at all. So look it up yourself, e.g. in a library catalogue.`,
+      "s4.limitsTitle": `Typical weaknesses`,
+      "s4.l1t": `Invented facts`,
+      "s4.l1d": `Numbers, quotes and references can be made up – even if they look precise.`,
+      "s4.l2t": `Outdated knowledge`,
+      "s4.l2d": `The model learns from data up to a certain point in time. It often knows little or nothing about recent events.`,
+      "s4.l3t": `Calculation and logic errors`,
+      "s4.l3d": `Mistakes happen with calculations, dates and multi-step tasks. It pays to double-check.`,
+      "s4.l4t": `Bias`,
+      "s4.l4d": `The training data comes from people – and also contains their prejudices. Answers can be one-sided.`,
+      "s4.l5t": `Overconfident tone`,
+      "s4.l5d": `ChatGPT often sounds sure of itself, even when it's wrong. A convincing tone is not proof.`,
+      "s4.checkTitle": `How to check results`,
+      "s4.rule": `<b>Rule of thumb:</b> Use ChatGPT as a starting point – not as the final word.`,
+      "s4.k1": `Compare facts with a second, trustworthy source (e.g. official websites, textbooks, reputable news).`,
+      "s4.k2": `Ask for sources – then open and read them yourself.`,
+      "s4.k3": `For health, legal and money matters, always ask professionals (doctor, lawyer, advice centre).`,
+      "s4.k4": `Double-check numbers and calculations yourself.`,
+      "s4.k5": `Use common sense: if something sounds too good or strange, look more closely.`,
+
+      "s5.eyebrow": `Section 5`,
+      "s5.title": `Privacy: what doesn't belong in the chat?`,
+      "s5.lead": `Everything you type is sent to the provider's servers and may be stored there. Depending on your settings, your chats may also be used to further improve the AI.`,
+      "s5.postcard": `<b>The postcard rule:</b> Only type into the chat what you would also write on a postcard – which anyone can read along the way.`,
+      "s5.dontTitle": `Don't enter`,
+      "s5.d1": `Passwords, PINs and one-time codes`,
+      "s5.d2": `Bank and credit card details`,
+      "s5.d3": `ID card, passport or social security numbers`,
+      "s5.d4": `Health data that identifies you`,
+      "s5.d5": `Other people's private data: names, addresses, phone numbers, photos`,
+      "s5.d6": `Confidential information from work or school (customer data, internal documents)`,
+      "s5.doTitle": `How to protect yourself`,
+      "s5.p1": `<b>Anonymize:</b> Replace real names and details with placeholders like [Name] or [Company].`,
+      "s5.p2": `<b>Check your settings:</b> Decide whether your chats may be used for training, and delete old chat histories.`,
+      "s5.p3": `<b>Secure your account:</b> Use a strong, unique password and two-factor authentication.`,
+      "s5.p4": `<b>Be careful with files:</b> Don't upload documents that contain personal data.`,
+      "s5.p5": `<b>At work:</b> Follow your employer's rules on using AI.`,
+      "s5.exTitle": `Example: anonymizing data`,
+      "s5.exBadLabel": `Risky`,
+      "s5.exGoodLabel": `Safe`,
+      "s5.exBad": `“Write a reminder letter to <mark class="pii">Anna Berger</mark>, <mark class="pii">12 High Street, Berlin</mark>, <mark class="pii">IBAN DE12 3456 …</mark> – she owes me €250.”`,
+      "s5.exGood": `“Write a polite payment reminder to a customer. She has owed me €250 for 30 days. Use placeholders like <mark class="ph">[Name]</mark> and <mark class="ph">[Address]</mark>.”`,
+      "s5.warn": `<b>Important:</b> A chatbot never needs your password, PIN or a security code to help you. If a chat or message asks for it, that's a warning sign of fraud (phishing).`,
+
+      "quiz.eyebrow": `Final step`,
+      "quiz.title": `Test your knowledge`,
+      "quiz.lead": `5 questions – choose one answer each. You'll get instant feedback on whether it's right.`,
+      "footer.text": `<b>PromptLab</b> – an independent learning site. Not affiliated with OpenAI; “ChatGPT” is a trademark of OpenAI.`,
+      "footer.top": `Back to top`
+    },
+
+    mt: {
+      "ui.skip": `Aqbeż għall-kontenut`,
+      "ui.navLabel": `Taqsimiet`,
+      "ui.langLabel": `Agħżel il-lingwa`,
+      "ui.copy": `Ikkopja`,
+      "nav.basics": `Il-bażi`,
+      "nav.everyday": `Kuljum`,
+      "nav.prompts": `Prompts`,
+      "nav.limits": `Limiti`,
+      "nav.privacy": `Privatezza`,
+      "nav.quiz": `Kwiż`,
+      "chat.you": `Int`,
+
+      "hero.eyebrow": `Gwida għat-tagħlim · b'xejn · madwar 15-il minuta`,
+      "hero.title": `Ifhem ChatGPT u <span class="hl">użah b'mod sigur</span>`,
+      "hero.lead": `Introduzzjoni qasira u ċara: x'inhu ChatGPT, kif jista' jgħinek fil-ħajja ta' kuljum, kif tagħmel mistoqsijiet tajbin – u għal xiex trid toqgħod attent. Fl-aħħar, tista' tittestja l-għarfien tiegħek fil-kwiż.`,
+      "hero.cta1": `Ibda titgħallem`,
+      "hero.cta2": `Mur dritt għall-kwiż`,
+      "hero.q": `Spjegali fi 3 sentenzi kif taħdem il-fotosintesi.`,
+      "hero.a": `Il-pjanti jieħdu d-dawl, l-ilma u d-dijossidu tal-karbonju. Bl-enerġija tad-dawl, jibdluhom f'zokkor li jservihom ta' ikel. Matul dan il-proċess, joħorġu l-ossiġnu fl-arja.`,
+      "hero.input": `Ikteb messaġġ …`,
+      "hero.path": `Il-mogħdija tat-tagħlim tiegħek`,
+
+      "s1.eyebrow": `Taqsima 1`,
+      "s1.title": `X'inhu ChatGPT?`,
+      "s1.lead": `ChatGPT huwa programm taċ-chat ibbażat fuq l-intelliġenza artifiċjali (AI), magħmul mill-kumpanija OpenAI. Tikteb mistoqsija jew kompitu bil-lingwa ta' kuljum – u ChatGPT iwieġeb b'sentenzi sħaħ, kważi bħallikieku qed titkellem ma' xi ħadd.`,
+      "s1.howTitle": `Kif jaħdem?`,
+      "s1.how1": `Fil-qalba tiegħu hemm dak li jissejjaħ <b>mudell kbir tal-lingwa</b> (Large Language Model, LLM). Dan ġie mħarreġ fuq ammont enormi ta' testi u tgħallem liema kliem normalment jiġi wara xulxin. Meta tistaqsih xi ħaġa, jikkalkula kelma b'kelma liema kontinwazzjoni hija l-aktar adattata.`,
+      "s1.how2": `ChatGPT ma jaħsibx bħal bniedem. Tgħallem minn biljuni ta' eżempji kif normalment jidhru tweġibiet tajbin – u jimita dik ix-xejra.`,
+      "s1.demoTitle": `Eżempju: kif il-mudell jagħżel il-kelma li jmiss`,
+      "s1.demoSentence": `Filgħodu nħobb nixrob tazza`,
+      "s1.demoHint": `Agħfas fuq kelma biex tlesti s-sentenza:`,
+      "s1.wordsLabel": `Kliem li jista' jiġi wara`,
+      "s1.w1": `kafè`,
+      "s1.w2": `te`,
+      "s1.w3": `kawkaw`,
+      "s1.w4": `ilma`,
+      "s1.demoNote": `Stampa simplifikata b'valuri ta' eżempju. Il-mudell normalment jagħżel kontinwazzjoni probabbli – ma “jafx” bħal bniedem, iżda jagħraf xejriet fil-lingwa.`,
+      "s1.c1t": `Mudell tal-lingwa`,
+      "s1.c1d": `ChatGPT joħloq it-test billi juża xejriet mid-data li tħarreġ fuqha. Jista' jikteb, jispjega, jittraduċi u saħansitra jipprogramma.`,
+      "s1.c2t": `Mhux bniedem, mhux enċiklopedija`,
+      "s1.c2d": `ChatGPT m'għandux kuxjenza u ma jifhimx id-dinja bħal bniedem. It-tweġibiet tiegħu spiss jidhru ċerti ħafna – anke meta jkunu żbaljati.`,
+      "s1.c3t": `Konversazzjoni b'memorja`,
+      "s1.c3d": `Fl-istess chat, ChatGPT jiftakar dak li ntqal qabel. Għalhekk tista' tkompli tistaqsi u ttejjeb it-tweġibiet pass pass.`,
+      "s1.c4t": `Ħafna lingwi`,
+      "s1.c4d": `Tista' tuża ChatGPT bil-Ġermaniż, bl-Ingliż, bil-Malti u b'ħafna lingwi oħra – iżda l-kwalità mhijiex l-istess f'kull lingwa.`,
+
+      "s2.eyebrow": `Taqsima 2`,
+      "s2.title": `Kif nuża ChatGPT fil-ħajja ta' kuljum?`,
+      "s2.lead": `ChatGPT huwa bħal assistent li jaf jagħmel ħafna affarijiet. Hawn erba' użi tipiċi – kull wieħed b'eżempju ta' prompt biex tipprova int stess.`,
+      "s2.promptLabel": `Eżempju ta' prompt`,
+      "s2.c1t": `Kitba ta' testi`,
+      "s2.c1d": `Emails, applikazzjonijiet għax-xogħol, stediniet jew posts għall-media soċjali: ChatGPT jagħtik l-ewwel abbozz, u mbagħad int tadattah.`,
+      "s2.c1p": `Ikteb email ħbiberija lil sidt id-dar tiegħi. Nixtieq nirranġa appuntament għax il-vit tal-kċina qed iqattar. Mhux aktar minn 5 sentenzi.`,
+      "s2.c1tip": `<b>Parir:</b> Dejjem aqra l-abbozz u żid id-dettalji personali int stess.`,
+      "s2.c2t": `Sommarji`,
+      "s2.c2d": `Artikli twal, rapporti jew minuti ta' laqgħat jitqassru għall-punti l-aktar importanti.`,
+      "s2.c2p": `Iġbor fil-qosor dan it-test f'5 punti. Ikteb bil-bold l-aktar punt importanti: [daħħal it-test hawn]`,
+      "s2.c2tip": `<b>Parir:</b> Qabbel is-sommarju mat-test oriġinali – xi drabi jonqsu dettalji importanti.`,
+      "s2.c3t": `Ideat ġodda`,
+      "s2.c3d": `Ideat għal rigali, ismijiet għal festa tal-każin, riċetti mill-fdal li għandek fil-friġġ: ChatGPT jgħinek f'sessjoni ta' brainstorming.`,
+      "s2.c3p": `Għandi ross, bżar, bajd u ġobon. Agħtini 3 ideat għal ikla sempliċi ta' filgħaxija li tkun lesta f'30 minuta.`,
+      "s2.c3tip": `<b>Parir:</b> Itlob aktar ideat – jew ideat kompletament differenti – jekk l-ebda waħda ma togħġbok.`,
+      "s2.c4t": `Tagħlim u fehim`,
+      "s2.c4d": `Suġġetti diffiċli spjegati b'mod sempliċi, prattika tal-vokabularju jew mistoqsijiet biex tittestja lilek innifsek – ChatGPT għandu paċenzja kbira.`,
+      "s2.c4p": `Spjegali d-differenza bejn it-temp u l-klima daqslikieku għandi 12-il sena. Imbagħad agħmilli 3 mistoqsijiet biex tiċċekkja x'tgħallimt.`,
+      "s2.c4tip": `<b>Parir:</b> Ħalli lil ChatGPT jistaqsik minflok ma taqra biss – hekk tiftakar aktar.`,
+
+      "s3.eyebrow": `Taqsima 3`,
+      "s3.title": `Kif tikteb prompts tajbin`,
+      "s3.lead": `Prompt hija l-istruzzjoni li tagħti lil ChatGPT. Iktar ma tkun ċar, aħjar tkun it-tweġiba. Formula sempliċi tista' tgħinek:`,
+      "s3.f1": `Rwol`,
+      "s3.f1q": `Min għandu jkun ChatGPT?`,
+      "s3.f2": `Kompitu`,
+      "s3.f2q": `X'għandu jagħmel eżattament?`,
+      "s3.f3": `Kuntest`,
+      "s3.f3q": `X'għandu jkun jaf dwarek u dwar is-sitwazzjoni?`,
+      "s3.f4": `Format`,
+      "s3.f4q": `Kif għandha tidher it-tweġiba? (tul, lista, tabella, ton)`,
+      "s3.formulaLabel": `Flimkien, dan jagħti pereżempju:`,
+      "s3.f1ex": `Int għalliem tal-matematika paċenzjuż.`,
+      "s3.f2ex": `Spjegali kif nikkalkula l-perċentwali.`,
+      "s3.f3ex": `Jien fis-seba' sena u nsib dan is-suġġett diffiċli.`,
+      "s3.f4ex": `Uża eżempju mill-ħajja ta' kuljum u mhux aktar minn 6 sentenzi.`,
+      "s3.tipsTitle": `5 pariri b'eżempji`,
+      "s3.bad": `Minflok`,
+      "s3.good": `Aħjar`,
+      "s3.t1t": `Kun speċifiku`,
+      "s3.t1bad": `“Ikteb xi ħaġa dwar il-klieb.”`,
+      "s3.t1good": `“Ikteb profil qasir tal-Labrador għal familja li qed tfittex l-ewwel kelb tagħha.”`,
+      "s3.t2t": `Agħti kuntest`,
+      "s3.t2bad": `“Kif nista' nistudja aħjar?”`,
+      "s3.t2good": `“Qed nipprepara għal eżami tal-Ingliż fi żmien 3 ġimgħat u għandi 30 minuta kuljum. Agħmilli pjan ta' studju.”`,
+      "s3.t3t": `Speċifika l-format`,
+      "s3.t3bad": `“Kellimni dwar l-ikel tajjeb għas-saħħa.”`,
+      "s3.t3good": `“Agħtini 5 pariri sempliċi għal ikel tajjeb għas-saħħa f'lista – kull wieħed bi spjegazzjoni ta' sentenza waħda.”`,
+      "s3.t4t": `Agħti eżempju`,
+      "s3.t4bad": `“Ikteb post għall-Instagram tal-kafetterija tiegħi.”`,
+      "s3.t4good": `“Ikteb post għall-Instagram tal-kafetterija tiegħi bl-istil ta' dan l-eżempju: ‘It-Tnejn? Mhux magħna! ☕ Illum għandna cinnamon rolls friski mill-forn.’”`,
+      "s3.t5t": `Tejjeb it-tweġiba fil-konversazzjoni`,
+      "s3.t5d": `L-ewwel tweġiba mhix kif xtaqt? M'hemm l-ebda problema – sempliċement kompli staqsi:`,
+      "s3.t5a": `“Agħmilha iqsar.”`,
+      "s3.t5b": `“Spjegaha b'mod aktar sempliċi.”`,
+      "s3.t5c": `“Agħtini tliet alternattivi.”`,
+      "s3.t5e": `“Agħmilha aktar ħbiberija.”`,
+
+      "s4.eyebrow": `Taqsima 4`,
+      "s4.title": `Limiti u żbalji`,
+      "s4.lead": `ChatGPT huwa impressjonanti – iżda mhux perfett. Peress li joħloq it-test skont il-probabbiltà, jista' jivvinta affarijiet li jidhru konvinċenti iżda li fil-fatt huma żbaljati.`,
+      "s4.halTitle": `X'inhuma l-alluċinazzjonijiet?`,
+      "s4.halText": `Meta AI tivvinta informazzjoni falza u tippreżentaha bħala fatt, dan jissejjaħ <b>alluċinazzjoni</b>. Jistgħu jkunu numri, kwotazzjonijiet, sorsi, liġijiet jew saħansitra persuni vvintati.`,
+      "s4.halText2": `Il-problema hi li d-dettalji vvintati jidhru eżatt bħal dawk veri – b'ismijiet, snin u dettalji. Tagħrafhom biss jekk tiċċekkja.`,
+      "s4.exLabel": `Eżempju (ivvintat apposta biex nispjegaw)`,
+      "s4.exQ": `Agħtini isem ta' ktieb dwar l-istorja ta' Malta – bl-awtur u s-sena tal-pubblikazzjoni.`,
+      "s4.exA": `Żgur! “Il-Ġebel tal-Belt Valletta” ta' Martin Kessler, ippubblikat fl-2009.`,
+      "s4.exNote": `Jidher kredibbli – iżda l-AI kultant tivvinta eżatt dan it-tip ta' dettalji: it-titlu, l-awtur u s-sena jidhru veri, iżda l-ktieb ma jeżistix. Għalhekk fittxu int stess, pereżempju fil-katalgu ta' librerija.`,
+      "s4.limitsTitle": `Dgħufijiet tipiċi`,
+      "s4.l1t": `Fatti vvintati`,
+      "s4.l1d": `Numri, kwotazzjonijiet u referenzi jistgħu jkunu vvintati – anke meta jidhru preċiżi.`,
+      "s4.l2t": `Għarfien mhux aġġornat`,
+      "s4.l2d": `Il-mudell jitgħallem minn data sa ċertu żmien. Spiss ma jafx b'avvenimenti riċenti, jew jaf ftit biss dwarhom.`,
+      "s4.l3t": `Żbalji ta' kalkolu u loġika`,
+      "s4.l3d": `Jistgħu jsiru żbalji f'kalkoli, dati u kompiti b'ħafna passi. Ta' min tiċċekkja mill-ġdid.`,
+      "s4.l4t": `Preġudizzji (bias)`,
+      "s4.l4d": `Id-data tat-taħriġ ġejja min-nies – u fiha wkoll il-preġudizzji tagħhom. It-tweġibiet jistgħu jkunu parzjali.`,
+      "s4.l5t": `Ton kunfidenti żżejjed`,
+      "s4.l5d": `ChatGPT spiss jidher ċert, anke meta jkun żbaljat. Ton konvinċenti mhuwiex prova.`,
+      "s4.checkTitle": `Kif tiċċekkja r-riżultati`,
+      "s4.rule": `<b>Regola ġenerali:</b> Uża ChatGPT bħala punt tat-tluq – mhux bħala l-aħħar kelma.`,
+      "s4.k1": `Qabbel il-fatti ma' sors ieħor affidabbli (eż. siti uffiċjali, kotba, aħbarijiet serji).`,
+      "s4.k2": `Itlob is-sorsi – imbagħad iftaħhom u aqrahom int stess.`,
+      "s4.k3": `Għal kwistjonijiet ta' saħħa, liġi u flus, dejjem staqsi lil professjonist (tabib, avukat, ċentru ta' pariri).`,
+      "s4.k4": `Erġa' agħmel il-kalkoli u ċċekkja n-numri int stess.`,
+      "s4.k5": `Uża s-sens komun: jekk xi ħaġa tidher tajba wisq jew stramba, ħares iktar mill-qrib.`,
+
+      "s5.eyebrow": `Taqsima 5`,
+      "s5.title": `Protezzjoni tad-data: x'm'għandux jidħol fiċ-chat?`,
+      "s5.lead": `Kull ma tikteb jintbagħat lis-servers tal-fornitur u jista' jinħażen hemmhekk. Skont is-settings tiegħek, iċ-chats tiegħek jistgħu jintużaw ukoll biex titjieb l-AI.`,
+      "s5.postcard": `<b>Ir-regola tal-kartolina:</b> Ikteb fiċ-chat biss dak li tikteb ukoll fuq kartolina – li jista' jaqraha kulħadd fit-triq.`,
+      "s5.dontTitle": `Ma ddaħħalx dan`,
+      "s5.d1": `Passwords, PINs u kodiċi ta' darba`,
+      "s5.d2": `Dettalji tal-bank u tal-karta tal-kreditu`,
+      "s5.d3": `Numru tal-karta tal-identità, tal-passaport jew tas-sigurtà soċjali`,
+      "s5.d4": `Data dwar is-saħħa li tidentifikak`,
+      "s5.d5": `Data privata ta' nies oħra: ismijiet, indirizzi, numri tat-telefon, ritratti`,
+      "s5.d6": `Informazzjoni kunfidenzjali mix-xogħol jew mill-iskola (data tal-klijenti, dokumenti interni)`,
+      "s5.doTitle": `Kif tipproteġi lilek innifsek`,
+      "s5.p1": `<b>Anonimizza:</b> Ibdel l-ismijiet u d-dettalji veri b'placeholders bħal [Isem] jew [Kumpanija].`,
+      "s5.p2": `<b>Iċċekkja s-settings:</b> Iddeċiedi jekk iċ-chats tiegħek jistgħux jintużaw għat-taħriġ, u ħassar iċ-chats l-antiki.`,
+      "s5.p3": `<b>Ipproteġi l-kont:</b> Uża password b'saħħitha u unika, flimkien mal-awtentikazzjoni b'żewġ fatturi.`,
+      "s5.p4": `<b>Oqgħod attent bil-fajls:</b> Ma ttellax dokumenti li fihom data personali.`,
+      "s5.p5": `<b>Fuq ix-xogħol:</b> Segwi r-regoli ta' min iħaddmek dwar l-użu tal-AI.`,
+      "s5.exTitle": `Eżempju: kif tanonimizza d-data`,
+      "s5.exBadLabel": `Riskjuż`,
+      "s5.exGoodLabel": `Sigur`,
+      "s5.exBad": `“Ikteb ittra ta' tfakkira lil <mark class="pii">Maria Borg</mark>, <mark class="pii">12, Triq il-Kbira, Ħal Qormi</mark>, <mark class="pii">IBAN MT12 3456 …</mark> – għandha tagħtini €250.”`,
+      "s5.exGood": `“Ikteb tfakkira edukata ta' ħlas lil klijenta. Għandha tagħtini €250 u ilha 30 jum ma tħallas. Uża placeholders bħal <mark class="ph">[Isem]</mark> u <mark class="ph">[Indirizz]</mark>.”`,
+      "s5.warn": `<b>Importanti:</b> Chatbot qatt m'għandu bżonn il-password, il-PIN jew kodiċi ta' sigurtà tiegħek biex jgħinek. Jekk chat jew messaġġ jitlobhom, dan huwa sinjal ta' frodi (phishing).`,
+
+      "quiz.eyebrow": `L-aħħar pass`,
+      "quiz.title": `Ittestja l-għarfien tiegħek`,
+      "quiz.lead": `5 mistoqsijiet – agħżel tweġiba waħda għal kull mistoqsija. Tirċievi feedback minnufih jekk hix korretta.`,
+      "footer.text": `<b>PromptLab</b> – sit indipendenti għat-tagħlim. M'għandux rabta ma' OpenAI; “ChatGPT” hija trademark ta' OpenAI.`,
+      "footer.top": `Lura fuq`
+    }
+  };
+
+  /* UI-Texte, die nicht im HTML stehen (alle drei Sprachen) */
+  var EXTRA = {
+    de: {
+      "ui.title": "ChatGPT verstehen · PromptLab",
+      "ui.desc": "Lernseite über ChatGPT auf Deutsch, Englisch und Maltesisch: Grundlagen, Alltag, gute Prompts, Grenzen, Datenschutz und ein Quiz.",
+      "ui.copied": "Kopiert!",
+      "quiz.qOf": "Frage {n} von {total}",
+      "quiz.correct": "Richtig!",
+      "quiz.wrong": "Leider falsch.",
+      "quiz.next": "Nächste Frage",
+      "quiz.result": "Ergebnis anzeigen",
+      "quiz.hint": "Wähle eine Antwort aus.",
+      "quiz.score": "Du hast {score} von {total} Fragen richtig beantwortet.",
+      "quiz.msgHigh": "Perfekt! Du bist bereit, ChatGPT klug und sicher zu nutzen.",
+      "quiz.msgMid": "Gut gemacht! Schau dir die Abschnitte zu deinen Fehlern noch einmal an.",
+      "quiz.msgLow": "Guter Anfang! Lies die Abschnitte noch einmal und versuche es dann erneut.",
+      "quiz.restart": "Quiz neu starten",
+      "quiz.review": "Nochmal nachlesen",
+      "quiz.yourAnswer": "deine Antwort",
+      "quiz.rightAnswer": "richtige Antwort",
+      "quiz.isCorrect": "richtig",
+      "quiz.isWrong": "falsch"
+    },
+    en: {
+      "ui.title": "Understanding ChatGPT · PromptLab",
+      "ui.desc": "A learning site about ChatGPT in German, English and Maltese: basics, everyday use, good prompts, limits, privacy and a quiz.",
+      "ui.copied": "Copied!",
+      "quiz.qOf": "Question {n} of {total}",
+      "quiz.correct": "Correct!",
+      "quiz.wrong": "Not quite.",
+      "quiz.next": "Next question",
+      "quiz.result": "Show result",
+      "quiz.hint": "Choose an answer.",
+      "quiz.score": "You answered {score} out of {total} questions correctly.",
+      "quiz.msgHigh": "Perfect! You're ready to use ChatGPT wisely and safely.",
+      "quiz.msgMid": "Well done! Take another look at the sections where you made mistakes.",
+      "quiz.msgLow": "Good start! Read the sections again and then give it another try.",
+      "quiz.restart": "Restart quiz",
+      "quiz.review": "Read again",
+      "quiz.yourAnswer": "your answer",
+      "quiz.rightAnswer": "correct answer",
+      "quiz.isCorrect": "correct",
+      "quiz.isWrong": "wrong"
+    },
+    mt: {
+      "ui.title": "Nifhmu ChatGPT · PromptLab",
+      "ui.desc": "Sit għat-tagħlim dwar ChatGPT bil-Ġermaniż, bl-Ingliż u bil-Malti: il-bażi, l-użu ta' kuljum, prompts tajbin, limiti, protezzjoni tad-data u kwiż.",
+      "ui.copied": "Ikkopjat!",
+      "quiz.qOf": "Mistoqsija {n} minn {total}",
+      "quiz.correct": "Korrett!",
+      "quiz.wrong": "Mhux eżatt.",
+      "quiz.next": "Il-mistoqsija li jmiss",
+      "quiz.result": "Ara r-riżultat",
+      "quiz.hint": "Agħżel tweġiba.",
+      "quiz.score": "Wieġibt tajjeb {score} minn {total} mistoqsijiet.",
+      "quiz.msgHigh": "Perfett! Int lest biex tuża ChatGPT b'għaqal u b'mod sigur.",
+      "quiz.msgMid": "Prosit! Erġa' ħares lejn it-taqsimiet fejn għamilt żbalji.",
+      "quiz.msgLow": "Bidu tajjeb! Erġa' aqra t-taqsimiet u mbagħad erġa' pprova.",
+      "quiz.restart": "Erġa' ibda l-kwiż",
+      "quiz.review": "Erġa' aqra",
+      "quiz.yourAnswer": "it-tweġiba tiegħek",
+      "quiz.rightAnswer": "it-tweġiba t-tajba",
+      "quiz.isCorrect": "korretta",
+      "quiz.isWrong": "żbaljata"
+    }
+  };
+
+  /* ------------------------------------------------------------------
+     Quiz: c = Index der richtigen Antwort, s = zugehöriger Abschnitt
+     ------------------------------------------------------------------ */
+  var QUIZ_META = [
+    { c: 1, s: "basics",  nav: "nav.basics" },
+    { c: 2, s: "prompts", nav: "nav.prompts" },
+    { c: 3, s: "limits",  nav: "nav.limits" },
+    { c: 0, s: "limits",  nav: "nav.limits" },
+    { c: 2, s: "privacy", nav: "nav.privacy" }
+  ];
+
+  var QUIZ = {
+    de: [
+      { q: "Was ist ChatGPT im Kern?",
+        o: ["Eine Suchmaschine, die Webseiten durchsucht",
+            "Ein Sprachmodell, das Texte anhand von Mustern erzeugt",
+            "Ein Mensch, der im Hintergrund antwortet",
+            "Ein Lexikon mit geprüften Fakten"],
+        e: "ChatGPT ist ein großes Sprachmodell. Es erzeugt Text, indem es wahrscheinliche Fortsetzungen berechnet – es ist weder ein Mensch noch ein geprüftes Lexikon." },
+      { q: "Welcher Prompt liefert wahrscheinlich die beste Antwort?",
+        o: ["„Schreib was über Rom.“",
+            "„Rom?“",
+            "„Erstelle einen Tagesplan für einen Familienausflug nach Rom mit zwei Kindern (8 und 11 Jahre) – als Liste mit Uhrzeiten.“",
+            "„Erzähl mir alles über Rom.“"],
+        e: "Ein guter Prompt ist konkret, gibt Kontext (Familie, Alter der Kinder) und legt das Format fest (Liste mit Uhrzeiten)." },
+      { q: "Was ist eine „Halluzination“ bei einer KI?",
+        o: ["Wenn die KI besonders kreativ schreibt",
+            "Wenn die KI Bilder statt Text erzeugt",
+            "Wenn die KI eine Frage nicht versteht",
+            "Wenn die KI falsche Informationen erfindet und als Fakt darstellt"],
+        e: "Halluzinationen sind erfundene, aber überzeugend klingende Angaben – zum Beispiel Quellen oder Zahlen, die es gar nicht gibt." },
+      { q: "ChatGPT nennt dir eine Studie mit genauen Zahlen. Was tust du?",
+        o: ["Ich suche die Studie selbst und prüfe die Zahlen in einer zweiten Quelle.",
+            "Ich übernehme die Zahlen direkt – sie klingen ja präzise.",
+            "Ich frage ChatGPT, ob es sicher ist – wenn ja, stimmt es.",
+            "Ich ignoriere grundsätzlich alles, was ChatGPT sagt."],
+        e: "Wichtige Angaben immer selbst prüfen. Auch wenn ChatGPT „Ja, ich bin sicher“ antwortet, kann die Angabe falsch sein. Alles zu ignorieren ist aber nicht nötig – ChatGPT ist ein guter Startpunkt." },
+      { q: "Welche Information solltest du <b>nicht</b> in ChatGPT eingeben?",
+        o: ["Eine Frage zu Kochrezepten",
+            "Einen anonymisierten Text zum Korrekturlesen",
+            "Dein Online-Banking-Passwort",
+            "Eine Bitte um Ideen für eine Geburtstagsfeier"],
+        e: "Passwörter, PINs und Bankdaten gehören niemals in einen Chat – auch nicht „nur zum Testen“." }
+    ],
+    en: [
+      { q: "What is ChatGPT at its core?",
+        o: ["A search engine that searches websites",
+            "A language model that generates text based on patterns",
+            "A person answering in the background",
+            "An encyclopedia of verified facts"],
+        e: "ChatGPT is a large language model. It generates text by calculating likely continuations – it is neither a person nor a verified encyclopedia." },
+      { q: "Which prompt will probably give the best answer?",
+        o: ["“Write something about Rome.”",
+            "“Rome?”",
+            "“Create a day plan for a family trip to Rome with two children (aged 8 and 11) – as a list with times.”",
+            "“Tell me everything about Rome.”"],
+        e: "A good prompt is specific, gives context (family, children's ages) and sets the format (a list with times)." },
+      { q: "What is a “hallucination” in AI?",
+        o: ["When the AI writes especially creatively",
+            "When the AI creates images instead of text",
+            "When the AI doesn't understand a question",
+            "When the AI invents false information and presents it as fact"],
+        e: "Hallucinations are made-up but convincing-sounding details – for example sources or numbers that don't exist at all." },
+      { q: "ChatGPT gives you a study with exact figures. What do you do?",
+        o: ["I look up the study myself and check the figures in a second source.",
+            "I use the figures straight away – they sound precise.",
+            "I ask ChatGPT if it's sure – if it says yes, it's right.",
+            "I ignore everything ChatGPT says, on principle."],
+        e: "Always check important details yourself. Even if ChatGPT replies “Yes, I'm sure”, the information can still be wrong. But there's no need to ignore everything – ChatGPT is a good starting point." },
+      { q: "Which information should you <b>not</b> enter into ChatGPT?",
+        o: ["A question about recipes",
+            "An anonymized text for proofreading",
+            "Your online banking password",
+            "A request for birthday party ideas"],
+        e: "Passwords, PINs and bank details never belong in a chat – not even “just to test”." }
+    ],
+    mt: [
+      { q: "X'inhu ChatGPT fil-qalba tiegħu?",
+        o: ["Magna tat-tfittxija li tfittex fis-siti web",
+            "Mudell tal-lingwa li joħloq test ibbażat fuq xejriet",
+            "Persuna li twieġeb minn wara l-kwinti",
+            "Enċiklopedija ta' fatti vverifikati"],
+        e: "ChatGPT huwa mudell kbir tal-lingwa. Joħloq test billi jikkalkula kontinwazzjonijiet probabbli – mhuwiex persuna u lanqas enċiklopedija vverifikata." },
+      { q: "Liema prompt x'aktarx jagħti l-aħjar tweġiba?",
+        o: ["“Ikteb xi ħaġa dwar Ruma.”",
+            "“Ruma?”",
+            "“Agħmel pjan ta' ġurnata għal ħarġa tal-familja f'Ruma ma' żewġt itfal (ta' 8 u 11-il sena) – f'lista bil-ħinijiet.”",
+            "“Għidli kollox dwar Ruma.”"],
+        e: "Prompt tajjeb huwa speċifiku, jagħti kuntest (familja, l-età tat-tfal) u jiddefinixxi l-format (lista bil-ħinijiet)." },
+      { q: "X'inhi “alluċinazzjoni” fl-AI?",
+        o: ["Meta l-AI tikteb b'mod kreattiv ħafna",
+            "Meta l-AI toħloq stampi minflok test",
+            "Meta l-AI ma tifhimx mistoqsija",
+            "Meta l-AI tivvinta informazzjoni falza u tippreżentaha bħala fatt"],
+        e: "L-alluċinazzjonijiet huma dettalji vvintati li jidhru konvinċenti – pereżempju sorsi jew numri li ma jeżistux." },
+      { q: "ChatGPT jagħtik studju b'ċifri eżatti. X'tagħmel?",
+        o: ["Infittex l-istudju jien stess u niċċekkja ċ-ċifri f'sors ieħor.",
+            "Nuża ċ-ċifri mill-ewwel – jidhru preċiżi.",
+            "Nistaqsi lil ChatGPT jekk hux ċert – jekk jgħid iva, allura korrett.",
+            "Ninjora dejjem kull ma jgħid ChatGPT."],
+        e: "Dejjem iċċekkja int stess id-dettalji importanti. Anke jekk ChatGPT iwieġeb “Iva, jien ċert”, l-informazzjoni xorta tista' tkun żbaljata. Iżda m'hemmx għalfejn tinjora kollox – ChatGPT huwa punt tat-tluq tajjeb." },
+      { q: "Liema informazzjoni <b>m'għandekx</b> iddaħħal f'ChatGPT?",
+        o: ["Mistoqsija dwar riċetti tat-tisjir",
+            "Test anonimizzat biex jiġi kkoreġut",
+            "Il-password tal-online banking tiegħek",
+            "Talba għal ideat għal festa ta' għeluq snin"],
+        e: "Passwords, PINs u dettalji tal-bank qatt m'għandhom jidħlu f'chat – lanqas “biss biex nipprova”." }
+    ]
+  };
+
+  /* ------------------------------------------------------------------
+     i18n-Kern
+     ------------------------------------------------------------------ */
+  var textNodes = Array.prototype.slice.call(document.querySelectorAll("[data-i18n]"));
+  var ariaNodes = Array.prototype.slice.call(document.querySelectorAll("[data-i18n-aria]"));
+
+  // Deutsche Texte aus dem HTML übernehmen
+  T.de = {};
+  textNodes.forEach(function (el) {
+    var k = el.getAttribute("data-i18n");
+    if (!(k in T.de)) T.de[k] = el.innerHTML;
+  });
+  ariaNodes.forEach(function (el) {
+    var k = el.getAttribute("data-i18n-aria");
+    if (!(k in T.de)) T.de[k] = el.getAttribute("aria-label");
+  });
+  LANGS.forEach(function (l) {
+    for (var k in EXTRA[l]) T[l][k] = EXTRA[l][k];
+  });
+
+  var lang = "de";
+
+  function t(key) {
+    var v = T[lang] && T[lang][key];
+    if (v == null) v = T.de[key];
+    return v == null ? key : v;
+  }
+  function fmt(str, vars) {
+    return str.replace(/\{(\w+)\}/g, function (_, k) { return vars[k] != null ? vars[k] : ""; });
+  }
+  function icon(name) {
+    return '<svg class="ic" aria-hidden="true"><use href="#i-' + name + '"/></svg>';
+  }
+
+  function initialLang() {
+    try {
+      var p = new URLSearchParams(location.search).get("lang");
+      if (LANGS.indexOf(p) > -1) return p;
+    } catch (e) {}
+    try {
+      var s = localStorage.getItem(STORAGE_KEY);
+      if (LANGS.indexOf(s) > -1) return s;
+    } catch (e) {}
+    var prefs = navigator.languages || [navigator.language || ""];
+    for (var i = 0; i < prefs.length; i++) {
+      var code = String(prefs[i]).slice(0, 2).toLowerCase();
+      if (LANGS.indexOf(code) > -1) return code;
+    }
+    return "de";
+  }
+
+  function applyLang(next, persist) {
+    lang = next;
+    document.documentElement.lang = next;
+    textNodes.forEach(function (el) { el.innerHTML = t(el.getAttribute("data-i18n")); });
+    ariaNodes.forEach(function (el) { el.setAttribute("aria-label", t(el.getAttribute("data-i18n-aria"))); });
+    document.title = t("ui.title");
+    var md = document.querySelector('meta[name="description"]');
+    if (md) md.setAttribute("content", t("ui.desc"));
+    document.querySelectorAll(".lang button").forEach(function (b) {
+      b.setAttribute("aria-pressed", b.getAttribute("data-lang") === next ? "true" : "false");
+    });
+    formatPercents();
+    syncBlank(false);
+    renderQuiz();
+    if (persist) {
+      try { localStorage.setItem(STORAGE_KEY, next); } catch (e) {}
+    }
+  }
+
+  document.querySelectorAll(".lang button").forEach(function (b) {
+    b.addEventListener("click", function () { applyLang(b.getAttribute("data-lang"), true); });
+  });
+
+  /* ------------------------------------------------------------------
+     Abschnitt 1: Nächstes-Wort-Demo
+     ------------------------------------------------------------------ */
+  var blank = document.getElementById("blank");
+  var words = Array.prototype.slice.call(document.querySelectorAll(".word"));
+
+  function formatPercents() {
+    var nf;
+    try { nf = new Intl.NumberFormat(lang, { style: "percent" }); } catch (e) { nf = null; }
+    document.querySelectorAll("[data-p]").forEach(function (el) {
+      var v = parseFloat(el.getAttribute("data-p"));
+      el.textContent = nf ? nf.format(v) : Math.round(v * 100) + "%";
+    });
+  }
+  function syncBlank(animate) {
+    var on = words.filter(function (w) { return w.getAttribute("aria-pressed") === "true"; })[0] || words[0];
+    blank.textContent = on.querySelector("[data-i18n]").textContent;
+    if (animate) {
+      blank.classList.remove("pop");
+      void blank.offsetWidth;
+      blank.classList.add("pop");
+    }
+  }
+  words.forEach(function (w) {
+    w.addEventListener("click", function () {
+      words.forEach(function (x) { x.setAttribute("aria-pressed", x === w ? "true" : "false"); });
+      syncBlank(true);
+    });
+  });
+
+  /* ------------------------------------------------------------------
+     Abschnitt 2: Prompts kopieren
+     ------------------------------------------------------------------ */
+  function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text);
+    }
+    return new Promise(function (resolve, reject) {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy") ? resolve() : reject(); } catch (e) { reject(e); }
+      document.body.removeChild(ta);
+    });
+  }
+  document.querySelectorAll(".copy").forEach(function (btn) {
+    var label = btn.querySelector("[data-i18n]");
+    var timer;
+    btn.addEventListener("click", function () {
+      var text = btn.closest(".prompt").querySelector(".prompt-text").textContent.trim();
+      copyText(text).then(function () {
+        clearTimeout(timer);
+        btn.classList.add("is-done");
+        label.textContent = t("ui.copied");
+        timer = setTimeout(function () {
+          btn.classList.remove("is-done");
+          label.innerHTML = t("ui.copy");
+        }, 1600);
+      }, function () {});
+    });
+  });
+
+  /* ------------------------------------------------------------------
+     Navigation: Fortschrittsbalken + aktiver Abschnitt
+     ------------------------------------------------------------------ */
+  var bar = document.querySelector(".progress span");
+  var ticking = false;
+  function updateProgress() {
+    var h = document.documentElement;
+    var max = h.scrollHeight - h.clientHeight;
+    bar.style.transform = "scaleX(" + (max > 0 ? Math.min(1, h.scrollTop / max) : 0) + ")";
+    ticking = false;
+  }
+  window.addEventListener("scroll", function () {
+    if (!ticking) { ticking = true; requestAnimationFrame(updateProgress); }
+  }, { passive: true });
+  updateProgress();
+
+  var nav = document.getElementById("nav");
+  var navLinks = Array.prototype.slice.call(nav.querySelectorAll("a"));
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        var id = entry.target.id;
+        navLinks.forEach(function (a) {
+          var active = a.getAttribute("href") === "#" + id;
+          a.classList.toggle("is-active", active);
+          if (active) {
+            a.setAttribute("aria-current", "true");
+            if (nav.scrollWidth > nav.clientWidth) {
+              nav.scrollTo({ left: a.offsetLeft - nav.clientWidth / 2 + a.offsetWidth / 2, behavior: "smooth" });
+            }
+          } else {
+            a.removeAttribute("aria-current");
+          }
+        });
+      });
+    }, { rootMargin: "-45% 0px -50% 0px" });
+    document.querySelectorAll("main section[id]").forEach(function (s) { io.observe(s); });
+  }
+
+  /* ------------------------------------------------------------------
+     Quiz
+     ------------------------------------------------------------------ */
+  var quizCard = document.getElementById("quizCard");
+  var quizLive = document.getElementById("quizLive");
+  var state = { i: 0, answers: [null, null, null, null, null], done: false };
+
+  function renderQuiz() {
+    var Q = QUIZ[lang] || QUIZ.de;
+    var total = Q.length;
+
+    if (state.done) {
+      var score = state.answers.filter(function (a, i) { return a === QUIZ_META[i].c; }).length;
+      var msg = score === total ? t("quiz.msgHigh") : score >= 3 ? t("quiz.msgMid") : t("quiz.msgLow");
+      var tone = score === total ? "green" : score >= 3 ? "teal" : "amber";
+      var list = Q.map(function (q, i) {
+        var ok = state.answers[i] === QUIZ_META[i].c;
+        return '<li><span class="mark ' + (ok ? "mark-ok" : "mark-x") + '">' + icon(ok ? "check" : "x") +
+          '<span class="sr-only">' + t(ok ? "quiz.isCorrect" : "quiz.isWrong") + '</span></span><span>' + q.q + '</span></li>';
+      }).join("");
+      quizCard.innerHTML =
+        '<div class="result">' +
+          '<div class="score" style="--sc:var(--' + tone + ');--sc-soft:var(--' + tone + '-soft)" aria-hidden="true"><span>' + score + '<small>/' + total + '</small></span></div>' +
+          '<h3 class="q-title" id="qTitle" tabindex="-1">' + fmt(t("quiz.score"), { score: score, total: total }) + '</h3>' +
+          '<p class="result-msg">' + msg + '</p>' +
+          '<ol class="result-list">' + list + '</ol>' +
+          '<button type="button" class="btn btn-primary" id="qRestart">' + icon("restart") + '<span>' + t("quiz.restart") + '</span></button>' +
+        '</div>';
+      return;
+    }
+
+    var q = Q[state.i];
+    var meta = QUIZ_META[state.i];
+    var ans = state.answers[state.i];
+    var answered = ans !== null;
+
+    var dots = Q.map(function (_, i) {
+      var a = state.answers[i];
+      var cls = a === null ? (i === state.i ? "current" : "") : (a === QUIZ_META[i].c ? "ok" : "bad");
+      return '<li class="' + cls + '"></li>';
+    }).join("");
+
+    var opts = q.o.map(function (o, j) {
+      var cls = "opt", mark = "", sr = "";
+      if (answered) {
+        if (j === meta.c) { cls += " is-correct"; mark = icon("check"); sr = t("quiz.rightAnswer"); }
+        else if (j === ans) { cls += " is-wrong"; mark = icon("x"); sr = t("quiz.yourAnswer"); }
+        else { cls += " is-dim"; }
+      }
+      return '<button type="button" class="' + cls + '" data-opt="' + j + '"' + (answered ? ' aria-disabled="true"' : "") + '>' +
+        '<span class="opt-key" aria-hidden="true">' + "ABCD".charAt(j) + '</span>' +
+        '<span class="opt-text">' + o + (sr ? ' <span class="sr-only">(' + sr + ')</span>' : "") + '</span>' +
+        '<span class="opt-mark" aria-hidden="true">' + mark + '</span></button>';
+    }).join("");
+
+    var feedback = "";
+    if (answered) {
+      var ok = ans === meta.c;
+      feedback = '<div class="fb ' + (ok ? "fb-ok" : "fb-bad") + '">' +
+        '<p class="fb-title">' + icon(ok ? "check" : "x") + '<span>' + t(ok ? "quiz.correct" : "quiz.wrong") + '</span></p>' +
+        '<p class="fb-text">' + q.e + '</p>' +
+        (ok ? "" : '<a class="fb-link" href="#' + meta.s + '">' + t("quiz.review") + ': ' + t(meta.nav) + ' ' + icon("arrow-right") + '</a>') +
+        '</div>';
+    }
+
+    var last = state.i === total - 1;
+    var actions = answered
+      ? '<button type="button" class="btn btn-primary" id="qNext"><span>' + t(last ? "quiz.result" : "quiz.next") + '</span>' + icon("arrow-right") + '</button>'
+      : '<p class="q-hint">' + t("quiz.hint") + '</p>';
+
+    quizCard.innerHTML =
+      '<div class="q-top"><span class="q-count">' + fmt(t("quiz.qOf"), { n: state.i + 1, total: total }) + '</span>' +
+      '<ol class="q-dots" aria-hidden="true">' + dots + '</ol></div>' +
+      '<h3 class="q-title" id="qTitle" tabindex="-1">' + q.q + '</h3>' +
+      '<div class="q-options" role="group" aria-labelledby="qTitle">' + opts + '</div>' +
+      feedback +
+      '<div class="q-actions">' + actions + '</div>';
+  }
+
+  function focusEl(id) {
+    var el = document.getElementById(id);
+    if (el) el.focus({ preventScroll: true });
+  }
+  function keepCardInView() {
+    var top = quizCard.getBoundingClientRect().top;
+    if (top < 90) window.scrollTo({ top: window.pageYOffset + top - 110, behavior: "smooth" });
+  }
+
+  quizCard.addEventListener("click", function (e) {
+    var opt = e.target.closest(".opt");
+    if (opt) {
+      if (state.answers[state.i] !== null) return;
+      var choice = parseInt(opt.getAttribute("data-opt"), 10);
+      state.answers[state.i] = choice;
+      renderQuiz();
+      var q = (QUIZ[lang] || QUIZ.de)[state.i];
+      var tmp = document.createElement("div");
+      tmp.innerHTML = q.e;
+      quizLive.textContent = t(choice === QUIZ_META[state.i].c ? "quiz.correct" : "quiz.wrong") + " " + tmp.textContent;
+      focusEl("qNext");
+      return;
+    }
+    if (e.target.closest("#qNext")) {
+      if (state.i < QUIZ_META.length - 1) state.i++;
+      else state.done = true;
+      quizLive.textContent = "";
+      renderQuiz();
+      keepCardInView();
+      focusEl("qTitle");
+      return;
+    }
+    if (e.target.closest("#qRestart")) {
+      state = { i: 0, answers: [null, null, null, null, null], done: false };
+      renderQuiz();
+      keepCardInView();
+      focusEl("qTitle");
+    }
+  });
+
+  /* Start */
+  applyLang(initialLang(), false);
+})();
+</script>
+</body>
+</html>
