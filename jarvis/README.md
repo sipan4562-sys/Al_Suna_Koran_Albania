@@ -3,7 +3,7 @@
 Futuristische KI-Zentrale im Stil eines holografischen HUDs: **sprechen** (Mikrofon) oder **schreiben** (Chat) –
 JARVIS antwortet per Text und Stimme. Läuft auf PC, Mac, Tablet und Smartphone, ohne horizontales Scrollen.
 
-**Live:** https://jarvis-sipan4562-2474s-projects.vercel.app (öffentlich, ohne Anmeldung)
+**Live:** https://jarvis-chi-puce.vercel.app (öffentlich, ohne Anmeldung)
 
 | Bereich | Umgesetzt |
 | --- | --- |
