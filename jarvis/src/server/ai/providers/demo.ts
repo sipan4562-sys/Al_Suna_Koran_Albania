@@ -160,7 +160,15 @@ async function* streamWords(text: string, signal: AbortSignal): AsyncGenerator<P
   }
 }
 
-export function createDemoProvider(): ChatProvider {
+export interface DemoProviderOptions {
+  /**
+   * Hinweis „trage einen API-Schlüssel ein“ in der ersten Antwort. Aus, wenn der
+   * Demo-Modus nur einspringt, weil der eigentliche Anbieter gerade ausfällt.
+   */
+  setupHint?: boolean;
+}
+
+export function createDemoProvider({ setupHint = true }: DemoProviderOptions = {}): ChatProvider {
   return {
     id: "demo",
     label: "Demo-Modus",
@@ -194,7 +202,7 @@ export function createDemoProvider(): ChatProvider {
 
       // Hinweis nur in der ersten Antwort einer Unterhaltung, um nicht zu nerven.
       const firstAnswer = !input.history.some((m) => m.role === "assistant");
-      if (firstAnswer) text += voice ? SETUP_HINT_VOICE : SETUP_HINT_TEXT;
+      if (firstAnswer && setupHint) text += voice ? SETUP_HINT_VOICE : SETUP_HINT_TEXT;
       yield* streamWords(text, input.signal);
       yield { type: "done", stopReason: "end_turn", model: "jarvis-demo" };
     },

@@ -17,6 +17,8 @@ export const GATEWAY_MESSAGES = {
   missingToken:
     "Kein Zugang zum Vercel AI Gateway: Der OIDC-Token fehlt (gibt es nur auf Vercel) und AI_GATEWAY_API_KEY ist nicht gesetzt.",
   auth: "Das Vercel AI Gateway hat den Zugang abgelehnt. Bitte im Vercel-Dashboard unter „AI Gateway“ prüfen, ob es für das Team freigeschaltet ist.",
+  verification:
+    "Das Vercel AI Gateway ist noch nicht freigeschaltet: Für das kostenlose Guthaben verlangt Vercel einmalig eine im Team hinterlegte Kreditkarte (Vercel-Dashboard → AI Gateway).",
   quota: "Das KI-Guthaben des Vercel AI Gateway ist aufgebraucht – das kostenlose Kontingent erneuert sich monatlich.",
   model: "Das gewählte KI-Modell ist im Vercel AI Gateway nicht verfügbar. Bitte AI_GATEWAY_MODEL prüfen.",
 } as const;
@@ -31,10 +33,13 @@ export interface GatewayProviderConfig {
   fetch?: typeof fetch;
 }
 
-/** Gateway-Fehler mit passenden Hinweisen versehen (Status, nie Fehlertext). */
+/** Gateway-Fehler mit passenden Hinweisen versehen (Status bzw. Fehlertyp, nie Fehlertext). */
 export function mapGatewayError(error: unknown): ProviderError {
   const mapped = mapOpenAIError(error);
   const options = { status: mapped.status, retryable: mapped.retryable, cause: error };
+  if ((error as { type?: unknown } | null)?.type === "customer_verification_required") {
+    return new ProviderError("not_configured", GATEWAY_MESSAGES.verification, options);
+  }
   if (mapped.code === "quota") return new ProviderError("quota", GATEWAY_MESSAGES.quota, options);
   if (mapped.code === "auth") return new ProviderError("auth", GATEWAY_MESSAGES.auth, options);
   if (mapped.status === 404) return new ProviderError("bad_request", GATEWAY_MESSAGES.model, options);

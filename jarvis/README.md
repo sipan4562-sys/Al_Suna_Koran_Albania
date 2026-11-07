@@ -42,6 +42,11 @@ jeder Funktion mitgibt, bezahlt wird mit dem monatlichen Gratis-Guthaben des Ver
 `openai/gpt-5-mini`, Ersatz `google/gemini-2.5-flash`). Ist das Guthaben aufgebraucht, antwortet JARVIS bis zum
 nächsten Monat im Demo-Modus.
 
+> **Einmalig nötig:** Vercel schaltet das Gratis-Guthaben erst frei, wenn im Team eine Kreditkarte hinterlegt ist
+> (*Vercel → AI Gateway* bzw. [direkt hier](https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dadd-credit-card)).
+> Bis dahin meldet JARVIS „Vercel AI Gateway ist gerade nicht verfügbar (noch nicht freigeschaltet)“ und
+> antwortet im Demo-Modus. Danach geht es sofort – ohne neues Deployment.
+
 | Variable | Pflicht? | Wofür |
 | --- | --- | --- |
 | `AI_GATEWAY_MODEL` | optional | Modell im Vercel AI Gateway, z. B. `openai/gpt-5.2` (stärker, teurer). Im Gratis-Kontingent nur [Free-Tier-Modelle](https://vercel.com/ai-gateway/models?freeTier=true) – Claude erst mit gekauftem Guthaben |
@@ -149,7 +154,8 @@ Messages API geprüft, die Oberfläche im Demo-Modus.
 | --- | --- |
 | „Demo-Modus“ im HUD | Lokal ohne Schlüssel normal → `ANTHROPIC_API_KEY` oder `AI_GATEWAY_API_KEY` eintragen und Server neu starten |
 | „Vercel AI Gateway ist gerade nicht verfügbar (Guthaben aufgebraucht)“ | Das Gratis-Guthaben des Monats ist verbraucht → nächsten Monat geht es weiter, oder unter *Vercel → AI Gateway* Guthaben kaufen |
-| „Vercel AI Gateway ist gerade nicht verfügbar (Zugang abgelehnt)“ | Unter *Vercel → AI Gateway* prüfen, ob das Gateway für das Team freigeschaltet ist (für das Gratis-Guthaben verlangt Vercel eine hinterlegte Zahlungsmethode) |
+| „Vercel AI Gateway ist gerade nicht verfügbar (noch nicht freigeschaltet)“ | Im Vercel-Team einmalig eine Kreditkarte hinterlegen (*Vercel → AI Gateway*) – damit gibt Vercel das Gratis-Guthaben frei |
+| „Vercel AI Gateway ist gerade nicht verfügbar (Zugang abgelehnt)“ | Unter *Vercel → AI Gateway* prüfen, ob das Gateway für das Team aktiv ist; lokal `AI_GATEWAY_API_KEY` prüfen |
 | Mikrofon-Button grau | Browser ohne Spracherkennung (z. B. Firefox) → Chrome/Edge/Safari nutzen oder `OPENAI_API_KEY` setzen |
 | „Mikrofonzugriff verweigert“ | In den Website-Einstellungen des Browsers das Mikrofon erlauben; Seite muss per HTTPS laufen |
 | Keine Stimme auf dem iPhone | Einmal auf Mikrofon oder Senden tippen (iOS gibt Audio erst nach einer Berührung frei); Stummschalter prüfen |

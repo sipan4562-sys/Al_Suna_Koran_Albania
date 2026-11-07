@@ -26,7 +26,7 @@ export const SHORT_REASONS: Record<ErrorCode, string> = {
   network: "keine Verbindung",
   bad_request: "Anfrage abgelehnt",
   refusal: "Anfrage abgelehnt",
-  not_configured: "nicht eingerichtet",
+  not_configured: "noch nicht freigeschaltet",
   timeout: "Zeitüberschreitung",
   aborted: "abgebrochen",
   internal: "unerwarteter Fehler",

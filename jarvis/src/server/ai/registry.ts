@@ -94,7 +94,8 @@ export function getProviderSetup(): ProviderSetup {
   let fallback: ChatProvider | null = null;
   const fallbackId = resolveFallbackId(primary.id);
   if (fallbackId && fallbackId !== primary.id) {
-    fallback = buildProvider(fallbackId);
+    // Springt der Demo-Modus nur ein, passt der Hinweis auf fehlende Schlüssel nicht.
+    fallback = fallbackId === "demo" ? createDemoProvider({ setupHint: false }) : buildProvider(fallbackId);
     if (!fallback) console.warn(`[jarvis] Fallback-Anbieter "${fallbackId}" ist nicht konfiguriert.`);
   }
 

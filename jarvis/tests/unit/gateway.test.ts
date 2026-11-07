@@ -114,6 +114,22 @@ describe("Vercel AI Gateway", () => {
       message: GATEWAY_MESSAGES.auth,
     });
   });
+
+  it("erklärt, wenn das Gateway im Vercel-Team noch nicht freigeschaltet ist", async () => {
+    const { fetch } = scriptedFetch([
+      () =>
+        gatewayError(
+          403,
+          "customer_verification_required",
+          "AI Gateway requires a valid credit card on file to service requests.",
+        ),
+    ]);
+    await expect(collect(gateway(fetch).run(runInput()))).rejects.toMatchObject({
+      code: "not_configured",
+      message: GATEWAY_MESSAGES.verification,
+      retryable: false,
+    });
+  });
 });
 
 describe("Gateway-Zugang", () => {
@@ -154,6 +170,15 @@ describe("Gateway-Zugang", () => {
     expect(setup.fallback?.id).toBe("demo");
     expect(setup.demo).toBe(false);
     expect(requestCredentials(new Headers({ "x-vercel-oidc-token": "abc" }))).toEqual({ gatewayToken: "abc" });
+  });
+
+  it("springt der Demo-Modus nur ein, fehlt der Hinweis auf API-Schlüssel", async () => {
+    const fallback = getProviderSetup().fallback;
+    expect(fallback?.id).toBe("demo");
+    const events = await collect(fallback!.run(runInput({ tools: [], credentials: undefined })));
+    const answer = events.map((e) => (e.type === "text" ? e.delta : "")).join("");
+    expect(answer).toContain("Wie kann ich helfen?");
+    expect(answer).not.toContain("Demo-Modus aktiv");
   });
 
   it("lässt eigene Schlüssel und Vorgaben Vorrang haben", () => {
