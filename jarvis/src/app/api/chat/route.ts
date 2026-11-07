@@ -1,5 +1,6 @@
 import { runChatTurn } from "@/server/ai/orchestrator";
 import { USER_MESSAGES } from "@/server/ai/errors";
+import { requestCredentials } from "@/server/ai/registry";
 import { getEnv } from "@/server/config/env";
 import { api, jsonError, payloadErrorResponse, readJson } from "@/server/http/api";
 import { ChatRequestSchema, firstIssue } from "@/server/validation";
@@ -37,6 +38,8 @@ export const POST = api(
       mode: parsed.data.mode,
       timezone: parsed.data.timezone,
       signal: abort.signal,
+      // Jetzt lesen, solange der Anfragekontext sicher besteht (OIDC-Token der Vercel-Funktion).
+      credentials: requestCredentials(request.headers),
     });
 
     let cancelled = false;

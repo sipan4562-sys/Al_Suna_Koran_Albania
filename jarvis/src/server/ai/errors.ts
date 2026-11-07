@@ -6,6 +6,7 @@ import { ProviderError } from "./types";
 export const USER_MESSAGES: Record<ErrorCode, string> = {
   auth: "Der KI-Dienst hat den API-Schlüssel abgelehnt. Bitte prüfe die Konfiguration in .env.local.",
   rate_limit: "Der KI-Dienst ist gerade ausgelastet (Rate-Limit). Bitte versuche es in einem Moment erneut.",
+  quota: "Das KI-Guthaben ist aufgebraucht. Bitte lade es auf oder versuche es später erneut.",
   overloaded: "Der KI-Dienst ist momentan überlastet. Bitte versuche es gleich noch einmal.",
   network: "Keine Verbindung zum KI-Dienst. Bitte prüfe die Internetverbindung des Servers.",
   bad_request: "Die Anfrage wurde vom KI-Dienst abgelehnt. Prüfe Modellname und Konfiguration.",
@@ -14,6 +15,21 @@ export const USER_MESSAGES: Record<ErrorCode, string> = {
   timeout: "Der KI-Dienst hat nicht rechtzeitig geantwortet. Bitte versuche es erneut.",
   aborted: "Die Anfrage wurde abgebrochen.",
   internal: "Ein unerwarteter Fehler ist aufgetreten. Bitte versuche es erneut.",
+};
+
+/** Kurzform für Hinweise wie „… gerade nicht verfügbar (Guthaben aufgebraucht)“. */
+export const SHORT_REASONS: Record<ErrorCode, string> = {
+  auth: "Zugang abgelehnt",
+  rate_limit: "Rate-Limit erreicht",
+  quota: "Guthaben aufgebraucht",
+  overloaded: "überlastet",
+  network: "keine Verbindung",
+  bad_request: "Anfrage abgelehnt",
+  refusal: "Anfrage abgelehnt",
+  not_configured: "nicht eingerichtet",
+  timeout: "Zeitüberschreitung",
+  aborted: "abgebrochen",
+  internal: "unerwarteter Fehler",
 };
 
 interface StatusLikeError {
@@ -30,6 +46,9 @@ export function fromHttpStatus(error: unknown): ProviderError {
   const status = Number((error as StatusLikeError | null)?.status);
   if (status === 401 || status === 403) {
     return new ProviderError("auth", USER_MESSAGES.auth, { status, cause: error });
+  }
+  if (status === 402) {
+    return new ProviderError("quota", USER_MESSAGES.quota, { status, cause: error });
   }
   if (status === 429) {
     return new ProviderError("rate_limit", USER_MESSAGES.rate_limit, { status, retryable: true, cause: error });

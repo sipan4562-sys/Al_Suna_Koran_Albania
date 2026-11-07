@@ -30,6 +30,36 @@ const effort = z
       : undefined;
   });
 
+const GATEWAY_EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"] as const;
+export type GatewayEffort = (typeof GATEWAY_EFFORTS)[number];
+
+/** Denkaufwand fürs Vercel AI Gateway (`reasoning_effort`); "default" = Modellstandard. */
+const gatewayEffort = (fallback: GatewayEffort) =>
+  z
+    .string()
+    .optional()
+    .transform((value): GatewayEffort | undefined => {
+      const v = value?.trim().toLowerCase();
+      if (!v) return fallback;
+      if (v === "default") return undefined;
+      return (GATEWAY_EFFORTS as readonly string[]).includes(v) ? (v as GatewayEffort) : fallback;
+    });
+
+/** Kommagetrennte Liste; "none" = leer. */
+const list = (fallback: string[]) =>
+  z
+    .string()
+    .optional()
+    .transform((value) => {
+      const v = value?.trim();
+      if (!v) return fallback;
+      if (v.toLowerCase() === "none") return [];
+      return v
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    });
+
 const intWithDefault = (fallback: number, min: number, max: number) =>
   z
     .string()
@@ -53,8 +83,15 @@ const EnvSchema = z.object({
   NODE_ENV: z.string().optional(),
   VERCEL: optionalString,
 
-  AI_PROVIDER: enumWithDefault(["auto", "anthropic", "openai", "demo"] as const, "auto"),
+  AI_PROVIDER: enumWithDefault(["auto", "anthropic", "openai", "gateway", "demo"] as const, "auto"),
   AI_FALLBACK_PROVIDER: optionalString,
+
+  // Vercel AI Gateway: auf Vercel ohne eigenen Schlüssel nutzbar (OIDC-Token der Funktion).
+  AI_GATEWAY_API_KEY: optionalString,
+  AI_GATEWAY_MODEL: optionalString.transform((v) => v ?? "openai/gpt-5-mini"),
+  AI_GATEWAY_FALLBACK_MODELS: list(["google/gemini-2.5-flash", "openai/gpt-5-nano"]),
+  AI_GATEWAY_EFFORT_TEXT: gatewayEffort("low"),
+  AI_GATEWAY_EFFORT_VOICE: gatewayEffort("minimal"),
 
   ANTHROPIC_API_KEY: optionalString,
   ANTHROPIC_AUTH_TOKEN: optionalString,

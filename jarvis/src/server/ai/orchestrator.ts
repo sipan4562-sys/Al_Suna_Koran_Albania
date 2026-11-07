@@ -16,10 +16,16 @@ import {
 import { listMemories } from "@/server/db/repositories/memories";
 import { ensureUser, getProfile } from "@/server/db/repositories/users";
 import { activeTools, skillPromptHints } from "@/server/skills/registry";
-import { fromHttpStatus, isAbortError } from "./errors";
+import { fromHttpStatus, isAbortError, SHORT_REASONS } from "./errors";
 import { buildSystemPrompt } from "./prompt";
 import { getProviderSetup } from "./registry";
-import { ProviderError, type ChatProvider, type HistoryMessage, type UsageInfo } from "./types";
+import {
+  ProviderError,
+  type ChatProvider,
+  type HistoryMessage,
+  type ProviderCredentials,
+  type UsageInfo,
+} from "./types";
 
 export const HISTORY_MESSAGE_LIMIT = 40;
 export const HISTORY_CHAR_BUDGET = 120_000;
@@ -31,6 +37,8 @@ export interface ChatTurnInput {
   mode: AssistantMode;
   timezone?: string;
   signal: AbortSignal;
+  /** Pro Anfrage ermittelte Zugangsdaten (z. B. OIDC-Token fürs Vercel AI Gateway). */
+  credentials?: ProviderCredentials;
 }
 
 /** Titel aus der ersten Nachricht: erste Zeile, ohne Markdown, an Wortgrenze gekürzt. */
@@ -185,6 +193,7 @@ export async function* runChatTurn(input: ChatTurnInput): AsyncGenerator<ChatStr
           toolContext,
           mode: input.mode,
           signal: input.signal,
+          credentials: input.credentials,
         })) {
           if (event.type === "text") {
             firstTokenAt ??= Date.now();
@@ -217,7 +226,10 @@ export async function* runChatTurn(input: ChatTurnInput): AsyncGenerator<ChatStr
         const next = chain[index + 1];
         // Nur wechseln, solange noch nichts ausgegeben/ausgeführt wurde.
         if (next && !text && activities.size === 0) {
-          yield { type: "notice", message: `${provider.label} ist nicht erreichbar – wechsle zu ${next.label}.` };
+          yield {
+            type: "notice",
+            message: `${provider.label} ist gerade nicht verfügbar (${SHORT_REASONS[providerError.code]}) – wechsle zu ${next.label}.`,
+          };
           continue;
         }
         failure = providerError;

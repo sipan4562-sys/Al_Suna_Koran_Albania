@@ -100,6 +100,7 @@ export type ChatStreamEvent =
 export type ErrorCode =
   | "auth"
   | "rate_limit"
+  | "quota"
   | "overloaded"
   | "network"
   | "bad_request"

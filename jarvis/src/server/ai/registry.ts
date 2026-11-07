@@ -1,9 +1,11 @@
 import "server-only";
 import { getEnv } from "@/server/config/env";
+import { localOidcToken, resolveGatewayToken } from "./gateway-auth";
 import { createAnthropicProvider } from "./providers/anthropic";
 import { createDemoProvider } from "./providers/demo";
+import { createGatewayProvider } from "./providers/gateway";
 import { createOpenAIProvider } from "./providers/openai";
-import type { ChatProvider, ProviderId } from "./types";
+import type { ChatProvider, ProviderCredentials, ProviderId } from "./types";
 
 /**
  * Zentrale Stelle, an der KI-Anbieter aus der Konfiguration erzeugt werden.
@@ -45,6 +47,14 @@ function buildProvider(id: ProviderId): ChatProvider | null {
         baseUrl: env.OPENAI_BASE_URL,
         model: env.OPENAI_MODEL,
       });
+    case "gateway":
+      // Zugang pro Anfrage (OIDC-Token bzw. AI_GATEWAY_API_KEY) – siehe requestCredentials().
+      return createGatewayProvider({
+        model: env.AI_GATEWAY_MODEL,
+        fallbackModels: env.AI_GATEWAY_FALLBACK_MODELS,
+        effortText: env.AI_GATEWAY_EFFORT_TEXT,
+        effortVoice: env.AI_GATEWAY_EFFORT_VOICE,
+      });
     case "demo":
       return createDemoProvider();
     default:
@@ -57,12 +67,21 @@ function resolvePrimaryId(): ProviderId {
   if (env.AI_PROVIDER !== "auto") return env.AI_PROVIDER;
   if (env.ANTHROPIC_API_KEY || env.ANTHROPIC_AUTH_TOKEN) return "anthropic";
   if (env.OPENAI_API_KEY || env.OPENAI_BASE_URL) return "openai";
+  // Auf Vercel ohne eigenen Schlüssel: Vercel AI Gateway mit dem OIDC-Token der Funktion.
+  if (env.AI_GATEWAY_API_KEY || env.VERCEL || localOidcToken()) return "gateway";
   return "demo";
+}
+
+/** Ohne eigene Vorgabe: Fällt das Gateway aus (z. B. Guthaben leer), antwortet JARVIS im Demo-Modus. */
+function resolveFallbackId(primaryId: ProviderId): ProviderId | undefined {
+  const configured = getEnv().AI_FALLBACK_PROVIDER?.toLowerCase();
+  if (configured === "none") return undefined;
+  if (configured) return configured as ProviderId;
+  return primaryId === "gateway" ? "demo" : undefined;
 }
 
 export function getProviderSetup(): ProviderSetup {
   if (cached) return cached;
-  const env = getEnv();
   const primaryId = resolvePrimaryId();
   let primary = buildProvider(primaryId);
   if (!primary) {
@@ -73,7 +92,7 @@ export function getProviderSetup(): ProviderSetup {
   }
 
   let fallback: ChatProvider | null = null;
-  const fallbackId = env.AI_FALLBACK_PROVIDER?.toLowerCase() as ProviderId | undefined;
+  const fallbackId = resolveFallbackId(primary.id);
   if (fallbackId && fallbackId !== primary.id) {
     fallback = buildProvider(fallbackId);
     if (!fallback) console.warn(`[jarvis] Fallback-Anbieter "${fallbackId}" ist nicht konfiguriert.`);
@@ -81,6 +100,16 @@ export function getProviderSetup(): ProviderSetup {
 
   cached = { primary, fallback, demo: primary.id === "demo" };
   return cached;
+}
+
+/**
+ * Zugangsdaten, die erst pro Anfrage feststehen. Muss in der API-Route (im
+ * Kontext der eingehenden Anfrage) aufgerufen werden, bevor gestreamt wird.
+ */
+export function requestCredentials(headers: Headers): ProviderCredentials {
+  const { primary, fallback } = getProviderSetup();
+  const usesGateway = primary.id === "gateway" || fallback?.id === "gateway";
+  return usesGateway ? { gatewayToken: resolveGatewayToken(headers) } : {};
 }
 
 /** Nur für Tests. */

@@ -15,20 +15,36 @@ import type {
   ChatCompletionFunctionTool,
   ChatCompletionMessageParam,
 } from "openai/resources/chat/completions/completions";
+import type { AssistantMode } from "@/lib/shared/types";
 import { fromHttpStatus, USER_MESSAGES } from "../errors";
 import { executeTool, safeLabel, toolJsonSchema } from "../tools";
 import {
   ProviderError,
   type ChatProvider,
   type ProviderEvent,
+  type ProviderId,
   type ProviderRunInput,
   type UsageInfo,
 } from "../types";
 
+export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+
 export interface OpenAIProviderConfig {
-  apiKey: string;
+  /**
+   * Fester Schlüssel – oder eine Funktion, die ihn pro Anfrage liefert
+   * (Vercel AI Gateway: OIDC-Token der laufenden Funktion).
+   */
+  apiKey: string | ((input: ProviderRunInput) => string);
   baseUrl?: string;
   model: string;
+  id?: ProviderId;
+  label?: string;
+  /** Ersatzmodelle, die der Server bei einem Ausfall der Reihe nach nutzt (Gateway-Feld `models`). */
+  fallbackModels?: string[];
+  /** `reasoning_effort` je Ausgabemodus – Sprache schnell, Text gründlicher. */
+  reasoningEffort?: Partial<Record<AssistantMode, ReasoningEffort>>;
+  /** Anbieterspezifische Fehlermeldungen (Standard: mapOpenAIError). */
+  mapError?: (error: unknown) => ProviderError;
   /** Nur für Tests: eigene fetch-Implementierung. */
   fetch?: typeof fetch;
 }
@@ -79,21 +95,31 @@ interface PendingCall {
 }
 
 export function createOpenAIProvider(config: OpenAIProviderConfig): ChatProvider {
-  const client = new OpenAI({
-    apiKey: config.apiKey,
-    baseURL: config.baseUrl,
-    maxRetries: 2,
-    timeout: 300_000,
-    ...(config.fetch ? { fetch: config.fetch } : {}),
-  });
+  const createClient = (apiKey: string) =>
+    new OpenAI({
+      apiKey,
+      baseURL: config.baseUrl,
+      maxRetries: 2,
+      timeout: 300_000,
+      ...(config.fetch ? { fetch: config.fetch } : {}),
+    });
+  const { apiKey } = config;
+  const staticClient = typeof apiKey === "string" ? createClient(apiKey) : null;
+  const mapError = config.mapError ?? mapOpenAIError;
   const compatServer = Boolean(config.baseUrl);
+  // Gateway-Erweiterung: fällt das Hauptmodell aus, probiert der Server die Ersatzmodelle.
+  const fallbackModels = (config.fallbackModels ?? []).filter((model) => model !== config.model);
 
   return {
-    id: "openai",
-    label: compatServer ? "OpenAI-kompatibel" : "OpenAI",
+    id: config.id ?? "openai",
+    label: config.label ?? (compatServer ? "OpenAI-kompatibel" : "OpenAI"),
     model: config.model,
 
     async *run(input: ProviderRunInput): AsyncGenerator<ProviderEvent, void, void> {
+      // Pro Anfrage ermittelte Schlüssel (OIDC) laufen nur wenige Stunden – nie zwischenspeichern.
+      const client = staticClient ?? createClient((apiKey as (input: ProviderRunInput) => string)(input));
+      const effort = config.reasoningEffort?.[input.mode];
+      const extensions: Record<string, unknown> = fallbackModels.length > 0 ? { models: fallbackModels } : {};
       const toolMap = new Map(input.tools.map((tool) => [tool.name, tool]));
       const tools: ChatCompletionFunctionTool[] = input.tools.map((tool) => ({
         type: "function",
@@ -119,7 +145,9 @@ export function createOpenAIProvider(config: OpenAIProviderConfig): ChatProvider
               messages,
               stream: true,
               ...(tools.length > 0 ? { tools } : {}),
+              ...(effort ? { reasoning_effort: effort } : {}),
               ...(compatServer ? {} : { stream_options: { include_usage: true } }),
+              ...extensions,
             },
             { signal: input.signal },
           );
@@ -152,7 +180,7 @@ export function createOpenAIProvider(config: OpenAIProviderConfig): ChatProvider
           if (input.signal.aborted) {
             throw new ProviderError("aborted", USER_MESSAGES.aborted, { cause: error });
           }
-          throw mapOpenAIError(error);
+          throw mapError(error);
         }
 
         if (finishReason === "length") {

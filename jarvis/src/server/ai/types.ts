@@ -61,6 +61,15 @@ export type ProviderEvent =
   | { type: "notice"; message: string }
   | { type: "done"; stopReason: string; model: string; usage?: UsageInfo };
 
+/**
+ * Zugangsdaten, die erst pro Anfrage feststehen – z. B. der OIDC-Token einer
+ * Vercel-Funktion, mit dem sich JARVIS ohne eigenen API-Schlüssel beim
+ * Vercel AI Gateway anmeldet. Verlassen nie den Server.
+ */
+export interface ProviderCredentials {
+  gatewayToken?: string;
+}
+
 export interface ProviderRunInput {
   system: SystemPrompt;
   /** Gesprächsverlauf, endet mit der aktuellen Nutzernachricht. */
@@ -69,9 +78,10 @@ export interface ProviderRunInput {
   toolContext: ToolContext;
   mode: AssistantMode;
   signal: AbortSignal;
+  credentials?: ProviderCredentials;
 }
 
-export type ProviderId = "anthropic" | "openai" | "demo";
+export type ProviderId = "anthropic" | "openai" | "gateway" | "demo";
 
 export interface ChatProvider {
   id: ProviderId;
