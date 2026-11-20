@@ -1065,6 +1065,18 @@ function showSettings() {
   };
   root.append(lab, sb, el("hr"));
 
+  root.append(el("strong", null, "📲 App"));
+  if (isStandalone) root.append(el("p", "small muted", "✅ Pixelkingschat läuft als App vom Homebildschirm."));
+  else {
+    root.append(el("p", "small muted", "Installiere Pixelkingschat auf deinem Homebildschirm – dann startet es wie eine echte App, auch ohne Internet."));
+    const ib = el("button", "btn primary", deferredPrompt ? "📲 App installieren" : "📲 So kommt die App auf den Homebildschirm");
+    ib.onclick = installApp;
+    root.append(ib);
+  }
+  const tr = el("button", "btn", "🔑 Konto übertragen");
+  tr.onclick = showExport;
+  root.append(tr);
+  root.append(el("hr"));
   root.append(el("strong", null, "🔔 Benachrichtigungen"));
   root.append(el("p", "small muted", notifStatusText()));
   if (pushSupported() && Notification.permission === "default") {
@@ -1141,7 +1153,12 @@ function notifStatusText() {
 }
 
 let swReg = null;
-async function registerSW() {
+let swP = null;
+function registerSW() {
+  swP ??= doRegisterSW();
+  return swP;
+}
+async function doRegisterSW() {
   if (!("serviceWorker" in navigator)) return;
   try {
     swReg = await navigator.serviceWorker.register("/sw.js");
@@ -1193,8 +1210,6 @@ function updateNotifBanner() {
   if (pushSupported() && Notification.permission === "default") {
     text = "🔔 Bekomme eine Benachrichtigung, wenn dir jemand schreibt.";
     action = true;
-  } else if (!pushSupported() && isIOS && !isStandalone) {
-    text = "📲 Für Benachrichtigungen: unten auf „Teilen“ tippen → „Zum Home-Bildschirm“.";
   }
   b.classList.toggle("hidden", !text || dismissed);
   if (text) {
@@ -1203,8 +1218,171 @@ function updateNotifBanner() {
   }
 }
 
+/* ================= App installieren (Homebildschirm) ================= */
+let deferredPrompt = null;
+const installDismissed = () => {
+  try {
+    return localStorage.getItem("pk_install_dismissed") === "1";
+  } catch {
+    return false;
+  }
+};
+window.addEventListener("beforeinstallprompt", (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  updateInstallBanner();
+});
+window.addEventListener("appinstalled", () => {
+  deferredPrompt = null;
+  updateInstallBanner();
+  toast("📲 Pixelkingschat ist jetzt auf deinem Homebildschirm!");
+});
+
+function canInstall() {
+  return !isStandalone && (!!deferredPrompt || isIOS);
+}
+function updateInstallBanner() {
+  const b = $("#installBanner");
+  if (!b) return;
+  b.classList.toggle("hidden", !canInstall() || installDismissed());
+  $("#installBtn").textContent = deferredPrompt ? "Installieren" : "So geht's";
+}
+async function installApp() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice.catch(() => ({}));
+    deferredPrompt = null;
+    if (outcome === "accepted") toast("📲 Wird installiert…");
+    updateInstallBanner();
+    return;
+  }
+  showInstallHelp();
+}
+function showInstallHelp() {
+  const body = el("div", "stack");
+  body.append(el("h2", null, "📲 Auf den Homebildschirm"));
+  const ol = el("ol", "steps");
+  const step = (...parts) => {
+    const li = el("li");
+    for (const p of parts) li.append(typeof p === "string" ? p : p);
+    ol.append(li);
+  };
+  if (isIOS) {
+    body.append(el("p", "small muted", "iPhone / iPad (in Safari):"));
+    step("Tippe unten auf das ", el("b", null, "Teilen-Symbol"), " (Quadrat mit Pfeil nach oben).");
+    step("Scrolle nach unten und wähle ", el("b", null, "„Zum Home-Bildschirm“"), ".");
+    step("Tippe oben rechts auf ", el("b", null, "„Hinzufügen“"), ".");
+    step("Öffne Pixelkingschat ab jetzt über das ", el("b", null, "Kronen-Symbol"), " auf deinem Homebildschirm – dort funktionieren auch Benachrichtigungen.");
+  } else {
+    body.append(el("p", "small muted", "Android / Computer:"));
+    step("Öffne das ", el("b", null, "Browser-Menü"), " (⋮ oben rechts).");
+    step("Wähle ", el("b", null, "„App installieren“"), " oder ", el("b", null, "„Zum Startbildschirm hinzufügen“"), ".");
+    step("Bestätige mit ", el("b", null, "„Installieren“"), ".");
+  }
+  body.append(ol);
+  if (isIOS && S.me) {
+    const warn = el("p", "small accent");
+    warn.textContent =
+      "Wichtig: Auf dem iPhone hat die Homebildschirm-App einen eigenen Speicher. Damit dein Code mitkommt: hier unter Profil → „Konto übertragen“ den Übertragungscode kopieren und in der App beim Start auf „Konto übertragen“ tippen.";
+    body.append(warn);
+  }
+  const ok = el("button", "btn primary big", "Verstanden");
+  ok.onclick = closeModal;
+  body.append(ok);
+  openModal(body);
+}
+
+/* ================= Konto übertragen (z. B. Safari → Homebildschirm-App) ================= */
+function exportCode() {
+  const data = {
+    v: 1,
+    me: { id: S.me.id, token: S.me.token, pub: S.me.pub, priv: S.me.priv, name: S.me.name, av: S.me.av },
+    contacts: Object.fromEntries(
+      Object.values(S.contacts).map((c) => [c.id, { id: c.id, pub: c.pub, av: c.av, name: c.name, nick: c.nick, blocked: !!c.blocked, last: c.last }])
+    ),
+  };
+  return "PKX1:" + b64u(enc.encode(JSON.stringify(data)));
+}
+function showExport() {
+  const body = el("div", "stack");
+  body.append(el("h2", null, "🔑 Konto übertragen"));
+  body.append(
+    el("p", "small muted", "Mit diesem Code nimmst du deinen Pixelkingschat-Code und deine Kontakte mit – z. B. in die App auf deinem Homebildschirm. Nachrichten werden nicht übertragen.")
+  );
+  const warn = el("p", "small");
+  warn.textContent = "⚠️ Dieser Code enthält deinen geheimen Schlüssel. Gib ihn niemals an andere weiter!";
+  body.append(warn);
+  const ta = el("textarea", "export-box");
+  ta.readOnly = true;
+  ta.value = exportCode();
+  ta.rows = 4;
+  const cp = el("button", "btn primary big", "Übertragungscode kopieren");
+  cp.onclick = () => copy(ta.value);
+  body.append(ta, cp);
+  body.append(el("p", "small muted", "Danach in der Homebildschirm-App beim Start auf „Konto übertragen“ tippen und einfügen."));
+  body.append(el("hr"));
+  body.append(
+    el("p", "small muted", "Wenn du übertragen hast: Melde dich hier ab, damit neue Nachrichten nur noch in der App ankommen. Dein Konto bleibt erhalten.")
+  );
+  const out = el("button", "btn danger", "Auf diesem Gerät abmelden");
+  out.onclick = async () => {
+    if (!confirm("Hast du den Übertragungscode kopiert und in der App eingefügt? Danach ist dein Konto auf diesem Gerät weg.")) return;
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration();
+      const sub = await reg?.pushManager.getSubscription();
+      if (sub) {
+        await api("push", { method: "DELETE", body: { sub: sub.toJSON() } }).catch(() => {});
+        await sub.unsubscribe();
+      }
+    } catch {}
+    localStorage.removeItem(STORE_KEY);
+    indexedDB.deleteDatabase("pk");
+    location.replace("/");
+  };
+  body.append(out);
+  openModal(body);
+}
+function showImport() {
+  const body = el("div", "stack");
+  body.append(el("h2", null, "🔑 Konto übertragen"));
+  body.append(el("p", "small muted", "Füge hier den Übertragungscode ein (Profil → „Konto übertragen“ auf deinem anderen Gerät/Browser)."));
+  const ta = el("textarea", "export-box");
+  ta.rows = 4;
+  ta.placeholder = "PKX1:…";
+  const go = el("button", "btn primary big", "Konto übernehmen");
+  go.onclick = async () => {
+    try {
+      const raw = ta.value.trim();
+      if (!raw.startsWith("PKX1:")) throw new Error("Das ist kein gültiger Übertragungscode.");
+      const data = JSON.parse(dec.decode(unb64u(raw.slice(5))));
+      if (!data?.me?.id || !data.me.token || !data.me.priv || !data.me.pub) throw new Error("Code unvollständig.");
+      S = { me: data.me, contacts: {}, messages: {} };
+      for (const c of Object.values(data.contacts || {})) {
+        S.contacts[c.id] = { ...c, unread: 0 };
+        S.messages[c.id] = [];
+      }
+      await api("me"); // prüft, ob das Konto gültig ist
+      save();
+      closeModal();
+      toast("✅ Konto übernommen");
+      startApp();
+    } catch (e) {
+      S = { me: null, contacts: {}, messages: {} };
+      toast(e.status === 401 ? "Dieses Konto existiert nicht mehr." : e.message || "Ungültiger Code.");
+    }
+  };
+  body.append(ta, go);
+  openModal(body);
+  setTimeout(() => ta.focus(), 50);
+}
+
 /* ================= Start ================= */
 function handleHash() {
+  const sc = /^#(new|scan)$/.exec(location.hash);
+  if (sc) {
+    history.replaceState(null, "", location.pathname);
+    return { kind: sc[1] };
+  }
   const m = /#(add|chat)=([A-Z0-9]{8})/i.exec(location.hash);
   if (!m) return null;
   history.replaceState(null, "", location.pathname);
@@ -1223,6 +1401,7 @@ async function startApp() {
   syncNames();
   registerSW().then(() => subscribePush().catch(() => {}));
   updateNotifBanner();
+  updateInstallBanner();
   api("me")
     .then((r) => {
       setBanned(r.banned);
@@ -1236,7 +1415,9 @@ async function startApp() {
   if (pendingHash) {
     const { kind, code } = pendingHash;
     pendingHash = null;
-    if (kind === "chat" && S.contacts[code]) openChat(code);
+    if (kind === "new") showAdd("enter");
+    else if (kind === "scan") showAdd("scan");
+    else if (kind === "chat" && S.contacts[code]) openChat(code);
     else {
       try {
         await addContactByCode(code);
@@ -1282,6 +1463,13 @@ function bind() {
     if (e.target.id === "modal") closeModal();
   };
   $("#notifEnable").onclick = enablePush;
+  $("#installBtn").onclick = installApp;
+  $("#installDismiss").onclick = () => {
+    try {
+      localStorage.setItem("pk_install_dismissed", "1");
+    } catch {}
+    updateInstallBanner();
+  };
   $("#notifDismiss").onclick = () => {
     try {
       localStorage.setItem("pk_notif_dismissed", "1");
@@ -1353,6 +1541,8 @@ function bind() {
   window.addEventListener("hashchange", () => {
     const h = handleHash();
     if (!h || !S.me) return;
+    if (h.kind === "new") return showAdd("enter");
+    if (h.kind === "scan") return showAdd("scan");
     if (h.kind === "chat" && S.contacts[h.code]) openChat(h.code);
     else addContactByCode(h.code).catch((e) => toast(e.message));
   });
@@ -1366,6 +1556,8 @@ function bind() {
 }
 
 bind();
+$("#importBtn").onclick = showImport;
+registerSW();
 if (S.me) startApp();
 else {
   $("#welcome").classList.remove("hidden");

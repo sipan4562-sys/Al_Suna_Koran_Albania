@@ -1,8 +1,62 @@
 // Pixelkingschat Service Worker – zeigt Benachrichtigungen bei neuen Nachrichten.
 // Der Inhalt bleibt Ende-zu-Ende-verschlüsselt: die Benachrichtigung zeigt nur, WER geschrieben hat.
 
-self.addEventListener("install", () => self.skipWaiting());
-self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
+const CACHE = "pk-shell-v3";
+const SHELL = [
+  "/",
+  "/index.html",
+  "/app.js",
+  "/style.css",
+  "/vendor/qrcode.js",
+  "/vendor/jsQR.js",
+  "/icon.svg",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/apple-touch-icon.png",
+  "/manifest.webmanifest",
+];
+
+self.addEventListener("install", (e) => {
+  e.waitUntil(
+    caches
+      .open(CACHE)
+      .then((c) => c.addAll(SHELL))
+      .catch(() => {})
+      .then(() => self.skipWaiting())
+  );
+});
+self.addEventListener("activate", (e) => {
+  e.waitUntil(
+    (async () => {
+      for (const k of await caches.keys()) if (k !== CACHE) await caches.delete(k);
+      await self.clients.claim();
+    })()
+  );
+});
+
+// App-Dateien: erst Netzwerk (immer aktuell), bei fehlender Verbindung aus dem Cache.
+// /api/ wird nie zwischengespeichert – Nachrichten landen nie im Cache.
+self.addEventListener("fetch", (event) => {
+  const req = event.request;
+  const url = new URL(req.url);
+  if (req.method !== "GET" || url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
+  if (url.pathname.startsWith("/.netlify/")) return;
+  event.respondWith(
+    (async () => {
+      try {
+        const res = await fetch(req);
+        if (res.ok && res.type === "basic") {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(req.mode === "navigate" ? "/index.html" : req, copy));
+        }
+        return res;
+      } catch {
+        const cached = await caches.match(req.mode === "navigate" ? "/index.html" : req, { ignoreSearch: true });
+        return cached || new Response("Offline", { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } });
+      }
+    })()
+  );
+});
 
 function contactName(code) {
   return new Promise((resolve) => {

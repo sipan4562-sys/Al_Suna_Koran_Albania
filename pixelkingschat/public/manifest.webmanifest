@@ -6,6 +6,14 @@
   "id": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "lang": "de",
+  "categories": ["social", "communication"],
+  "shortcuts": [
+    { "name": "Kontakt hinzufügen", "short_name": "Hinzufügen", "url": "/#new", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] },
+    { "name": "QR-Code scannen", "short_name": "Scannen", "url": "/#scan", "icons": [{ "src": "icon-192.png", "sizes": "192x192" }] }
+  ],
   "background_color": "#050708",
   "theme_color": "#050708",
   "icons": [

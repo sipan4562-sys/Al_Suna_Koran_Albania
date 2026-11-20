@@ -294,3 +294,37 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
 .link-btn:hover { color: var(--danger); }
 #imgBtn { font-size: 18px; }
 @media (max-width: 380px) { .composer { gap: 6px; padding-left: 8px; padding-right: 8px; } .send-btn, .once-toggle { width: 40px; height: 40px; } }
+
+/* ---------- v3: Homebildschirm-App (Safe Areas für Notch & Home-Balken) ---------- */
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+}
+html { background: var(--bg); }
+body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+#sidebar > .bar, .chat-head { padding-top: calc(10px + var(--sat)); min-height: calc(60px + var(--sat)); }
+#sidebar { padding-left: var(--sal); }
+#chat { padding-right: var(--sar); }
+#welcome { padding-top: calc(20px + var(--sat)); padding-bottom: calc(20px + var(--sab)); }
+.chat-list { padding-bottom: calc(90px + var(--sab)); }
+.fab { bottom: calc(18px + var(--sab)); right: calc(18px + var(--sar)); }
+.toast { bottom: calc(24px + var(--sab)); }
+.modal { padding: calc(16px + var(--sat)) 16px calc(16px + var(--sab)); }
+.modal-card { max-height: calc(100dvh - 32px - var(--sat) - var(--sab)); }
+.modal-card .btn, .reason, .link-btn { touch-action: manipulation; }
+/* iOS zoomt bei Eingabefeldern unter 16px – verhindern */
+@media (max-width: 760px) {
+  input, textarea { font-size: 16px; }
+  #chat { padding-left: var(--sal); }
+}
+@media (display-mode: standalone) {
+  body { user-select: none; -webkit-user-select: none; }
+  input, textarea, .msg-text, .quote, .once-view div, .code, .big-code, .fingerprint { user-select: text; -webkit-user-select: text; }
+}
+.steps { margin: 6px 0 0; padding-left: 22px; display: grid; gap: 10px; }
+.steps li::marker { color: var(--accent); font-weight: 700; }
+.steps b { color: var(--accent); }
+.export-box { font-family: var(--mono); font-size: 12px; resize: none; word-break: break-all; }
+#welcome .link-btn { color: var(--accent); }
