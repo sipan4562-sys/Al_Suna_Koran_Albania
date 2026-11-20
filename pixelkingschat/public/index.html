@@ -7,6 +7,11 @@
   <meta name="description" content="Anonym chatten ohne Nummer oder Mail – Ende-zu-Ende-verschlüsselt, Nachrichten löschen sich nach 24 Stunden.">
   <meta name="theme-color" content="#050708">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Pixelkings">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -22,6 +27,8 @@
         <li><span>⏳</span> Nachrichten löschen sich nach 24 Stunden</li>
         <li><span>👁</span> Einmal-Nachrichten, die nach dem Lesen verschwinden</li>
         <li><span>▦</span> Kontakte per Code oder QR-Code</li>
+        <li><span>🖼</span> Bilder &amp; Profilbilder – ebenfalls verschlüsselt</li>
+        <li><span>🔔</span> Benachrichtigungen auf dem Homebildschirm</li>
       </ul>
       <label class="field">
         <span>Dein Anzeigename (optional)</span>
@@ -37,13 +44,21 @@
     <aside id="sidebar">
       <header class="bar">
         <div class="brand-sm"><img src="icon.svg" alt=""> PIXELKINGS<span>CHAT</span></div>
-        <button id="menuBtn" class="icon-btn" aria-label="Einstellungen">⚙</button>
+        <button id="menuBtn" class="me-btn" aria-label="Profil &amp; Einstellungen"><div class="avatar sm" id="meAvatar"></div></button>
       </header>
       <button id="myCodeCard" class="mycode">
         <span class="muted small">Dein Code</span>
         <strong id="myCodeText" class="code">········</strong>
         <span class="small accent">Antippen zum Teilen ▦</span>
       </button>
+      <div id="bannedBanner" class="banner danger hidden">⛔ Dein Konto wurde wegen Verstößen gegen die Regeln gesperrt. Du kannst keine Nachrichten mehr senden.</div>
+      <div id="notifBanner" class="banner hidden">
+        <div class="banner-text"></div>
+        <div class="banner-actions">
+          <button class="btn primary small-btn" id="notifEnable">Aktivieren</button>
+          <button class="icon-btn" id="notifDismiss" aria-label="Ausblenden">✕</button>
+        </div>
+      </div>
       <div id="chatList" class="chat-list"></div>
       <div id="emptyList" class="empty hidden">
         <div class="empty-icon">▦</div>
@@ -72,6 +87,8 @@
         <button type="button" id="onceBtn" class="once-toggle" aria-pressed="false" title="Einmal ansehen">
           <span class="once-icon">1</span>
         </button>
+        <button type="button" id="imgBtn" class="once-toggle" title="Bild senden" aria-label="Bild senden">🖼</button>
+        <input type="file" id="imgInput" accept="image/*" class="hidden">
         <textarea id="msgInput" rows="1" maxlength="4000" placeholder="Verschlüsselte Nachricht…"></textarea>
         <button type="submit" class="send-btn" aria-label="Senden">➤</button>
       </form>
@@ -88,6 +105,7 @@
 
   <div id="toast" class="toast hidden"></div>
 
+  <input type="file" id="avatarInput" accept="image/*" class="hidden">
   <script src="vendor/qrcode.js"></script>
   <script src="vendor/jsQR.js"></script>
   <script src="app.js" type="module"></script>

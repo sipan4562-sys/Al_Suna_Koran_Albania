@@ -5,7 +5,9 @@
   "type": "module",
   "description": "Pixelkingschat – anonymer, Ende-zu-Ende-verschlüsselter Chat",
   "dependencies": {
-    "@netlify/blobs": "^11.1.9"
+    "@anthropic-ai/sdk": "^1.12.0",
+    "@netlify/blobs": "^11.1.9",
+    "web-push": "^4.0.0"
   },
   "devDependencies": {
     "@netlify/functions": "^6.1.1",
