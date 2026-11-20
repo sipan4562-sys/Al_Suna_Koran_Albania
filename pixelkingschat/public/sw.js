@@ -1,7 +1,7 @@
 // Pixelkingschat Service Worker – zeigt Benachrichtigungen bei neuen Nachrichten.
 // Der Inhalt bleibt Ende-zu-Ende-verschlüsselt: die Benachrichtigung zeigt nur, WER geschrieben hat.
 
-const CACHE = "pk-shell-v3";
+const CACHE = "pk-shell-v4";
 const SHELL = [
   "/",
   "/index.html",
@@ -91,7 +91,9 @@ self.addEventListener("push", (event) => {
         data = event.data ? event.data.json() : {};
       } catch {}
       const from = typeof data.from === "string" ? data.from : "";
-      const name = (from && (await contactName(from))) || (from ? `Code ${from}` : "Pixelkingschat");
+      const sentName = typeof data.name === "string" ? data.name.slice(0, 24) : "";
+      // Eigener Spitzname für den Kontakt > Name, den der Absender gewählt hat > Code
+      const name = (from && (await contactName(from))) || sentName || (from ? `Code ${from}` : "Pixelkingschat");
       // Ist die App gerade sichtbar geöffnet, reicht die Anzeige in der App selbst.
       const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       const visible = wins.some((w) => w.visibilityState === "visible" && w.focused);
@@ -100,7 +102,7 @@ self.addEventListener("push", (event) => {
       const iOS = /iPhone|iPad|iPod/.test(self.navigator.userAgent);
       if (visible && !iOS) return;
       await self.registration.showNotification(name, {
-        body: "🔒 Neue verschlüsselte Nachricht",
+        body: "hat dir eine Nachricht geschickt 🔒",
         icon: "/icon-192.png",
         badge: "/icon-192.png",
         tag: from ? `chat-${from}` : "pk",

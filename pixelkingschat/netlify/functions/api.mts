@@ -34,6 +34,7 @@ type User = {
   th: string;
   created: number;
   av?: number;
+  name?: string;
   strikes?: number;
   banned?: boolean;
   deleted?: boolean;
@@ -76,6 +77,10 @@ async function auth(req: Request): Promise<{ id: string; user: User } | null> {
   return u.th === (await sha256Hex(token)) ? { id, user: u } : null;
 }
 
+// Anzeigename: max. 24 Zeichen, ohne Steuer- und Richtungszeichen
+const cleanName = (n: unknown) =>
+  typeof n === "string" ? n.replace(/[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g, "").trim().slice(0, 24) : "";
+
 const validPub = (pub: unknown): pub is string => typeof pub === "string" && /^[A-Za-z0-9_-]{80,100}$/.test(pub);
 
 /* ---------------- Push-Benachrichtigungen ---------------- */
@@ -94,12 +99,12 @@ async function vapid(): Promise<string> {
   return vapidPub;
 }
 
-async function notify(to: string, from: string) {
+async function notify(to: string, from: string, name: string) {
   await vapid();
   const store = pushStore();
   const { blobs } = await store.list({ prefix: `${to}/` });
   // Inhalt bleibt verschlüsselt – die Benachrichtigung verrät nur den Absender-Code.
-  const payload = JSON.stringify({ from });
+  const payload = JSON.stringify({ from, name });
   await Promise.all(
     blobs.map(async (b) => {
       const sub = await store.get(b.key, { type: "json" });
@@ -288,7 +293,7 @@ export default async (req: Request, context: Context) => {
       const th = await sha256Hex(body.token);
       for (let i = 0; i < 8; i++) {
         const id = randomId();
-        const { modified } = await users().setJSON(id, { pub: body.pub, th, created: Date.now() } satisfies User, {
+        const { modified } = await users().setJSON(id, { pub: body.pub, th, created: Date.now(), name: cleanName(body.name) } satisfies User, {
           onlyIfNew: true,
         });
         if (modified) return json({ id });
@@ -302,7 +307,7 @@ export default async (req: Request, context: Context) => {
       if (!ID_RE.test(id)) return err("Ungültiger Code");
       const u = await getUser(id);
       if (!u || u.deleted) return err("Code nicht gefunden", 404);
-      return json({ id, pub: u.pub, av: u.banned ? 0 : u.av || 0 });
+      return json({ id, pub: u.pub, av: u.banned ? 0 : u.av || 0, name: u.banned ? "" : u.name || "" });
     }
 
     // Profilbild ausliefern (öffentlich – damit es geprüft werden kann)
@@ -346,7 +351,7 @@ export default async (req: Request, context: Context) => {
         to: body.to,
         h: await sha256Hex(`${body.iv}.${body.ct}`),
       });
-      if (body.silent !== true) context.waitUntil(notify(body.to, me).catch((e) => console.error("notify", e)));
+      if (body.silent !== true) context.waitUntil(notify(body.to, me, meUser.name || "").catch((e) => console.error("notify", e)));
       return json({ ok: true, ts });
     }
 
@@ -400,6 +405,14 @@ export default async (req: Request, context: Context) => {
     }
 
     // Profilbild setzen / löschen
+    // Anzeigenamen ändern – Kontakte sehen ihn sofort, auch in Benachrichtigungen
+    if (route === "profile" && method === "PUT") {
+      const body = await req.json().catch(() => null);
+      meUser.name = cleanName(body?.name);
+      await putUser(me, meUser);
+      return json({ name: meUser.name });
+    }
+
     if (route === "avatar" && method === "PUT") {
       if (meUser.banned) return err("Dein Konto ist gesperrt.", 403);
       const body = await req.json().catch(() => null);

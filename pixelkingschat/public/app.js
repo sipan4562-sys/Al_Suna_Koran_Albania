@@ -133,8 +133,8 @@ async function createIdentity(name) {
   const priv = await crypto.subtle.exportKey("jwk", kp.privateKey);
   const token = b64u(rand(32));
   S.me = null;
-  const { id } = await api("register", { body: { pub, token } });
-  S = { me: { id, token, pub, priv, name: name || "", av: 0 }, contacts: {}, messages: {} };
+  const { id } = await api("register", { body: { pub, token, name } });
+  S = { me: { id, token, pub, priv, name: name || "", nameSynced: name || "", av: 0 }, contacts: {}, messages: {} };
   save();
 }
 
@@ -275,8 +275,8 @@ async function addContactByCode(code, { open = true } = {}) {
   if (code.length !== 8) throw new Error("Ein Code hat 8 Zeichen.");
   if (code === S.me.id) throw new Error("Das ist dein eigener Code 😉");
   if (!S.contacts[code]) {
-    const { pub, av } = await api(`key/${code}`);
-    S.contacts[code] = { id: code, pub, av: av || 0, name: "", nick: "", added: Date.now(), unread: 0, last: Date.now() };
+    const { pub, av, name } = await api(`key/${code}`);
+    S.contacts[code] = { id: code, pub, av: av || 0, name: name || "", nick: "", added: Date.now(), unread: 0, last: Date.now() };
     S.messages[code] = S.messages[code] || [];
     save();
   }
@@ -287,10 +287,12 @@ async function addContactByCode(code, { open = true } = {}) {
 
 async function refreshProfile(id) {
   try {
-    const { av } = await api(`key/${id}`);
+    const { av, name } = await api(`key/${id}`);
     const c = S.contacts[id];
-    if (c && c.av !== av) {
+    if (c && (c.av !== av || (name && c.name !== name))) {
       c.av = av;
+      if (name) c.name = name;
+      if (currentChat === id) $("#chatName").textContent = displayName(c);
       save();
       renderList();
       if (currentChat === id) fillAvatar($("#chatAvatar"), c);
@@ -1050,18 +1052,23 @@ function showSettings() {
   root.append(el("p", "small muted", "Dein Profilbild ist für alle sichtbar, die deinen Code kennen."));
 
   const lab = el("label", "field");
-  lab.append(el("span", null, "Dein Anzeigename (wird verschlüsselt mitgeschickt)"));
+  lab.append(el("span", null, "Dein Anzeigename (sehen alle, die deinen Code haben)"));
   const inp = el("input");
   inp.value = S.me.name || "";
   inp.maxLength = 24;
   inp.placeholder = "Anonym";
   lab.append(inp);
   const sb = el("button", "btn", "Speichern");
-  sb.onclick = () => {
-    S.me.name = inp.value.trim();
+  sb.onclick = async () => {
+    S.me.name = inp.value.trim().slice(0, 24);
     save();
     renderMe();
-    toast("Gespeichert ✓");
+    try {
+      await syncMyName();
+      toast("Gespeichert ✓ – deine Kontakte sehen jetzt „" + (S.me.name || "Anonym") + "“");
+    } catch (e) {
+      toast(e.message);
+    }
   };
   root.append(lab, sb, el("hr"));
 
@@ -1135,6 +1142,12 @@ async function uploadAvatar(file) {
   } catch (e) {
     toast(e.message || "Profilbild konnte nicht gespeichert werden.");
   }
+}
+
+async function syncMyName() {
+  await api("profile", { method: "PUT", body: { name: S.me.name || "" } });
+  S.me.nameSynced = S.me.name || "";
+  save();
 }
 
 /* ================= Push-Benachrichtigungen ================= */
@@ -1402,6 +1415,7 @@ async function startApp() {
   registerSW().then(() => subscribePush().catch(() => {}));
   updateNotifBanner();
   updateInstallBanner();
+  if (S.me.nameSynced !== (S.me.name || "")) syncMyName().catch(() => {});
   api("me")
     .then((r) => {
       setBanned(r.banned);
@@ -1430,6 +1444,7 @@ async function startApp() {
   poll();
   loop();
   setInterval(purgeExpired, 30000);
+  Object.keys(S.contacts).forEach((id, i) => setTimeout(() => refreshProfile(id), 500 + i * 300));
 }
 
 function loop() {
