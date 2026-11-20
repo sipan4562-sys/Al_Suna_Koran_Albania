@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="Datenschutzerklärung von PixelCam: welche Daten beim Aufruf der Website anfallen und was die App auf deinem Gerät speichert." />
+  <meta name="theme-color" content="#0b0d12" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="referrer" content="no-referrer" />
+  <title>Datenschutz – PixelCam</title>
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="datenschutz.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="PixelCam – zur App">
+      <svg viewBox="0 0 512 512" width="28" height="28" aria-hidden="true">
+        <rect width="512" height="512" rx="116" fill="#0b0d12"/>
+        <path d="M64 256c48-84 116-128 192-128s144 44 192 128c-48 84-116 128-192 128S112 340 64 256Z" fill="#141821" stroke="#3ee0b0" stroke-width="26" stroke-linejoin="round"/>
+        <rect x="216" y="216" width="40" height="40" fill="#0b2a22"/>
+        <rect x="256" y="216" width="40" height="40" fill="#0e3a2e"/>
+        <rect x="216" y="256" width="40" height="40" fill="#0e3a2e"/>
+        <rect x="256" y="256" width="40" height="40" fill="#0b2a22"/>
+        <rect x="176" y="216" width="40" height="40" fill="#2bb892"/>
+        <rect x="176" y="256" width="40" height="40" fill="#3ee0b0"/>
+        <rect x="296" y="216" width="40" height="40" fill="#3ee0b0"/>
+        <rect x="296" y="256" width="40" height="40" fill="#2bb892"/>
+        <rect x="216" y="176" width="40" height="40" fill="#5ff0c4"/>
+        <rect x="256" y="176" width="40" height="40" fill="#3ee0b0"/>
+        <rect x="216" y="296" width="40" height="40" fill="#2bb892"/>
+        <rect x="256" y="296" width="40" height="40" fill="#5ff0c4"/>
+      </svg>
+      <span>PixelCam</span>
+    </a>
+    <a class="btn" href="./">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+      <span>Zur App</span>
+    </a>
+  </header>
+
+  <main class="doc">
+    <div class="hero">
+      <p class="eyebrow">Rechtliches</p>
+      <h1>Datenschutzerklärung</h1>
+      <p class="lead">PixelCam ist so gebaut, dass deine Aufnahmen dein Gerät nicht verlassen. Hier steht genau, welche Daten trotzdem anfallen, wo sie liegen und wie du sie löschst.</p>
+      <p class="meta">Stand: 20. November 2026</p>
+    </div>
+
+    <section class="summary" aria-labelledby="kurz">
+      <h2 id="kurz" class="sr-only">Kurzfassung</h2>
+      <div class="summary-item">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/><path d="M4 4l16 16"/></svg>
+        <div><strong>Kein Konto, kein Tracking</strong><p>Keine Anmeldung, keine Cookies, keine Analyse- oder Werbedienste.</p></div>
+      </div>
+      <div class="summary-item">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>
+        <div><strong>Bleibt auf deinem Gerät</strong><p>Kamerabild, Ton und Gesichtserkennung werden nur lokal in deinem Browser verarbeitet. Es gibt keinen Upload.</p></div>
+      </div>
+      <div class="summary-item">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4.5" y="10.5" width="15" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>
+        <div><strong>Verschlüsselt und befristet</strong><p>Aufnahmen werden verschlüsselt gespeichert und nach 1&nbsp;Stunde automatisch gelöscht, außer du behältst sie.</p></div>
+      </div>
+      <div class="summary-item">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4.75 4.75 0 0 1-1 9.5Z"/></svg>
+        <div><strong>Nur das Nötigste beim Laden</strong><p>Beim Aufruf der Website verarbeitet unser Hoster Netlify technisch notwendige Verbindungsdaten wie deine IP-Adresse.</p></div>
+      </div>
+    </section>
+
+    <nav class="toc" aria-labelledby="toc-title">
+      <h2 id="toc-title">Inhalt</h2>
+      <ol>
+        <li><a href="#verantwortlicher">Verantwortlicher</a></li>
+        <li><a href="#grundprinzip">Das Grundprinzip: alles auf deinem Gerät</a></li>
+        <li><a href="#hosting">Hosting und Server-Logfiles (Netlify)</a></li>
+        <li><a href="#kamera">Kamera, Mikrofon und Gesichtserkennung</a></li>
+        <li><a href="#speicher">Was auf deinem Gerät gespeichert wird</a></li>
+        <li><a href="#weitergabe">Speichern, Teilen und verschlüsselter Export</a></li>
+        <li><a href="#cdn">Nachladen von Programmteilen (jsDelivr)</a></li>
+        <li><a href="#tracking">Keine Cookies, kein Tracking</a></li>
+        <li><a href="#andere">Wenn du andere Personen filmst</a></li>
+        <li><a href="#rechte">Deine Rechte</a></li>
+        <li><a href="#aenderungen">Änderungen</a></li>
+      </ol>
+    </nav>
+
+    <section id="verantwortlicher">
+      <h2><span class="num">1</span>Verantwortlicher</h2>
+      <p>Verantwortlich für die Datenverarbeitung auf dieser Website im Sinne der Datenschutz-Grundverordnung (DSGVO) ist:</p>
+      <address class="card">
+        <span class="ph">[Vor- und Nachname bzw. Firma]</span><br />
+        <span class="ph">[Straße und Hausnummer]</span><br />
+        <span class="ph">[PLZ und Ort]</span>, <span class="ph">[Land]</span><br />
+        E-Mail: <span class="ph">[E-Mail-Adresse]</span>
+      </address>
+      <p>Bei Fragen zum Datenschutz oder zur Ausübung deiner Rechte kannst du dich jederzeit an diese E-Mail-Adresse wenden.</p>
+    </section>
+
+    <section id="grundprinzip">
+      <h2><span class="num">2</span>Das Grundprinzip: alles auf deinem Gerät</h2>
+      <p>PixelCam ist eine Web-App, die vollständig in deinem Browser läuft. Kamerabild, Ton, Gesichtserkennung, Verpixelung, Verschlüsselung und Speicherung finden <strong>ausschließlich auf deinem Gerät</strong> statt. Es gibt keinen eigenen App-Server, keine Datenbank und kein Benutzerkonto. Aufnahmen, Einstellungen und Passwörter werden zu keinem Zeitpunkt an uns oder an Dritte übertragen. Wir haben darauf keinerlei Zugriff.</p>
+      <p>Personenbezogene Daten fallen bei uns nur an, wenn du die Website aufrufst (<a href="#hosting">Abschnitt&nbsp;3</a>), und in Ausnahmefällen beim Nachladen von Programmteilen (<a href="#cdn">Abschnitt&nbsp;7</a>). Die rein lokalen Vorgänge beschreiben wir trotzdem, damit du genau weißt, was auf deinem Gerät passiert.</p>
+    </section>
+
+    <section id="hosting">
+      <h2><span class="num">3</span>Hosting und Server-Logfiles (Netlify)</h2>
+      <p>Diese Website wird bei Netlify gehostet. Anbieter ist die Netlify, Inc., 101 2nd Street, Suite 575, San Francisco, CA 94105, USA.</p>
+      <p>Wenn du PixelCam aufrufst oder die installierte App Updates lädt, verarbeitet Netlify automatisch Daten, die dein Browser dabei übermittelt (Server-Logfiles):</p>
+      <ul>
+        <li>IP-Adresse</li>
+        <li>Datum und Uhrzeit des Abrufs</li>
+        <li>abgerufene Datei bzw. Adresse (URL)</li>
+        <li>HTTP-Statuscode und übertragene Datenmenge</li>
+        <li>Browsertyp und -version sowie Betriebssystem (User-Agent)</li>
+        <li>gegebenenfalls die Website, von der aus du PixelCam aufgerufen hast (Referrer)</li>
+      </ul>
+      <dl class="facts">
+        <div><dt>Zweck</dt><dd>Auslieferung der Website sowie Stabilität und Sicherheit des Betriebs, z.&nbsp;B. die Abwehr von Angriffen. Wir führen diese Daten nicht mit anderen Datenquellen zusammen und werten sie nicht zu Werbezwecken aus.</dd></div>
+        <div><dt>Rechtsgrundlage</dt><dd>Art.&nbsp;6 Abs.&nbsp;1 lit.&nbsp;f DSGVO. Unser berechtigtes Interesse ist eine sichere und zuverlässige Bereitstellung der Website.</dd></div>
+        <div><dt>Auftragsverarbeitung</dt><dd>Netlify verarbeitet die Daten in unserem Auftrag auf Grundlage einer Datenverarbeitungsvereinbarung (Art.&nbsp;28 DSGVO).</dd></div>
+        <div><dt>Drittland</dt><dd>Netlify hat seinen Sitz in den USA. Netlify, Inc. ist nach dem EU-US Data Privacy Framework zertifiziert. Für Übermittlungen an zertifizierte Unternehmen besteht ein Angemessenheitsbeschluss der EU-Kommission (Art.&nbsp;45 DSGVO).</dd></div>
+        <div><dt>Speicherdauer</dt><dd>Logdaten werden nur so lange gespeichert, wie es für die genannten Zwecke erforderlich ist, und danach gelöscht.</dd></div>
+      </dl>
+      <p>Weitere Informationen findest du in der <a href="https://www.netlify.com/privacy/" rel="noopener" target="_blank">Datenschutzerklärung von Netlify</a>.</p>
+      <p class="note"><strong>Netlify-Hinweis:</strong> Netlify blendet auf der Website gegebenenfalls ein kleines Hinweis-Element ein. Blendest du es aus oder minimierst du es, wird das lokal in deinem Browser gespeichert (Schlüssel <code>nl-hud:…</code>, ein Ausblenden gilt eine Woche). Dabei werden keine Daten übertragen. Erst wenn du auf einen Link darin klickst, gelangst du zu Netlify.</p>
+    </section>
+
+    <section id="kamera">
+      <h2><span class="num">4</span>Kamera, Mikrofon und Gesichtserkennung</h2>
+      <h3>Zugriff nur mit deiner Erlaubnis</h3>
+      <p>PixelCam greift erst auf die Kamera und, wenn „Ton aufnehmen“ eingeschaltet ist, auf das Mikrofon zu, nachdem du das in der Berechtigungsabfrage deines Browsers bzw. Betriebssystems erlaubt hast. Du kannst diese Berechtigungen jederzeit in den Einstellungen deines Browsers oder Geräts widerrufen. Ohne Kamerazugriff kann die App keine Aufnahmen machen.</p>
+      <h3>Gesichtserkennung nur zur Positionsbestimmung</h3>
+      <p>Für die Verpixelung nutzt PixelCam die Open-Source-Bibliothek MediaPipe mit dem Erkennungsmodell „BlazeFace“. Es läuft als WebAssembly direkt in deinem Browser. Das Modell ermittelt für jedes Einzelbild nur, <em>wo</em> sich Gesichter befinden: einen Rahmen und sechs Orientierungspunkte (Augen, Nase, Mund, Ohren). So sitzt die Verpixelung an der richtigen Stelle.</p>
+      <p>Personen werden dabei <strong>weder identifiziert noch wiedererkannt</strong>. Es werden keine Gesichtsmerkmale, biometrischen Vorlagen oder Profile erstellt oder gespeichert. Die Positionsangaben existieren nur kurz im Arbeitsspeicher und werden sofort wieder verworfen.</p>
+      <h3>Verpixelt, bevor gespeichert wird</h3>
+      <p>Jedes Kamerabild wird zuerst verpixelt und erst danach angezeigt und aufgenommen. In die Aufnahme gelangt nur das bereits verpixelte Bild. Unverpixelte Kamerabilder werden nicht gespeichert.</p>
+      <p class="note"><strong>Bitte beachten:</strong> Der Ton wird nicht verändert, Stimmen bleiben also erkennbar. Außerdem arbeitet keine automatische Erkennung fehlerfrei. Der Sicherheitsmodus (standardmäßig an) verpixelt deshalb das ganze Bild, sobald kein Gesicht erkannt wird. Prüfe Aufnahmen trotzdem, bevor du sie weitergibst.</p>
+    </section>
+
+    <section id="speicher">
+      <h2><span class="num">5</span>Was auf deinem Gerät gespeichert wird</h2>
+      <p>PixelCam legt die folgenden Daten im Speicher deines Browsers ab. Sie bleiben auf deinem Gerät, wir können sie nicht abrufen.</p>
+
+      <div class="store">
+        <div class="store-head">
+          <strong>Aufnahmen-Speicher</strong>
+          <code>IndexedDB „pixelcam“</code>
+        </div>
+        <dl>
+          <div><dt>Inhalt</dt><dd>Deine Aufnahmen, Vorschaubilder und Aufnahmedetails (Datum, Dauer, Format, Auflösung, Art der Verpixelung), jeweils mit AES-256-GCM verschlüsselt. Dazu kommen technische Verwaltungsangaben wie der Löschzeitpunkt und der Geräteschlüssel.</dd></div>
+          <div><dt>Schlüssel</dt><dd>Der Schlüssel wird beim ersten Start auf deinem Gerät erzeugt und ist als „nicht exportierbar“ markiert. Die App kann ihn benutzen, er lässt sich aber nicht auslesen oder kopieren und verlässt dein Gerät nie.</dd></div>
+          <div><dt>Dauer</dt><dd>Jede Aufnahme wird <strong>1&nbsp;Stunde</strong> nach ihrer Fertigstellung automatisch gelöscht. Ist die App zu diesem Zeitpunkt geschlossen, geschieht das beim nächsten Öffnen. Aufnahmen, die du heruntergeladen, geteilt oder exportiert hast, bleiben erhalten, bis du sie selbst löschst.</dd></div>
+        </dl>
+      </div>
+
+      <div class="store">
+        <div class="store-head">
+          <strong>Einstellungen</strong>
+          <code>localStorage „pixelcam.settings“</code>
+        </div>
+        <dl>
+          <div><dt>Inhalt</dt><dd>Deine Einstellungen, z.&nbsp;B. Augen oder Gesicht, Pixel oder Balken, Auflösung, Qualität, Format, Ton an/aus, Vorschau spiegeln, Front- oder Rückkamera.</dd></div>
+          <div><dt>Dauer</dt><dd>Bis du die Websitedaten in deinem Browser löschst.</dd></div>
+        </dl>
+      </div>
+
+      <div class="store">
+        <div class="store-head">
+          <strong>Offline-Speicher</strong>
+          <code>Service Worker / Cache Storage</code>
+        </div>
+        <dl>
+          <div><dt>Inhalt</dt><dd>Die Programmdateien der App und das Erkennungsmodell, damit PixelCam auch offline funktioniert und schneller startet. <strong>Niemals Aufnahmen.</strong></dd></div>
+          <div><dt>Dauer</dt><dd>Bis zum nächsten App-Update bzw. bis du die Websitedaten löschst.</dd></div>
+        </dl>
+      </div>
+
+      <p><strong>Rechtsgrundlage:</strong> Das Speichern und Auslesen dieser Informationen auf deinem Gerät ist für den von dir ausdrücklich gewünschten Dienst unbedingt erforderlich (§&nbsp;25 Abs.&nbsp;2 Nr.&nbsp;2 TDDDG). Eine Einwilligung ist dafür nicht nötig.</p>
+
+      <h3>So löschst du deine Daten</h3>
+      <ul>
+        <li>Einzelne Aufnahme: im Player auf <strong>Löschen</strong> tippen.</li>
+        <li>Alle Aufnahmen: in der App unter <strong>Einstellungen → Alle Aufnahmen löschen</strong>.</li>
+        <li>Alles inklusive Einstellungen und Schlüssel: die Websitedaten für PixelCam in deinem Browser löschen bzw. die installierte App entfernen.</li>
+      </ul>
+      <p class="note"><strong>Hinweis:</strong> Die Verschlüsselung schützt die gespeicherten Daten, aber nicht vor Personen, die dein entsperrtes Gerät benutzen. Wer es in der Hand hat, kann die App öffnen und noch nicht gelöschte Aufnahmen ansehen.</p>
+    </section>
+
+    <section id="weitergabe">
+      <h2><span class="num">6</span>Speichern, Teilen und verschlüsselter Export</h2>
+      <p>Aufnahmen verlassen die App nur, wenn du das ausdrücklich auslöst:</p>
+      <dl class="facts">
+        <div><dt>Video speichern</dt><dd>Die Aufnahme wird als normale, verpixelte und unverschlüsselte Videodatei in deinem Download-Ordner abgelegt. Danach wird sie in der App nicht mehr automatisch gelöscht.</dd></div>
+        <div><dt>Teilen</dt><dd>Es öffnet sich das Teilen-Menü deines Geräts. Du entscheidest, an welche App oder Person die Datei geht. Für die weitere Verarbeitung gelten die Bedingungen des jeweiligen Empfängers bzw. Dienstes. Wir erhalten dabei keine Daten.</dd></div>
+        <div><dt>Verschlüsselt exportieren</dt><dd>Erstellt eine <code>.pxcam</code>-Datei, verschlüsselt mit AES-256-GCM. Der Schlüssel wird aus deinem Passwort abgeleitet (PBKDF2 mit SHA-256, 600.000 Durchläufe). Das Passwort wird weder gespeichert noch übertragen. Vergisst du es, lässt sich die Datei nicht wiederherstellen.</dd></div>
+        <div><dt>Datei öffnen</dt><dd><code>.pxcam</code>-Dateien werden lokal entschlüsselt und als neue Aufnahme abgelegt, wieder mit 1&nbsp;Stunde Löschfrist.</dd></div>
+      </dl>
+    </section>
+
+    <section id="cdn">
+      <h2><span class="num">7</span>Nachladen von Programmteilen (jsDelivr)</h2>
+      <p>PixelCam bringt alle Programmteile für die Gesichtserkennung selbst mit. Nur auf sehr alten Browsern, die bestimmte WebAssembly-Funktionen (SIMD) nicht unterstützen, lädt die App eine kompatible Ersatzversion vom Content-Delivery-Netzwerk jsDelivr (<code>cdn.jsdelivr.net</code>) nach. Auf aktuellen Browsern findet diese Verbindung nicht statt.</p>
+      <p>Beim Nachladen wird technisch bedingt deine IP-Adresse an jsDelivr bzw. dessen Infrastruktur-Partner übermittelt. Bild- oder Tondaten werden nicht übertragen. Die geladenen Dateien werden danach auf deinem Gerät zwischengespeichert, sodass der Abruf in der Regel nur einmal erfolgt. Die Server von jsDelivr können sich weltweit befinden, auch außerhalb der EU.</p>
+      <p><strong>Rechtsgrundlage:</strong> Art.&nbsp;6 Abs.&nbsp;1 lit.&nbsp;f DSGVO. Unser berechtigtes Interesse ist, dass PixelCam auch auf älteren Geräten funktioniert. Mehr dazu in der <a href="https://www.jsdelivr.com/terms/privacy-policy-jsdelivr-net" rel="noopener" target="_blank">Datenschutzerklärung von jsDelivr</a>.</p>
+    </section>
+
+    <section id="tracking">
+      <h2><span class="num">8</span>Keine Cookies, kein Tracking</h2>
+      <p>PixelCam setzt keine Cookies und verwendet keine Analyse-, Tracking- oder Werbedienste, keine Social-Media-Plugins und keine extern geladenen Schriftarten. Die Website weist deinen Browser außerdem an, beim Verlassen keine Herkunftsadresse (Referrer) mitzusenden, und lässt technisch nur Verbindungen zu den in dieser Erklärung genannten Stellen zu.</p>
+    </section>
+
+    <section id="andere">
+      <h2><span class="num">9</span>Wenn du andere Personen filmst</h2>
+      <p>Für die Aufnahmen, die du mit PixelCam machst, bist du selbst verantwortlich. Nutzt du die App rein privat, gilt die DSGVO in der Regel nicht (Art.&nbsp;2 Abs.&nbsp;2 lit.&nbsp;c DSGVO). Beachte trotzdem die Rechte der gefilmten Personen, insbesondere das Recht am eigenen Bild und die Vertraulichkeit des gesprochenen Wortes. Denk daran, dass Stimmen nicht verfremdet werden.</p>
+    </section>
+
+    <section id="rechte">
+      <h2><span class="num">10</span>Deine Rechte</h2>
+      <p>Soweit wir personenbezogene Daten von dir verarbeiten, hast du folgende Rechte:</p>
+      <ul class="rights">
+        <li><strong>Auskunft</strong> über die verarbeiteten Daten (Art.&nbsp;15 DSGVO)</li>
+        <li><strong>Berichtigung</strong> unrichtiger Daten (Art.&nbsp;16 DSGVO)</li>
+        <li><strong>Löschung</strong> (Art.&nbsp;17 DSGVO)</li>
+        <li><strong>Einschränkung</strong> der Verarbeitung (Art.&nbsp;18 DSGVO)</li>
+        <li><strong>Datenübertragbarkeit</strong> (Art.&nbsp;20 DSGVO)</li>
+        <li><strong>Beschwerde</strong> bei einer Datenschutz-Aufsichtsbehörde, insbesondere in dem Mitgliedstaat deines Wohnorts oder Arbeitsplatzes (Art.&nbsp;77 DSGVO)</li>
+      </ul>
+      <p class="note"><strong>Widerspruchsrecht (Art.&nbsp;21 DSGVO):</strong> Verarbeiten wir Daten auf Grundlage unseres berechtigten Interesses (Art.&nbsp;6 Abs.&nbsp;1 lit.&nbsp;f DSGVO), kannst du dem aus Gründen, die sich aus deiner besonderen Situation ergeben, jederzeit widersprechen.</p>
+      <p>Da wir außer den Server-Logfiles keine Daten über dich erhalten, können wir dich in der Regel nicht identifizieren (Art.&nbsp;11 DSGVO). Die Daten auf deinem Gerät kannst du jederzeit selbst einsehen und löschen (siehe <a href="#speicher">Abschnitt&nbsp;5</a>).</p>
+    </section>
+
+    <section id="aenderungen">
+      <h2><span class="num">11</span>Änderungen</h2>
+      <p>Wir passen diese Datenschutzerklärung an, wenn sich PixelCam oder die Rechtslage ändert. Es gilt die jeweils auf dieser Seite veröffentlichte Fassung.</p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>PixelCam · Datenschutzerklärung · Stand 20.11.2026</span>
+    <a href="./">Zurück zur App</a>
+  </footer>
+</body>
+</html>
