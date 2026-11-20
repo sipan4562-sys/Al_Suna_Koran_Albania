@@ -14,3 +14,9 @@ Einfach `index.html` im Browser öffnen (Doppelklick) – es ist keine Installat
 - **Formelsammlung** – Algebra, Geometrie, Trigonometrie zum Aufklappen.
 - **Fortschritt** – lokal gespeichert (localStorage), ohne Anmeldung.
 - **Hell/Dunkel-Modus**, animierte Oberfläche, `prefers-reduced-motion` respektiert.
+
+---
+
+# PixelCam (`/pixelcam`)
+
+Videoaufnahmen mit automatisch verpixelten Augen (oder ganzem Gesicht), verschlüsselt auf dem Gerät gespeichert. Für Handy und PC, installierbar als App. Details: [`pixelcam/README.md`](pixelcam/README.md)
