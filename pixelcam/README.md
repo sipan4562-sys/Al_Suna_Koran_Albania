@@ -4,7 +4,7 @@ Web-App für **Videoaufnahmen, in denen deine Augen automatisch verpixelt werden
 
 ## Benutzung
 
-1. `pixelcam/` über **HTTPS** öffnen (z. B. GitHub Pages: `https://<benutzer>.github.io/<repo>/pixelcam/`).
+1. **Live:** https://pixelcam-eajk.netlify.app – oder `pixelcam/` selbst über **HTTPS** hosten (Netlify/Vercel-Konfiguration liegt bei: `netlify.toml`, `vercel.json`).
    Lokal: im Repo-Ordner `python3 -m http.server 8000` und dann `http://localhost:8000/pixelcam/` öffnen.
 2. Passwort festlegen. Damit wird der Tresor erstellt.
 3. Kamera erlauben → roter Knopf startet bzw. stoppt die Aufnahme (am PC auch Taste **R**).
