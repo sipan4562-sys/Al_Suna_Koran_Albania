@@ -1,0 +1,15 @@
+{
+  "name": "pixelkingschat",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Pixelkingschat – anonymer, Ende-zu-Ende-verschlüsselter Chat",
+  "dependencies": {
+    "@netlify/blobs": "^11.1.9"
+  },
+  "devDependencies": {
+    "@netlify/functions": "^6.1.1",
+    "jsqr": "1.4.0",
+    "qrcode-generator": "2.0.4"
+  }
+}

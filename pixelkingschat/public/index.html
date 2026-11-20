@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Pixelkingschat</title>
+  <meta name="description" content="Anonym chatten ohne Nummer oder Mail – Ende-zu-Ende-verschlüsselt, Nachrichten löschen sich nach 24 Stunden.">
+  <meta name="theme-color" content="#050708">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Start / Willkommen -->
+  <section id="welcome" class="screen hidden">
+    <div class="welcome-card">
+      <img src="icon.svg" alt="" class="logo-big">
+      <h1 class="brand">PIXELKINGS<span>CHAT</span></h1>
+      <p class="tagline">Chatten ohne Nummer. Ohne Mail. Ohne Spuren.</p>
+      <ul class="features">
+        <li><span>🔐</span> Ende-zu-Ende-verschlüsselt</li>
+        <li><span>⏳</span> Nachrichten löschen sich nach 24 Stunden</li>
+        <li><span>👁</span> Einmal-Nachrichten, die nach dem Lesen verschwinden</li>
+        <li><span>▦</span> Kontakte per Code oder QR-Code</li>
+      </ul>
+      <label class="field">
+        <span>Dein Anzeigename (optional)</span>
+        <input id="welcomeName" maxlength="24" placeholder="z. B. Pixelking" autocomplete="off">
+      </label>
+      <button id="createBtn" class="btn primary big">Los geht's</button>
+      <p class="small muted">Dein geheimer Schlüssel wird nur auf diesem Gerät erzeugt und verlässt es nie.</p>
+    </div>
+  </section>
+
+  <!-- Haupt-App -->
+  <section id="app" class="screen hidden">
+    <aside id="sidebar">
+      <header class="bar">
+        <div class="brand-sm"><img src="icon.svg" alt=""> PIXELKINGS<span>CHAT</span></div>
+        <button id="menuBtn" class="icon-btn" aria-label="Einstellungen">⚙</button>
+      </header>
+      <button id="myCodeCard" class="mycode">
+        <span class="muted small">Dein Code</span>
+        <strong id="myCodeText" class="code">········</strong>
+        <span class="small accent">Antippen zum Teilen ▦</span>
+      </button>
+      <div id="chatList" class="chat-list"></div>
+      <div id="emptyList" class="empty hidden">
+        <div class="empty-icon">▦</div>
+        <p>Noch keine Chats.</p>
+        <p class="small muted">Schick jemandem deinen Code oder scanne seinen QR-Code.</p>
+      </div>
+      <button id="addBtn" class="fab" aria-label="Kontakt hinzufügen">＋</button>
+    </aside>
+
+    <main id="chat" class="no-chat">
+      <div class="placeholder">
+        <img src="icon.svg" alt="" class="logo-big dim">
+        <p class="muted">Wähle einen Chat oder füge einen Kontakt hinzu.</p>
+      </div>
+      <header class="bar chat-head">
+        <button id="backBtn" class="icon-btn back" aria-label="Zurück">‹</button>
+        <div class="avatar" id="chatAvatar"></div>
+        <div class="chat-title">
+          <strong id="chatName"></strong>
+          <span id="chatSub" class="small muted"></span>
+        </div>
+        <button id="chatInfoBtn" class="icon-btn" aria-label="Kontaktinfo">ⓘ</button>
+      </header>
+      <div id="messages" class="messages"></div>
+      <form id="composer" class="composer" autocomplete="off">
+        <button type="button" id="onceBtn" class="once-toggle" aria-pressed="false" title="Einmal ansehen">
+          <span class="once-icon">1</span>
+        </button>
+        <textarea id="msgInput" rows="1" maxlength="4000" placeholder="Verschlüsselte Nachricht…"></textarea>
+        <button type="submit" class="send-btn" aria-label="Senden">➤</button>
+      </form>
+    </main>
+  </section>
+
+  <!-- Dialoge -->
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <button class="icon-btn modal-close" id="modalClose" aria-label="Schließen">✕</button>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="vendor/qrcode.js"></script>
+  <script src="vendor/jsQR.js"></script>
+  <script src="app.js" type="module"></script>
+</body>
+</html>
