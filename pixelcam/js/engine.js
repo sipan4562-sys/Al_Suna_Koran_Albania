@@ -334,6 +334,16 @@ export class Processor {
     const d = Math.max(Math.hypot(dx, dy), f.w * 0.36); // Profilansicht: nicht zu klein werden
     const ang = Math.atan2(dy, dx);
     const cx = (re.x + le.x) / 2, cy = (re.y + le.y) / 2;
+    if (s.effect === 'bar') {
+      // Klassischer Zensurbalken: schmal, entlang der Augenlinie gedreht.
+      // Länge: von Augenwinkel zu Augenwinkel plus etwas Rand.
+      // Stärke: Augenöffnung (~0,2·d) plus einstellbarer Rand.
+      return {
+        kind: 'bar', cx, cy, ang,
+        len: Math.hypot(dx, dy) + d * (0.85 + 0.3 * s.padding),
+        thick: d * (0.3 + 0.45 * s.barThickness),
+      };
+    }
     const m = d * (0.14 + 0.3 * s.padding);
     const half = Math.hypot(dx, dy) / 2 + d * 0.3 + m; // halbe Breite
     const up = d * (s.brows ? 0.5 : 0.16) + m;
@@ -347,6 +357,16 @@ export class Processor {
   }
 
   #apply(r) {
+    if (r.kind === 'bar') {
+      const ctx = this.wctx;
+      ctx.save();
+      ctx.translate(r.cx, r.cy);
+      ctx.rotate(r.ang);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(-r.len / 2, -r.thick / 2, r.len, r.thick);
+      ctx.restore();
+      return;
+    }
     if (this.settings.effect === 'bar') {
       const ctx = this.wctx;
       ctx.save();
@@ -406,6 +426,7 @@ export class Processor {
 }
 
 function grow(r, f) {
+  if (r.kind === 'bar') return { ...r, len: r.len * f, thick: r.thick * f };
   const nw = r.w * f, nh = r.h * f;
   return { ...r, x: r.x - (nw - r.w) / 2, y: r.y - (nh - r.h) / 2, w: nw, h: nh };
 }

@@ -1,6 +1,6 @@
 // PixelCam – Service Worker: macht die App offline nutzbar.
 // Es werden nur App-Dateien zwischengespeichert – niemals Aufnahmen.
-const VERSION = 'pixelcam-v1';
+const VERSION = 'pixelcam-v2';
 const SHELL = [
   './',
   './index.html',

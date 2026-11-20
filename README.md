@@ -19,4 +19,4 @@ Einfach `index.html` im Browser öffnen (Doppelklick) – es ist keine Installat
 
 # PixelCam (`/pixelcam`)
 
-Videoaufnahmen mit automatisch verpixelten Augen (oder ganzem Gesicht), verschlüsselt auf dem Gerät gespeichert. Für Handy und PC, installierbar als App. Details: [`pixelcam/README.md`](pixelcam/README.md)
+Videoaufnahmen mit automatisch verpixelten Augen (oder ganzem Gesicht). Ohne Anmeldung, verschlüsselt auf dem Gerät, automatisch nach 1 Stunde gelöscht (außer heruntergeladen). Live: https://pixelcam-eajk.netlify.app Details: [`pixelcam/README.md`](pixelcam/README.md)

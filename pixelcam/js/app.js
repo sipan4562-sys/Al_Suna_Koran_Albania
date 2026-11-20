@@ -1,20 +1,26 @@
-// PixelCam – App-Steuerung
+// PixelCam – App-Steuerung (ohne Anmeldung)
 import { Vault } from './vault.js';
 import { FaceEngine, Processor } from './engine.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const params = new URLSearchParams(location.search);
+const DEBUG = params.has('debug');
 
 // ---------------------------------------------------------------- Einstellungen
 const DEFAULTS = {
   mode: 'eyes', effect: 'pixel', shape: 'rect', pixelScale: 0.1, padding: 0.4, brows: true,
-  farFaces: false, safety: true, holdMs: 450,
+  barThickness: 0.2, farFaces: false, safety: true, holdMs: 450,
   resolution: '720', quality: 'medium', format: 'auto', audio: true, mirror: true, facing: 'user',
-  autoLock: '5', lockOnHide: true,
 };
 const SETTINGS_KEY = 'pixelcam.settings';
 function loadSettings() {
-  try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') }; } catch { return { ...DEFAULTS }; }
+  try {
+    const stored = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    const out = { ...DEFAULTS };
+    for (const k of Object.keys(DEFAULTS)) if (k in stored) out[k] = stored[k];
+    return out;
+  } catch { return { ...DEFAULTS }; }
 }
 function saveSettings() {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* privat-Modus */ }
@@ -22,18 +28,19 @@ function saveSettings() {
 const settings = loadSettings();
 
 // ---------------------------------------------------------------- Zustand
-const vault = new Vault();
+// Aufnahmen werden nach 1 Stunde gelöscht (nur zum Testen per ?debug&ttl=Sekunden änderbar).
+const TTL_MS = DEBUG && params.get('ttl') ? Number(params.get('ttl')) * 1000 : 60 * 60 * 1000;
+const vault = new Vault({ ttlMs: TTL_MS });
 const engine = new FaceEngine();
 const els = {
-  lock: $('#lock'), app: $('#app'),
-  unlockForm: $('#unlock-form'), setupForm: $('#setup-form'),
   video: $('#cam'), out: $('#out'),
   statusChip: $('#status-chip'), statusText: $('#status-text'),
   recChip: $('#rec-chip'), recTime: $('#rec-time'), recBtn: $('#rec-btn'),
-  flipBtn: $('#flip-btn'), safetyBtn: $('#safety-btn'), lockBtn: $('#lock-btn'),
+  flipBtn: $('#flip-btn'), safetyBtn: $('#safety-btn'),
   overlay: $('#cam-overlay'), player: $('#player'), playerVideo: $('#player-video'),
 };
 const processor = new Processor(els.out, engine, settings);
+let storageError = null;
 let engineState = 'idle'; // idle | loading | ready | error
 let engineProgress = 0;
 let engineError = null;
@@ -42,8 +49,6 @@ let camStream = null;
 let camToken = 0;
 let currentView = 'camera';
 let rec = null;
-let lastActivity = Date.now();
-let externalUi = false; // Dateiauswahl / Teilen offen → nicht beim Verlassen sperren
 const thumbUrls = new Set();
 const canRecord = !!(window.MediaRecorder && HTMLCanvasElement.prototype.captureStream);
 
@@ -54,7 +59,7 @@ function toast(msg, isError = false) {
   t.classList.toggle('error', isError);
   t.classList.add('show');
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => t.classList.remove('show'), isError ? 4200 : 2600);
+  toast._t = setTimeout(() => t.classList.remove('show'), isError ? 4500 : 3200);
 }
 function fmtDuration(ms) {
   const s = Math.max(0, Math.round((ms || 0) / 1000));
@@ -73,6 +78,15 @@ function fmtDate(ts) {
   if (!ts) return 'Unbekanntes Datum';
   return new Date(ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
+function fmtTime(ts) {
+  return new Date(ts).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+}
+function fmtRemaining(expiresAt) {
+  const ms = expiresAt - Date.now();
+  if (ms <= 60_000) return 'unter 1 Min.';
+  const min = Math.ceil(ms / 60_000);
+  return min >= 60 ? `${Math.floor(min / 60)} Std. ${min % 60 ? `${min % 60} Min.` : ''}`.trim() : `${min} Min.`;
+}
 function fileBase(meta) {
   const d = new Date(meta.created || Date.now());
   const p = n => String(n).padStart(2, '0');
@@ -87,16 +101,6 @@ function downloadBlob(blob, name) {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
-function pwScore(pw) {
-  let s = 0;
-  if (pw.length >= 6) s++;
-  if (pw.length >= 10) s++;
-  if (pw.length >= 14) s++;
-  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) s++;
-  if (/\d/.test(pw)) s++;
-  if (/[^A-Za-z0-9]/.test(pw)) s++;
-  return Math.min(4, Math.floor(s * 4 / 6 + 0.01));
 }
 
 // Allgemeiner Eingabe-Dialog. validate(values) → Fehlertext oder null
@@ -147,7 +151,7 @@ function ask({ title, text = '', fields = [], okText = 'OK', danger = false, val
         ok.textContent = prev;
         if (err) { $('#prompt-error').textContent = err; return; }
       }
-      cleanup(values);
+      cleanup(values || {});
     };
     form.addEventListener('submit', onSubmit);
     $('#prompt-cancel').addEventListener('click', onCancel);
@@ -157,138 +161,34 @@ function ask({ title, text = '', fields = [], okText = 'OK', danger = false, val
   });
 }
 
-// ---------------------------------------------------------------- Sperren / Entsperren
-async function initLockScreen() {
-  const supportErr = $('#support-error');
-  if (!Vault.supported()) {
-    supportErr.hidden = false;
-    supportErr.textContent = window.isSecureContext
-      ? 'Dein Browser unterstützt die nötige Verschlüsselung nicht. Bitte nutze einen aktuellen Chrome, Edge, Firefox oder Safari.'
-      : 'PixelCam muss über HTTPS (oder localhost) geöffnet werden, damit Kamera und Verschlüsselung funktionieren.';
-    return;
+// ---------------------------------------------------------------- Automatisch löschen
+async function purge() {
+  if (!vault.ready) return 0;
+  let n = 0;
+  try { n = await vault.purgeExpired(rec?.writer?.id); } catch (err) { console.error(err); }
+  if (n && playerState && !playerState.item.kept && playerState.item.expiresAt <= Date.now()) {
+    els.player.close();
+    toast('Die Aufnahme wurde nach 1 Stunde automatisch gelöscht.');
   }
-  let initialized = false;
-  try { initialized = await vault.isInitialized(); } catch (err) {
-    supportErr.hidden = false;
-    supportErr.textContent = `Speicher nicht verfügbar: ${err.message}. Im privaten Modus funktioniert PixelCam evtl. nicht.`;
-    return;
-  }
-  showLock(initialized ? 'unlock' : 'setup');
+  return n;
 }
-
-function showLock(which) {
-  els.app.hidden = true;
-  els.lock.hidden = false;
-  els.unlockForm.hidden = which !== 'unlock';
-  els.setupForm.hidden = which !== 'setup';
-  $('#lock-sub').textContent = which === 'setup'
-    ? 'Aufnahmen mit automatisch verpixelten Augen – verschlüsselt auf deinem Gerät.'
-    : 'Tresor gesperrt. Gib dein Passwort ein.';
-  $$('#lock input').forEach(i => { i.value = ''; });
-  $('#unlock-error').textContent = '';
-  $('#setup-error').textContent = '';
-  $('#pw-meter').style.width = '0';
-  setTimeout(() => (which === 'unlock' ? $('#unlock-pw') : $('#setup-pw')).focus(), 50);
-}
-
-$('#setup-pw').addEventListener('input', (e) => {
-  const score = pwScore(e.target.value);
-  const m = $('#pw-meter');
-  m.style.width = `${e.target.value ? 12 + score * 22 : 0}%`;
-  m.style.background = ['#ff6170', '#ff6170', '#ffb547', '#3ee0b0', '#3ee0b0'][score];
-});
-
-els.setupForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const pw = $('#setup-pw').value, pw2 = $('#setup-pw2').value;
-  const err = $('#setup-error');
-  if (pw.length < 6) { err.textContent = 'Mindestens 6 Zeichen.'; return; }
-  if (pw !== pw2) { err.textContent = 'Die Passwörter stimmen nicht überein.'; return; }
-  const btn = $('#setup-btn');
-  btn.disabled = true; btn.textContent = 'Wird verschlüsselt …';
-  try {
-    await vault.create(pw);
-    enterApp();
-  } catch (ex) {
-    err.textContent = `Fehler: ${ex.message}`;
-  } finally {
-    btn.disabled = false; btn.textContent = 'Tresor erstellen';
+setInterval(async () => {
+  const n = await purge();
+  if (currentView === 'library') {
+    if (n) renderLibrary(); else updateCountdowns();
   }
-});
+  if (playerState) updatePlayerExpiry();
+}, DEBUG && TTL_MS < 120_000 ? 2_000 : 20_000);
 
-els.unlockForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const btn = $('#unlock-btn');
-  const err = $('#unlock-error');
-  err.textContent = '';
-  btn.disabled = true; btn.textContent = 'Entschlüssele …';
-  try {
-    const ok = await vault.unlock($('#unlock-pw').value);
-    if (ok) enterApp();
-    else { err.textContent = 'Falsches Passwort.'; $('#unlock-pw').select(); }
-  } catch (ex) {
-    err.textContent = ex.message;
-  } finally {
-    btn.disabled = false; btn.textContent = 'Entsperren';
-  }
-});
-
-$('#reset-vault').addEventListener('click', async () => {
-  const res = await ask({
-    title: 'Tresor zurücksetzen?',
-    text: 'Alle Aufnahmen werden unwiderruflich gelöscht. Tippe LÖSCHEN zur Bestätigung.',
-    fields: [{ name: 'confirm', label: 'Bestätigung', placeholder: 'LÖSCHEN' }],
-    okText: 'Alles löschen', danger: true,
-    validate: v => (v.confirm.trim().toUpperCase() === 'LÖSCHEN' ? null : 'Bitte LÖSCHEN eintippen.'),
-  });
-  if (!res) return;
-  await vault.destroy();
-  showLock('setup');
-  toast('Tresor gelöscht.');
-});
-
-function enterApp() {
-  els.lock.hidden = true;
-  els.app.hidden = false;
-  $$('#lock input').forEach(i => { i.value = ''; });
-  lastActivity = Date.now();
-  syncUI();
-  showView('camera', true);
-  vault.persisted().then(p => { if (!p) vault.persist(); });
-}
-
-function lock(reason) {
-  if (!vault.unlocked) return;
-  if (rec) return; // niemals während einer Aufnahme
-  stopCamera();
-  if (els.player.open) els.player.close();
-  if ($('#prompt').open) $('#prompt').close();
-  clearLibrary();
-  vault.lock();
-  showLock('unlock');
-  if (reason) $('#lock-sub').textContent = reason;
-}
-els.lockBtn.addEventListener('click', () => lock());
-
-// Auto-Sperre
-['pointerdown', 'keydown', 'wheel', 'touchstart'].forEach(ev =>
-  window.addEventListener(ev, () => { lastActivity = Date.now(); }, { passive: true, capture: true }));
-setInterval(() => {
-  const min = Number(settings.autoLock);
-  if (vault.unlocked && !rec && min > 0 && Date.now() - lastActivity > min * 60_000) {
-    lock('Automatisch gesperrt. Gib dein Passwort ein.');
-  }
-}, 10_000);
-
+// ---------------------------------------------------------------- Sichtbarkeit
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     if (rec) { pauseRecording(true); return; }
-    if (settings.lockOnHide && vault.unlocked && !externalUi) lock('Gesperrt, weil die App verlassen wurde.');
-    else if (currentView === 'camera') stopCamera();
+    if (currentView === 'camera') stopCamera();
   } else {
-    externalUi = false;
     if (rec) { pauseRecording(false); return; }
-    if (vault.unlocked && currentView === 'camera') startCamera();
+    purge().then((n) => { if (n && currentView === 'library') renderLibrary(); });
+    if (currentView === 'camera') startCamera();
   }
 });
 
@@ -329,34 +229,28 @@ function ensureEngine() {
 function updateOverlay() {
   const ov = els.overlay;
   const title = $('#overlay-title'), text = $('#overlay-text'), prog = $('#overlay-progress'), btn = $('#overlay-btn');
-  if (cameraError) {
+  const show = (t, x, { progress = null, button = null } = {}) => {
     ov.hidden = false;
-    title.textContent = cameraError.title;
-    text.textContent = cameraError.text;
-    prog.hidden = true;
-    btn.hidden = false;
-    btn.textContent = 'Erneut versuchen';
-    btn.onclick = () => { cameraError = null; updateOverlay(); startCamera(); };
-    return;
+    title.textContent = t;
+    text.textContent = x;
+    prog.hidden = progress == null;
+    if (progress != null) $('#overlay-bar').style.width = `${Math.round(progress * 100)}%`;
+    btn.hidden = !button;
+    if (button) { btn.textContent = button.text; btn.onclick = button.onClick; }
+  };
+  if (storageError) return show('Speicher nicht verfügbar', storageError);
+  if (cameraError) {
+    return show(cameraError.title, cameraError.text, {
+      button: { text: 'Erneut versuchen', onClick: () => { cameraError = null; updateOverlay(); startCamera(); } },
+    });
   }
   if (engineState === 'loading') {
-    ov.hidden = false;
-    title.textContent = 'Gesichtserkennung wird geladen …';
-    text.textContent = 'Einmalig ca. 12 MB – danach funktioniert PixelCam auch offline. Bis dahin ist das ganze Bild verpixelt.';
-    prog.hidden = false;
-    $('#overlay-bar').style.width = `${Math.round(engineProgress * 100)}%`;
-    btn.hidden = true;
-    return;
+    return show('Gesichtserkennung wird geladen …', 'Einmalig ca. 12 MB – danach funktioniert PixelCam auch offline. Bis dahin ist das ganze Bild verpixelt.', { progress: engineProgress });
   }
   if (engineState === 'error') {
-    ov.hidden = false;
-    title.textContent = 'Gesichtserkennung konnte nicht geladen werden';
-    text.textContent = `${engineError?.message || 'Unbekannter Fehler'}. Prüfe deine Internetverbindung. Ohne Erkennung bleibt das Bild komplett verpixelt.`;
-    prog.hidden = true;
-    btn.hidden = false;
-    btn.textContent = 'Erneut versuchen';
-    btn.onclick = () => { engineState = 'idle'; ensureEngine(); };
-    return;
+    return show('Gesichtserkennung konnte nicht geladen werden',
+      `${engineError?.message || 'Unbekannter Fehler'}. Prüfe deine Internetverbindung. Ohne Erkennung bleibt das Bild komplett verpixelt.`,
+      { button: { text: 'Erneut versuchen', onClick: () => { engineState = 'idle'; ensureEngine(); } } });
   }
   ov.hidden = true;
 }
@@ -386,7 +280,7 @@ processor.onStats = (st) => {
 
 // ---------------------------------------------------------------- Kamera
 async function startCamera() {
-  if (camStream || !vault.unlocked) return;
+  if (camStream || storageError) return;
   const token = ++camToken;
   if (!navigator.mediaDevices?.getUserMedia) {
     cameraError = { title: 'Keine Kamera verfügbar', text: 'Dein Browser erlaubt hier keinen Kamerazugriff. Öffne PixelCam über HTTPS in einem aktuellen Browser.' };
@@ -415,7 +309,7 @@ async function startCamera() {
       return;
     }
   }
-  if (token !== camToken || currentView !== 'camera' || !vault.unlocked) {
+  if (token !== camToken || currentView !== 'camera') {
     stream.getTracks().forEach(t => t.stop());
     return;
   }
@@ -442,7 +336,7 @@ function stopCamera() {
 }
 
 function restartCamera() {
-  if (rec || currentView !== 'camera' || !vault.unlocked) return;
+  if (rec || currentView !== 'camera') return;
   stopCamera();
   startCamera();
 }
@@ -473,18 +367,17 @@ const WEBM = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video
 function supports(t) { try { return MediaRecorder.isTypeSupported(t); } catch { return false; } }
 function pickMime() {
   if (!window.MediaRecorder) return '';
-  const list = settings.format === 'webm' ? [...WEBM, ...MP4] : settings.format === 'mp4' ? [...MP4, ...WEBM] : [...MP4, ...WEBM];
+  const list = settings.format === 'webm' ? [...WEBM, ...MP4] : [...MP4, ...WEBM];
   return list.find(supports) || '';
 }
 const BITRATES = { low: 1_500_000, medium: 4_000_000, high: 8_000_000 };
 
 function updateRecButton() {
-  const ready = canRecord && engineState === 'ready' && !!camStream;
+  const ready = canRecord && vault.ready && engineState === 'ready' && !!camStream;
   els.recBtn.disabled = !ready && !rec;
   els.recBtn.classList.toggle('recording', !!rec);
   els.recBtn.setAttribute('aria-label', rec ? 'Aufnahme beenden' : 'Aufnahme starten');
   els.flipBtn.disabled = !!rec;
-  els.lockBtn.disabled = !!rec;
   $$('.tab').forEach(t => { t.disabled = !!rec && t.dataset.view !== 'camera'; });
 }
 
@@ -579,7 +472,7 @@ async function finalizeRecording(r) {
   try { thumb = await (r.thumb || processor.snapshot()); } catch { /* egal */ }
   try {
     await r.writer.finish({ ...r.meta, duration: Math.round(r.duration ?? elapsed(r)) }, thumb);
-    toast('Aufnahme verschlüsselt gespeichert ✓');
+    toast(`Gespeichert ✓ – wird um ${fmtTime(Date.now() + TTL_MS)} gelöscht, außer du lädst sie herunter.`);
   } catch (err) {
     console.error(err);
     toast(`Aufnahme nur teilweise gespeichert: ${err.message}`, true);
@@ -590,7 +483,7 @@ async function finalizeRecording(r) {
 }
 
 window.addEventListener('keydown', (e) => {
-  if (els.app.hidden || currentView !== 'camera' || e.repeat) return;
+  if (currentView !== 'camera' || e.repeat) return;
   if (e.target.closest?.('input, select, textarea, dialog')) return;
   if (e.key === 'r' || e.key === 'R' || (e.key === ' ' && e.target === document.body)) {
     e.preventDefault();
@@ -606,13 +499,34 @@ function clearLibrary() {
   thumbUrls.clear();
 }
 
+function expiryTag(item, tag) {
+  if (item.kept) {
+    tag.className = 'rec-tag tag-keep';
+    tag.textContent = '✓ Behalten';
+  } else if (item.expiresAt) {
+    tag.className = 'rec-tag tag-expire';
+    tag.textContent = `Löscht sich in ${fmtRemaining(item.expiresAt)}`;
+  } else {
+    tag.textContent = '';
+  }
+}
+
+let libItems = [];
+function updateCountdowns() {
+  for (const { item, tag } of libItems) expiryTag(item, tag);
+}
+
 let libToken = 0;
 async function renderLibrary() {
   const token = ++libToken;
   let list;
-  try { list = await vault.listRecordings(); } catch (err) { toast(err.message, true); return; }
+  try {
+    await purge();
+    list = await vault.listRecordings();
+  } catch (err) { toast(err.message, true); return; }
   if (token !== libToken || currentView !== 'library') return;
   clearLibrary();
+  libItems = [];
   const grid = $('#lib-grid');
   $('#lib-empty').hidden = list.length > 0;
   grid.hidden = list.length === 0;
@@ -630,28 +544,21 @@ async function renderLibrary() {
     const badge = document.createElement('span');
     badge.className = 'rec-badge';
     badge.textContent = item.meta.duration ? fmtDuration(item.meta.duration) : '––:––';
-    thumb.append(badge);
-    if (item.status !== 'done' && item.meta.imported == null) {
-      const tag = document.createElement('span');
-      tag.className = 'rec-tag warn-tag';
-      tag.textContent = 'Unvollständig';
-      thumb.append(tag);
-    } else if (item.meta.imported) {
-      const tag = document.createElement('span');
-      tag.className = 'rec-tag';
-      tag.textContent = 'Importiert';
-      thumb.append(tag);
-    }
+    const tag = document.createElement('span');
+    expiryTag(item, tag);
+    thumb.append(badge, tag);
     const info = document.createElement('div');
     info.className = 'rec-info';
     const strong = document.createElement('strong');
     strong.textContent = fmtDate(item.meta.created);
     const span = document.createElement('span');
-    span.textContent = `${fmtBytes(item.size)} · ${(item.meta.ext || extFor(item.meta.mime)).toUpperCase()} · ${item.meta.mode === 'face' ? 'Gesicht' : 'Augen'}`;
+    const effect = item.meta.effect === 'bar' ? 'Balken' : 'Pixel';
+    span.textContent = `${fmtBytes(item.size)} · ${(item.meta.ext || extFor(item.meta.mime)).toUpperCase()} · ${item.meta.mode === 'face' ? 'Gesicht' : 'Augen'} (${effect})${item.status === 'done' ? '' : ' · unvollständig'}`;
     info.append(strong, span);
     card.append(thumb, info);
     card.addEventListener('click', () => openPlayer(item));
     grid.append(card);
+    libItems.push({ item, tag });
 
     if (item.hasThumb) {
       vault.getThumbnail(item.id).then((blob) => {
@@ -669,31 +576,55 @@ async function renderLibrary() {
 
 // Import
 const importInput = $('#import-input');
-$('label[for="import-input"]').addEventListener('click', () => { externalUi = true; });
 importInput.addEventListener('change', async () => {
   const file = importInput.files?.[0];
   importInput.value = '';
-  externalUi = false;
   if (!file) return;
   const res = await ask({
     title: 'Verschlüsselte Datei öffnen',
-    text: `„${file.name}“ – gib das Passwort des Geräts ein, auf dem die Datei exportiert wurde.`,
-    fields: [{ name: 'pw', label: 'Passwort', type: 'password', autocomplete: 'current-password' }],
+    text: `„${file.name}“ – gib das Passwort ein, das beim Exportieren festgelegt wurde.`,
+    fields: [{ name: 'pw', label: 'Passwort der Datei', type: 'password', autocomplete: 'current-password' }],
     okText: 'Entschlüsseln',
     validate: async (v) => {
       const id = await vault.importFile(file, v.pw);
       return id ? null : 'Falsches Passwort.';
     },
   });
-  if (res) { toast('Aufnahme importiert ✓'); renderLibrary(); }
+  if (res) { toast('Aufnahme importiert ✓ – wird in 1 Stunde gelöscht, außer du speicherst sie.'); renderLibrary(); }
 });
 
 // ---------------------------------------------------------------- Player
 let playerState = null;
+
+function updatePlayerExpiry() {
+  const p = $('#player-expiry');
+  if (!playerState) { p.textContent = ''; return; }
+  const { item } = playerState;
+  p.classList.toggle('kept', !!item.kept);
+  p.textContent = item.kept
+    ? '✓ Heruntergeladen – diese Aufnahme bleibt erhalten.'
+    : item.expiresAt
+      ? `Wird um ${fmtTime(item.expiresAt)} automatisch gelöscht (in ${fmtRemaining(item.expiresAt)}). Speichern, teilen oder exportieren, um sie zu behalten.`
+      : '';
+}
+
+async function keep() {
+  if (!playerState || playerState.item.kept) return;
+  try {
+    await vault.markKept(playerState.item.id);
+    playerState.item.kept = true;
+    playerState.item.expiresAt = null;
+    updatePlayerExpiry();
+    if (currentView === 'library') updateCountdowns();
+  } catch (err) { console.error(err); }
+}
+
 async function openPlayer(item) {
   const v = els.playerVideo;
+  playerState = null;
   $('#player-title').textContent = fmtDate(item.meta.created);
   $('#player-meta').textContent = 'Wird entschlüsselt …';
+  $('#player-expiry').textContent = '';
   $('#pl-share').hidden = true;
   els.player.showModal();
   try {
@@ -707,13 +638,14 @@ async function openPlayer(item) {
       fmtBytes(blob.size),
       (meta.ext || extFor(meta.mime)).toUpperCase(),
       meta.width && meta.height ? `${meta.width}×${meta.height}` : null,
-      meta.mode === 'face' ? 'Gesicht verpixelt' : 'Augen verpixelt',
+      `${meta.mode === 'face' ? 'Gesicht' : 'Augen'} ${meta.effect === 'bar' ? 'abgedeckt' : 'verpixelt'}`,
     ].filter(Boolean).join(' · ');
+    updatePlayerExpiry();
     const file = new File([blob], `${fileBase(meta)}.${meta.ext || extFor(meta.mime)}`, { type: blob.type });
     $('#pl-share').hidden = !(navigator.canShare && navigator.canShare({ files: [file] }));
   } catch (err) {
     console.error(err);
-    $('#player-meta').textContent = `Fehler beim Entschlüsseln: ${err.message}`;
+    $('#player-meta').textContent = `Fehler: ${err.message}`;
   }
 }
 
@@ -724,35 +656,56 @@ els.player.addEventListener('close', () => {
   v.load();
   if (playerState) URL.revokeObjectURL(playerState.url);
   playerState = null;
+  if (currentView === 'library') updateCountdowns();
 });
 $$('[data-close]', els.player).forEach(b => b.addEventListener('click', () => els.player.close()));
 els.player.addEventListener('click', (e) => { if (e.target === els.player) els.player.close(); });
 
-$('#pl-download').addEventListener('click', () => {
+$('#pl-download').addEventListener('click', async () => {
   if (!playerState) return;
   const { blob, meta } = playerState;
   downloadBlob(blob, `${fileBase(meta)}.${meta.ext || extFor(meta.mime)}`);
-  toast('Video wird gespeichert (unverschlüsselt, bereits verpixelt).');
+  await keep();
+  toast('Video wird gespeichert ✓ – die Aufnahme wird jetzt nicht mehr automatisch gelöscht.');
 });
 $('#pl-share').addEventListener('click', async () => {
   if (!playerState) return;
   const { blob, meta } = playerState;
   const file = new File([blob], `${fileBase(meta)}.${meta.ext || extFor(meta.mime)}`, { type: blob.type });
-  externalUi = true;
-  try { await navigator.share({ files: [file], title: 'PixelCam' }); } catch (err) { if (err.name !== 'AbortError') toast(err.message, true); }
+  try {
+    await navigator.share({ files: [file], title: 'PixelCam' });
+    await keep();
+    toast('Geteilt ✓ – die Aufnahme bleibt erhalten.');
+  } catch (err) { if (err.name !== 'AbortError') toast(err.message, true); }
 });
 $('#pl-export').addEventListener('click', async () => {
   if (!playerState) return;
-  try {
-    const blob = await vault.exportRecording(playerState.item.id);
-    downloadBlob(blob, `${fileBase(playerState.meta)}.pxcam`);
-    toast('Verschlüsselte .pxcam-Datei wird gespeichert.');
-  } catch (err) { toast(err.message, true); }
+  const state = playerState;
+  const res = await ask({
+    title: 'Verschlüsselt exportieren',
+    text: 'Lege ein Passwort für die Datei fest. Nur damit lässt sie sich später (auf jedem Gerät) über „Datei öffnen“ wieder abspielen.',
+    fields: [
+      { name: 'pw', label: 'Passwort für die Datei', type: 'password', autocomplete: 'new-password' },
+      { name: 'pw2', label: 'Passwort wiederholen', type: 'password', autocomplete: 'new-password' },
+    ],
+    okText: 'Exportieren',
+    validate: async (v) => {
+      if (v.pw.length < 6) return 'Mindestens 6 Zeichen.';
+      if (v.pw !== v.pw2) return 'Die Passwörter stimmen nicht überein.';
+      const blob = await vault.exportRecording(state.item.id, v.pw);
+      downloadBlob(blob, `${fileBase(state.meta)}.pxcam`);
+      return null;
+    },
+  });
+  if (!res) return;
+  if (playerState === state) await keep();
+  else await vault.markKept(state.item.id).catch(() => {});
+  toast('Verschlüsselte .pxcam-Datei wird gespeichert ✓ – die Aufnahme bleibt erhalten.');
 });
 $('#pl-delete').addEventListener('click', async () => {
   if (!playerState) return;
   const { item } = playerState;
-  const res = await ask({ title: 'Aufnahme löschen?', text: 'Die Aufnahme wird unwiderruflich aus dem Tresor entfernt.', okText: 'Löschen', danger: true });
+  const res = await ask({ title: 'Aufnahme löschen?', text: 'Die Aufnahme wird sofort und unwiderruflich gelöscht.', okText: 'Löschen', danger: true });
   if (!res) return;
   await vault.deleteRecording(item.id);
   els.player.close();
@@ -764,15 +717,27 @@ $('#pl-delete').addEventListener('click', async () => {
 function syncUI() {
   $$('[data-set]').forEach(b => b.setAttribute('aria-checked', String(String(settings[b.dataset.set]) === b.dataset.value)));
   $$('[data-mode]').forEach(b => b.setAttribute('aria-checked', String(settings.mode === b.dataset.mode)));
-  $$('[data-only]').forEach(r => { r.hidden = r.dataset.only !== settings.mode; });
+  $$('[data-show]').forEach((r) => {
+    r.hidden = !r.dataset.show.split(' ').every((cond) => {
+      const [k, v] = cond.split(':');
+      return String(settings[k]) === v;
+    });
+  });
   $('#pixelScale').value = settings.pixelScale;
   $('#padding').value = settings.padding;
+  $('#barThickness').value = settings.barThickness;
   const ps = settings.pixelScale;
   $('#pixel-label').textContent = ps < 0.07 ? 'Fein' : ps < 0.12 ? 'Mittel' : ps < 0.16 ? 'Grob' : 'Sehr grob';
+  const bt = settings.barThickness;
+  $('#bar-label').textContent = bt < 0.15 ? 'Sehr dünn' : bt < 0.4 ? 'Dünn' : bt < 0.7 ? 'Mittel' : 'Dick';
   const pd = settings.padding;
-  $('#pad-label').textContent = pd < 0.25 ? 'Knapp' : pd < 0.65 ? 'Normal' : 'Großzügig';
-  for (const id of ['brows', 'farFaces', 'safety', 'audio', 'mirror', 'lockOnHide']) $(`#${id}`).checked = !!settings[id];
-  for (const id of ['resolution', 'quality', 'format', 'autoLock']) $(`#${id}`).value = String(settings[id]);
+  const isBar = settings.effect === 'bar' && settings.mode === 'eyes';
+  $('#pad-title').textContent = isBar ? 'Balkenlänge' : 'Abdeckung';
+  $('#pad-label').textContent = isBar
+    ? (pd < 0.25 ? 'Kurz' : pd < 0.65 ? 'Normal' : 'Lang')
+    : (pd < 0.25 ? 'Knapp' : pd < 0.65 ? 'Normal' : 'Großzügig');
+  for (const id of ['brows', 'farFaces', 'safety', 'audio', 'mirror']) $(`#${id}`).checked = !!settings[id];
+  for (const id of ['resolution', 'quality', 'format']) $(`#${id}`).value = String(settings[id]);
   els.safetyBtn.setAttribute('aria-pressed', String(!!settings.safety));
   els.safetyBtn.title = settings.safety ? 'Sicherheitsmodus an' : 'Sicherheitsmodus aus';
   updateMirror();
@@ -789,9 +754,9 @@ function setSetting(key, value) {
 
 $$('[data-set]').forEach(b => b.addEventListener('click', () => setSetting(b.dataset.set, b.dataset.value)));
 $$('[data-mode]').forEach(b => b.addEventListener('click', () => setSetting('mode', b.dataset.mode)));
-['pixelScale', 'padding'].forEach(id => $(`#${id}`).addEventListener('input', e => setSetting(id, Number(e.target.value))));
-['brows', 'farFaces', 'safety', 'audio', 'mirror', 'lockOnHide'].forEach(id => $(`#${id}`).addEventListener('change', e => setSetting(id, e.target.checked)));
-['resolution', 'quality', 'format', 'autoLock'].forEach(id => $(`#${id}`).addEventListener('change', e => setSetting(id, e.target.value)));
+['pixelScale', 'padding', 'barThickness'].forEach(id => $(`#${id}`).addEventListener('input', e => setSetting(id, Number(e.target.value))));
+['brows', 'farFaces', 'safety', 'audio', 'mirror'].forEach(id => $(`#${id}`).addEventListener('change', e => setSetting(id, e.target.checked)));
+['resolution', 'quality', 'format'].forEach(id => $(`#${id}`).addEventListener('change', e => setSetting(id, e.target.value)));
 
 // Format-Hinweis: Was kann dieser Browser?
 (function formatSupport() {
@@ -802,59 +767,50 @@ $$('[data-mode]').forEach(b => b.addEventListener('click', () => setSetting('mod
   $('#format-hint').textContent = mp4 ? 'MP4 läuft fast überall' : 'Dieser Browser kann nur WebM aufnehmen';
 })();
 
-$('#change-pw').addEventListener('click', async () => {
-  const res = await ask({
-    title: 'Passwort ändern',
-    fields: [
-      { name: 'old', label: 'Aktuelles Passwort', type: 'password', autocomplete: 'current-password' },
-      { name: 'pw', label: 'Neues Passwort', type: 'password', autocomplete: 'new-password' },
-      { name: 'pw2', label: 'Neues Passwort wiederholen', type: 'password', autocomplete: 'new-password' },
-    ],
-    okText: 'Ändern',
-    validate: async (v) => {
-      if (v.pw.length < 6) return 'Neues Passwort: mindestens 6 Zeichen.';
-      if (v.pw !== v.pw2) return 'Die neuen Passwörter stimmen nicht überein.';
-      return (await vault.changePassword(v.old, v.pw)) ? null : 'Aktuelles Passwort ist falsch.';
-    },
-  });
-  if (res) toast('Passwort geändert ✓');
-});
-
 $('#wipe-btn').addEventListener('click', async () => {
   const res = await ask({
-    title: 'Tresor löschen?',
-    text: 'Alle Aufnahmen und das Passwort werden unwiderruflich gelöscht. Tippe LÖSCHEN zur Bestätigung.',
-    fields: [{ name: 'confirm', label: 'Bestätigung', placeholder: 'LÖSCHEN' }],
-    okText: 'Alles löschen', danger: true,
-    validate: v => (v.confirm.trim().toUpperCase() === 'LÖSCHEN' ? null : 'Bitte LÖSCHEN eintippen.'),
+    title: 'Alle Aufnahmen löschen?',
+    text: 'Alle Aufnahmen in PixelCam werden sofort und unwiderruflich gelöscht.',
+    okText: 'Alle löschen', danger: true,
   });
   if (!res) return;
-  stopCamera();
-  clearLibrary();
-  await vault.destroy();
-  showLock('setup');
-  toast('Tresor gelöscht.');
+  await vault.deleteAll();
+  updateStorageInfo();
+  toast('Alle Aufnahmen gelöscht.');
 });
 
 async function updateStorageInfo() {
-  const [est, persisted] = await Promise.all([vault.estimate(), vault.persisted()]);
+  const est = await vault.estimate();
   const info = $('#storage-info');
-  const parts = [];
-  if (est?.usage != null) parts.push(`${fmtBytes(est.usage)} belegt${est.quota ? ` von ${fmtBytes(est.quota)}` : ''}`);
-  parts.push(persisted ? 'dauerhaft gespeichert' : 'Browser darf bei Platzmangel löschen');
-  info.textContent = parts.join(' · ');
-  $('#persist-btn').hidden = !!persisted;
+  info.textContent = est?.usage != null
+    ? `${fmtBytes(est.usage)}${est.quota ? ` von ${fmtBytes(est.quota)} verfügbar` : ''}`
+    : 'Unbekannt';
 }
-$('#persist-btn').addEventListener('click', async () => {
-  const ok = await vault.persist();
-  toast(ok ? 'Speicher ist jetzt dauerhaft ✓' : 'Der Browser hat dauerhaften Speicher abgelehnt. Installiere PixelCam als App, dann klappt es meist.');
-  updateStorageInfo();
-});
 
 // ---------------------------------------------------------------- Start
-if (new URLSearchParams(location.search).has('debug')) window.__pixelcam = { processor, engine, settings };
+async function init() {
+  syncUI();
+  if (!Vault.supported()) {
+    storageError = window.isSecureContext
+      ? 'Dein Browser unterstützt die nötige Verschlüsselung nicht. Bitte nutze einen aktuellen Chrome, Edge, Firefox oder Safari.'
+      : 'PixelCam muss über HTTPS geöffnet werden, damit Kamera und Verschlüsselung funktionieren.';
+    showView('camera', true);
+    updateOverlay();
+    return;
+  }
+  try {
+    await vault.open();
+    await purge();
+  } catch (err) {
+    storageError = `${err.message} Im privaten Modus funktioniert PixelCam evtl. nicht.`;
+  }
+  showView('camera', true);
+  updateOverlay();
+  vault.persisted().then(p => { if (!p) vault.persist(); });
+}
+
+if (DEBUG) window.__pixelcam = { processor, engine, settings, vault };
 if ('serviceWorker' in navigator && window.isSecureContext) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
-syncUI();
-initLockScreen();
+init();

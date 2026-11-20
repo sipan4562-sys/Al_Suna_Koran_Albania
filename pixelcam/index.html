@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://cdn.jsdelivr.net; connect-src 'self' https://cdn.jsdelivr.net; img-src 'self' blob: data:; media-src 'self' blob: mediastream:; style-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none'" />
   <meta name="referrer" content="no-referrer" />
-  <meta name="description" content="PixelCam – Videoaufnahmen, die deine Augen oder dein ganzes Gesicht automatisch verpixeln. Alles bleibt verschlüsselt auf deinem Gerät." />
+  <meta name="description" content="PixelCam – Videoaufnahmen, die deine Augen oder dein ganzes Gesicht automatisch verpixeln. Ohne Anmeldung, verschlüsselt auf deinem Gerät, automatisch nach 1 Stunde gelöscht." />
   <meta name="theme-color" content="#0b0d12" />
   <meta name="color-scheme" content="dark" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -22,46 +22,7 @@
 <body>
   <noscript><p class="noscript">PixelCam benötigt JavaScript.</p></noscript>
 
-  <!-- ============ Sperrbildschirm ============ -->
-  <section id="lock" class="lock" aria-labelledby="lock-title">
-    <div class="lock-card">
-      <img class="lock-logo" src="icons/icon.svg" alt="" width="72" height="72" />
-      <h1 id="lock-title">PixelCam</h1>
-      <p class="lock-sub" id="lock-sub">Aufnahmen mit automatisch verpixelten Augen – verschlüsselt auf deinem Gerät.</p>
-
-      <form id="unlock-form" class="lock-form" hidden autocomplete="off">
-        <label class="field">
-          <span>Passwort</span>
-          <input id="unlock-pw" type="password" autocomplete="current-password" required minlength="1" />
-        </label>
-        <button class="btn btn-primary btn-block" type="submit" id="unlock-btn">Entsperren</button>
-        <p class="form-error" id="unlock-error" role="alert"></p>
-        <button class="link-btn" type="button" id="reset-vault">Passwort vergessen? Tresor zurücksetzen</button>
-      </form>
-
-      <form id="setup-form" class="lock-form" hidden autocomplete="off">
-        <p class="lock-hint">Lege ein Passwort fest. Damit werden alle Aufnahmen mit <strong>AES-256</strong> verschlüsselt.</p>
-        <label class="field">
-          <span>Neues Passwort</span>
-          <input id="setup-pw" type="password" autocomplete="new-password" required minlength="6" />
-        </label>
-        <div class="meter" aria-hidden="true"><i id="pw-meter"></i></div>
-        <label class="field">
-          <span>Passwort wiederholen</span>
-          <input id="setup-pw2" type="password" autocomplete="new-password" required minlength="6" />
-        </label>
-        <p class="warn">Das Passwort kann nicht wiederhergestellt werden. Ohne Passwort sind die Aufnahmen verloren.</p>
-        <button class="btn btn-primary btn-block" type="submit" id="setup-btn">Tresor erstellen</button>
-        <p class="form-error" id="setup-error" role="alert"></p>
-      </form>
-
-      <p class="form-error" id="support-error" role="alert" hidden></p>
-    </div>
-    <p class="lock-foot">Keine Cloud · Kein Konto · Alles bleibt auf diesem Gerät</p>
-  </section>
-
-  <!-- ============ App ============ -->
-  <div id="app" class="app" hidden>
+  <div id="app" class="app">
     <header class="topbar">
       <div class="brand"><img src="icons/icon.svg" alt="" width="28" height="28" /><span>PixelCam</span></div>
       <nav class="tabs" role="tablist" aria-label="Bereiche">
@@ -78,9 +39,7 @@
           <span>Einstellungen</span>
         </button>
       </nav>
-      <button class="icon-btn" id="lock-btn" title="Sperren" aria-label="App sperren">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>
-      </button>
+      <span class="topbar-spacer" aria-hidden="true"></span>
     </header>
 
     <main class="views">
@@ -105,7 +64,7 @@
           </div>
 
           <div class="controls">
-            <div class="seg" role="radiogroup" aria-label="Was verpixeln?">
+            <div class="seg" role="radiogroup" aria-label="Was verdecken?">
               <button class="seg-btn" role="radio" data-mode="eyes" aria-checked="true">Augen</button>
               <button class="seg-btn" role="radio" data-mode="face" aria-checked="false">Gesicht</button>
             </div>
@@ -136,11 +95,15 @@
             </label>
             <input type="file" id="import-input" accept=".pxcam,application/octet-stream" hidden />
           </div>
+          <div class="notice">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+            <p>Aufnahmen werden <strong>1 Stunde</strong> nach der Aufnahme automatisch gelöscht – außer du lädst sie vorher herunter, teilst oder exportierst sie.</p>
+          </div>
           <div class="grid" id="lib-grid"></div>
           <div class="empty" id="lib-empty" hidden>
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m10 9.5 5 2.5-5 2.5Z"/></svg>
-            <p>Noch keine Aufnahmen.</p>
-            <button class="btn btn-primary" data-goto="camera">Erste Aufnahme machen</button>
+            <p>Keine Aufnahmen vorhanden.</p>
+            <button class="btn btn-primary" data-goto="camera">Aufnahme machen</button>
           </div>
         </div>
       </section>
@@ -166,22 +129,26 @@
                 <button class="seg-btn" role="radio" data-set="effect" data-value="bar">Balken</button>
               </div>
             </div>
-            <div class="row" data-only="face">
+            <div class="row" data-show="mode:face">
               <div class="row-label"><strong>Form (Gesicht)</strong><span>Rechteck deckt am sichersten ab</span></div>
               <div class="seg seg-sm" role="radiogroup" aria-label="Form">
                 <button class="seg-btn" role="radio" data-set="shape" data-value="rect">Rechteck</button>
                 <button class="seg-btn" role="radio" data-set="shape" data-value="oval">Oval</button>
               </div>
             </div>
-            <div class="row row-stack">
+            <div class="row row-stack" data-show="mode:eyes effect:bar">
+              <div class="row-label"><strong>Balkenstärke</strong><span id="bar-label">Dünn</span></div>
+              <input type="range" id="barThickness" min="0" max="1" step="0.05" aria-label="Stärke des schwarzen Balkens" />
+            </div>
+            <div class="row row-stack" data-show="effect:pixel">
               <div class="row-label"><strong>Pixelgröße</strong><span id="pixel-label">Mittel</span></div>
               <input type="range" id="pixelScale" min="0.04" max="0.2" step="0.01" aria-label="Pixelgröße" />
             </div>
             <div class="row row-stack">
-              <div class="row-label"><strong>Abdeckung</strong><span id="pad-label">Normal</span></div>
-              <input type="range" id="padding" min="0" max="1" step="0.05" aria-label="Größe des verpixelten Bereichs" />
+              <div class="row-label"><strong id="pad-title">Abdeckung</strong><span id="pad-label">Normal</span></div>
+              <input type="range" id="padding" min="0" max="1" step="0.05" aria-label="Größe des abgedeckten Bereichs" />
             </div>
-            <label class="row" data-only="eyes">
+            <label class="row" data-show="mode:eyes effect:pixel">
               <div class="row-label"><strong>Augenbrauen mit verpixeln</strong><span>Erschwert das Wiedererkennen</span></div>
               <input type="checkbox" class="switch" id="brows" />
             </label>
@@ -226,27 +193,15 @@
           </div>
 
           <div class="card">
-            <h3>Sicherheit</h3>
+            <h3>Speicher</h3>
             <div class="row">
-              <div class="row-label"><strong>Automatisch sperren</strong><span>Nach Inaktivität (nicht während einer Aufnahme)</span></div>
-              <select id="autoLock" aria-label="Automatisch sperren">
-                <option value="1">nach 1 Min.</option><option value="5">nach 5 Min.</option><option value="15">nach 15 Min.</option><option value="0">nie</option>
-              </select>
-            </div>
-            <label class="row">
-              <div class="row-label"><strong>Beim Verlassen sperren</strong><span>Sperrt, sobald die App in den Hintergrund geht</span></div>
-              <input type="checkbox" class="switch" id="lockOnHide" />
-            </label>
-            <div class="row">
-              <div class="row-label"><strong>Passwort ändern</strong></div>
-              <button class="btn btn-ghost" id="change-pw">Ändern</button>
+              <div class="row-label"><strong>Automatisch löschen</strong><span>Aufnahmen werden 1 Stunde nach der Aufnahme gelöscht – außer du hast sie vorher heruntergeladen, geteilt oder exportiert. Ist die App zu diesem Zeitpunkt geschlossen, wird beim nächsten Öffnen gelöscht.</span></div>
             </div>
             <div class="row">
-              <div class="row-label"><strong>Speicher</strong><span id="storage-info">–</span></div>
-              <button class="btn btn-ghost" id="persist-btn">Dauerhaft</button>
+              <div class="row-label"><strong>Belegt</strong><span id="storage-info">–</span></div>
             </div>
             <div class="row">
-              <div class="row-label"><strong class="danger-text">Tresor löschen</strong><span>Löscht alle Aufnahmen und das Passwort unwiderruflich</span></div>
+              <div class="row-label"><strong class="danger-text">Alle Aufnahmen löschen</strong><span>Sofort und unwiderruflich</span></div>
               <button class="btn btn-danger" id="wipe-btn">Löschen</button>
             </div>
           </div>
@@ -255,9 +210,10 @@
             <h3>So schützt PixelCam dich</h3>
             <ul>
               <li><strong>Verpixelt vor dem Speichern:</strong> Die Gesichtserkennung läuft lokal im Browser und erfasst alle Gesichter im Bild. Gespeichert wird nur das bereits verpixelte Bild.</li>
-              <li><strong>Verschlüsselt:</strong> Jede Aufnahme wird während der Aufnahme sekündlich mit AES-256-GCM verschlüsselt. Der Schlüssel entsteht aus deinem Passwort (PBKDF2, 600.000 Runden).</li>
+              <li><strong>Ohne Anmeldung, verschlüsselt:</strong> Jede Aufnahme wird während der Aufnahme sekündlich mit AES-256-GCM verschlüsselt. Den Schlüssel erzeugt die App selbst; er kann nicht ausgelesen oder kopiert werden.</li>
+              <li><strong>Löscht sich selbst:</strong> Nach 1 Stunde ist eine Aufnahme weg – außer du hast sie gespeichert.</li>
               <li><strong>Offline:</strong> Keine Server, kein Upload, kein Konto. Installierbar als App auf Handy und PC.</li>
-              <li><strong>Teilen:</strong> „Video speichern“ erzeugt eine normale, unverschlüsselte Videodatei (bereits verpixelt). „Verschlüsselt exportieren“ erzeugt eine .pxcam-Datei, die sich nur mit deinem Passwort öffnen lässt.</li>
+              <li><strong>Hinweis:</strong> Wer dein entsperrtes Gerät benutzt, kann die App öffnen und noch nicht gelöschte Aufnahmen ansehen.</li>
             </ul>
           </div>
         </div>
@@ -277,6 +233,7 @@
       </button>
     </div>
     <div class="player-video"><video id="player-video" controls playsinline></video></div>
+    <p class="player-expiry" id="player-expiry"></p>
     <div class="sheet-actions">
       <button class="btn btn-primary" id="pl-download">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 19h14"/></svg>Video speichern
