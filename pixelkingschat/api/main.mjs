@@ -57436,7 +57436,13 @@ var TTL = {
   "pk-presence": 48 * H2,
   "pk-meetmembers": 24 * H2,
   "pk-meetings": 25 * H2,
-  "pk-ownertry": 24 * H2
+  "pk-ownertry": 24 * H2,
+  "pk-live": 25 * H2,
+  "pk-liveidx": 6 * H2,
+  "pk-livepub": 6 * H2,
+  "pk-livelast": 6 * H2,
+  "pk-liveseg": 3 * 6e4,
+  "pk-livewatch": 6e4
 };
 var sql = null;
 var ready = null;
@@ -58616,6 +58622,47 @@ var isMuted = (p2) => p2.muteUntil === -1 || !!p2.muteUntil && p2.muteUntil > Da
 var meetings = () => getStore2({ name: "pk-meetings", consistency: "strong" });
 var meetMembers = () => getStore2({ name: "pk-meetmembers", consistency: "strong" });
 var MEET_RE = /^[A-HJ-NP-Z2-9]{6}$/;
+var lives = () => getStore2({ name: "pk-live", consistency: "strong" });
+var liveIdx = () => getStore2({ name: "pk-liveidx", consistency: "strong" });
+var livePub = () => getStore2({ name: "pk-livepub", consistency: "strong" });
+var liveLast = () => getStore2({ name: "pk-livelast", consistency: "strong" });
+var liveSegs = () => getStore2({ name: "pk-liveseg", consistency: "strong" });
+var liveWatch = () => getStore2({ name: "pk-livewatch", consistency: "strong" });
+var LID_RE = /^[A-Za-z0-9_-]{16}$/;
+var LIVE_RS = ["hd", "sd"];
+var LIVE_SEG_MAX = 4e6;
+var LIVE_KEEP = 20;
+var LIVE_ALIVE_MS = 2e4;
+var LIVE_MAX_MS = 4 * 36e5;
+async function liveState(lid) {
+  const meta = await lives().get(lid, { type: "json" });
+  if (!meta) return null;
+  const last = {};
+  let beat = meta.started;
+  for (const r of meta.rs) {
+    const l = await liveLast().get(`${lid}/${r}`, { type: "json" });
+    last[r] = l?.n || 0;
+    if (l && l.ts > beat) beat = l.ts;
+  }
+  const now2 = Date.now();
+  const alive = !meta.ended && now2 - beat < LIVE_ALIVE_MS && now2 - meta.started < LIVE_MAX_MS;
+  return { meta, last, beat, alive };
+}
+async function liveViewers(lid) {
+  const { blobs } = await liveWatch().list({ prefix: `${lid}/` });
+  return blobs.length;
+}
+async function endLive(lid, reason = "") {
+  const meta = await lives().get(lid, { type: "json" });
+  if (!meta) return;
+  if (!meta.ended) {
+    meta.ended = Date.now();
+    if (reason) meta.endReason = reason;
+    await lives().setJSON(lid, meta);
+  }
+  if (await liveIdx().get(meta.owner) === lid) await liveIdx().delete(meta.owner);
+  await livePub().delete(lid);
+}
 var MEET_MAX = 8;
 var MEET_ALIVE_MS = 2e4;
 var lastPresenceWrite = /* @__PURE__ */ new Map();
@@ -59010,6 +59057,28 @@ async function handle(req, context5, routeOverride) {
         headers: { "content-type": "image/jpeg", "cache-control": "public, max-age=300" }
       });
     }
+    if (route === "live/seg" && method === "GET") {
+      const lid = url.searchParams.get("lid") || "";
+      const r = url.searchParams.get("r") || "";
+      const n = Number(url.searchParams.get("n"));
+      if (!LID_RE.test(lid) || !LIVE_RS.includes(r) || !Number.isInteger(n) || n < 1) return err("Ung\xFCltig");
+      const data = await liveSegs().get(`${lid}/${r}/${n}`, { type: "arrayBuffer" });
+      if (!data) return err("Noch nicht da", 404);
+      return new Response(data, {
+        headers: { "content-type": "application/octet-stream", "cache-control": "public, max-age=300, s-maxage=600, immutable" }
+      });
+    }
+    if (route === "live/head" && method === "GET") {
+      const lid = url.searchParams.get("lid") || "";
+      if (!LID_RE.test(lid)) return err("Ung\xFCltig");
+      const st = await liveState(lid);
+      if (!st) return err("Dieses Live gibt es nicht.", 404);
+      const viewers = st.alive ? await liveViewers(lid) : 0;
+      return new Response(
+        JSON.stringify({ last: st.last, alive: st.alive, ended: !st.alive, endReason: st.meta.endReason || "", viewers, q: st.meta.q }),
+        { headers: { "content-type": "application/json", "cache-control": "public, max-age=1, s-maxage=1" } }
+      );
+    }
     const session = await auth(req);
     if (!session) return err("Nicht angemeldet", 401);
     const me = session.id;
@@ -59296,6 +59365,11 @@ async function handle(req, context5, routeOverride) {
               await avatars().delete(target);
               u.av = 0;
               break;
+            case "endlive": {
+              const lid = await liveIdx().get(target);
+              if (lid) await endLive(lid, "violation");
+              break;
+            }
             case "dismiss":
               break;
             default:
@@ -59356,6 +59430,149 @@ async function handle(req, context5, routeOverride) {
         })
       );
       return json2({ mod: out });
+    }
+    if (route === "live/start" && method === "POST") {
+      {
+        const blk = sendBlock(meUser);
+        if (blk) return err(blk, 403);
+      }
+      const body = await req.json().catch(() => null);
+      if (!body || !LID_RE.test(body.lid || "")) return err("Ung\xFCltig");
+      const mime = typeof body.mime === "string" ? body.mime.slice(0, 80) : "";
+      if (!/^video\/(webm|mp4)(;[ a-z0-9.,="-]*)?$/i.test(mime)) return err("Dieses Videoformat wird nicht unterst\xFCtzt.");
+      const rs = (Array.isArray(body.rs) ? body.rs : ["hd"]).filter((r) => LIVE_RS.includes(r));
+      if (!rs.length) return err("Ung\xFCltig");
+      const pub = body.pub === true;
+      const title = cleanName(typeof body.title === "string" ? body.title : "").slice(0, 60) || "";
+      const keys = {};
+      if (!pub) {
+        for (const [id, wk] of Object.entries(body.keys || {}).slice(0, 500)) if (ID_RE.test(id) && validEnc(wk, 200)) keys[id] = wk;
+      }
+      if (pub && title) {
+        const v = await moderate([{ text: title }], "public live title pre-check", "public_story", recordOf(meUser));
+        if (v?.violation) {
+          await applyVerdict(me, { ...v, delete_messages: false });
+          return err("Dieser Titel verst\xF6\xDFt gegen die Regeln.", 422);
+        }
+      }
+      const prev = await liveIdx().get(me);
+      if (prev && prev !== body.lid) await endLive(prev);
+      const meta = { owner: me, title, pub, mime, rs, q: String(body.q || "").slice(0, 10), started: Date.now(), ...pub ? {} : { keys } };
+      await lives().setJSON(body.lid, meta);
+      await liveIdx().set(me, body.lid);
+      if (pub) await livePub().set(body.lid, me);
+      const notifyIds = (Array.isArray(body.notify) ? body.notify : []).filter((id) => typeof id === "string" && ID_RE.test(id) && id !== me).slice(0, 300);
+      context5.waitUntil(
+        (async () => {
+          for (const to of notifyIds) {
+            if (await blocks().get(`${to}/${me}`)) continue;
+            await notify(to, me, meUser.name || "", void 0, { live: body.lid }).catch(() => {
+            });
+          }
+        })()
+      );
+      return json2({ ok: true, started: meta.started });
+    }
+    if (route === "live/seg" && method === "PUT") {
+      const lid = url.searchParams.get("lid") || "";
+      const r = url.searchParams.get("r") || "";
+      const n = Number(url.searchParams.get("n"));
+      if (!LID_RE.test(lid) || !LIVE_RS.includes(r) || !Number.isInteger(n) || n < 1 || n > 1e5) return err("Ung\xFCltig");
+      const meta = await lives().get(lid, { type: "json" });
+      if (!meta || meta.owner !== me) return err("Kein eigenes Live", 404);
+      const blk = sendBlock(meUser);
+      if (blk) {
+        await endLive(lid, "blocked");
+        return err(blk, 403);
+      }
+      if (meta.ended) return err(meta.endReason === "violation" ? "Dein Live wurde wegen eines Regelversto\xDFes beendet." : "Das Live ist beendet.", 410);
+      if (Date.now() - meta.started > LIVE_MAX_MS) {
+        await endLive(lid, "time");
+        return err("Ein Live darf h\xF6chstens 4 Stunden dauern.", 410);
+      }
+      const buf = await req.arrayBuffer();
+      if (!buf.byteLength || buf.byteLength > LIVE_SEG_MAX) return err("St\xFCck zu gro\xDF", 413);
+      await liveSegs().set(`${lid}/${r}/${n}`, buf);
+      const prev = await liveLast().get(`${lid}/${r}`, { type: "json" });
+      await liveLast().setJSON(`${lid}/${r}`, { n: Math.max(n, prev?.n || 0), ts: Date.now() });
+      if (n > LIVE_KEEP) context5.waitUntil(liveSegs().delete(`${lid}/${r}/${n - LIVE_KEEP}`).catch(() => {
+      }));
+      return json2({ ok: true, viewers: r === "hd" ? await liveViewers(lid) : void 0 });
+    }
+    if (route === "live/join" && method === "POST") {
+      const body = await req.json().catch(() => null);
+      const lid = String(body?.lid || "");
+      if (!LID_RE.test(lid)) return err("Ung\xFCltig");
+      const st = await liveState(lid);
+      if (!st) return err("Dieses Live gibt es nicht mehr.", 404);
+      const { meta } = st;
+      const wk = meta.keys?.[me];
+      if (!meta.pub && meta.owner !== me && !wk) return err("Dieses Live ist nur f\xFCr Kontakte.", 403);
+      if (meta.owner !== me && await blocks().get(`${meta.owner}/${me}`)) return err("Dieses Live gibt es nicht mehr.", 404);
+      if (st.alive && meta.owner !== me) await liveWatch().set(`${lid}/${me}`, String(Date.now()));
+      const ou = await getUser(meta.owner);
+      return json2({
+        lid,
+        owner: meta.owner,
+        name: ou?.name || "",
+        av: ou?.av || 0,
+        title: meta.title,
+        pub: meta.pub,
+        mime: meta.mime,
+        rs: meta.rs,
+        q: meta.q,
+        started: meta.started,
+        last: st.last,
+        alive: st.alive,
+        wk,
+        viewers: st.alive ? await liveViewers(lid) : 0
+      });
+    }
+    if (route === "live/leave" && method === "POST") {
+      const body = await req.json().catch(() => null);
+      if (LID_RE.test(String(body?.lid || ""))) await liveWatch().delete(`${body.lid}/${me}`);
+      return json2({ ok: true });
+    }
+    if (route === "live/end" && method === "POST") {
+      const body = await req.json().catch(() => null);
+      const lid = String(body?.lid || "");
+      if (!LID_RE.test(lid)) return err("Ung\xFCltig");
+      const meta = await lives().get(lid, { type: "json" });
+      if (!meta) return json2({ ok: true });
+      if (meta.owner !== me && meUser.role !== "owner") return err("Nicht erlaubt", 403);
+      await endLive(lid, meta.owner === me ? "" : "owner");
+      return json2({ ok: true });
+    }
+    if (route === "live/list" && method === "GET") {
+      const ids2 = (url.searchParams.get("ids") || "").split(",").filter((x) => ID_RE.test(x)).slice(0, 300);
+      const found = /* @__PURE__ */ new Map();
+      for (const id of ids2) {
+        const lid = await liveIdx().get(id);
+        if (lid && !found.has(lid)) {
+          const m = await lives().get(lid, { type: "json" });
+          if (m) found.set(lid, { ...m, lid });
+        }
+      }
+      if (url.searchParams.get("pub") !== "0") {
+        const { blobs } = await livePub().list();
+        for (const b of blobs.slice(-40)) {
+          if (found.has(b.key)) continue;
+          const m = await lives().get(b.key, { type: "json" });
+          if (m) found.set(b.key, { ...m, lid: b.key });
+        }
+      }
+      const out = [];
+      for (const m of found.values()) {
+        if (!m.pub && !m.keys?.[me] && m.owner !== me) continue;
+        const st = await liveState(m.lid);
+        if (!st?.alive) continue;
+        if (m.owner !== me && await blocks().get(`${m.owner}/${me}`)) continue;
+        const ou = await getUser(m.owner);
+        if (!ou || ou.banned) continue;
+        out.push({ lid: m.lid, owner: m.owner, name: ou.name || "", av: ou.av || 0, title: m.title, pub: m.pub, started: m.started });
+      }
+      out.sort((a, b) => b.started - a.started);
+      return json2({ lives: out });
     }
     if (route === "send" && method === "POST") {
       {
@@ -59702,14 +59919,22 @@ async function handle(req, context5, routeOverride) {
       const type = body?.type;
       const target = body?.target;
       const reason = typeof body?.reason === "string" ? body.reason.slice(0, 60) : "";
-      if (!["message", "chat", "avatar", "story"].includes(type) || typeof target !== "string" || !ID_RE.test(target))
+      if (!["message", "chat", "avatar", "story", "live"].includes(type) || typeof target !== "string" || !ID_RE.test(target))
         return err("Ung\xFCltige Meldung");
       if (target === me) return err("Du kannst dich nicht selbst melden.");
       const tUser = await getUser(target);
       if (!tUser || tUser.deleted) return err("Dieses Konto existiert nicht mehr.", 404);
       let parts2 = [];
       let dedupeKey;
-      if (type === "story") {
+      if (type === "live") {
+        const lid = String(body.lid || "");
+        if (!LID_RE.test(lid)) return err("Ung\xFCltige Meldung");
+        const lm = await lives().get(lid, { type: "json" });
+        if (!lm || lm.owner !== target || !lm.pub && !lm.keys?.[me]) return err("Dieses Live gibt es nicht mehr.", 404);
+        const img = typeof body.imageB64 === "string" && /^[A-Za-z0-9+/=]+$/.test(body.imageB64) && body.imageB64.length < 6e5 ? body.imageB64 : void 0;
+        parts2 = [{ text: `[Livestream${lm.pub ? ", \xF6ffentlich" : ", nur Kontakte"}] Titel: ${lm.title || "(ohne Titel)"}`, imageB64: img }];
+        dedupeKey = `live/${lid}/${me}`;
+      } else if (type === "story") {
         const skey = typeof body.skey === "string" ? body.skey : "";
         if (!SKEY_RE.test(skey)) return err("Ung\xFCltige Meldung");
         const st = await stories().get(`${target}/${skey}`, { type: "json" });
@@ -59756,6 +59981,7 @@ async function handle(req, context5, routeOverride) {
       }
       const status = !verdict ? "review" : verdict.violation ? "violation" : "ok";
       const applied = verdict ? await applyVerdict(target, verdict, { removeAvatar: type === "avatar" && verdict.violation }) : null;
+      if (verdict?.violation && type === "live") await endLive(String(body.lid), "violation");
       if (verdict?.violation && type === "story") {
         await stories().delete(`${target}/${body.skey}`);
         await pubIndex().delete(`${body.skey}~${target}`);

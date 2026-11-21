@@ -20,6 +20,11 @@ Anonymer Chat **ohne Telefonnummer und ohne E-Mail** – live: https://pixelking
 - **GIFs wie bei Discord** – GIF-Tab im Emoji-Menü mit 16 eigenen animierten Pixel-GIFs (`public/gifs/`), eigene GIFs vom Gerät und GIPHY-Suche (aktiv, sobald die Umgebungsvariable `GIPHY_API_KEY` gesetzt ist).
 - **Sprachnachrichten spulen** – ⏪/⏩ 10 Sek., auf die Wellenform tippen, Geschwindigkeit 1×/1,5×/2×.
 - **Öffentliche Stories** – in den Einstellungen oder pro Story wählbar; erscheinen für alle unter „🌍 Entdecken“ und werden vor dem Veröffentlichen automatisch geprüft.
+- **Livestreams** (＋ → „Live gehen“): öffentlich (unter „Entdecken“) oder nur für Kontakte (Ende-zu-Ende-verschlüsselt, AES-GCM, Schlüssel pro Kontakt eingepackt). Kontakte bekommen „🔴 Name ist jetzt live“ als Push. Ein Live dauert höchstens 4 Stunden.
+  - **Qualität beim Streamer:** Auto (720p, passt sich der Upload-Geschwindigkeit an, 480p bis 1080p), 1080p, 720p oder 480p. Zusätzlich wird immer eine 480p-Version mitgesendet (Canvas-Verkleinerung).
+  - **Qualität beim Zuschauer:** Auto (je nach Download-Geschwindigkeit), HD oder 480p.
+  - **Technik:** MediaRecorder nimmt alle 3 s ein abgeschlossenes Stück auf (`PUT /api/live/seg`). Zuschauer hängen die Stücke per Media Source Extensions aneinander (Ersatz ohne MSE: Stücke nacheinander abspielen). Stücke sind unveränderlich und werden vom Vercel-CDN zwischengespeichert, deshalb kostet ein weiterer Zuschauer fast keine Datenbank-Last. Pro Stufe bleiben nur die letzten ~20 Stücke gespeichert. Verzögerung ca. 5–8 s.
+  - **Melden:** Zuschauer melden mit Standbild und Titel. Bei einem Verstoß wird das Live sofort beendet. Der Besitzer kann jedes Live beenden.
 - **Links** in Nachrichten sind anklickbar und öffnen sich in einem neuen Tab, ohne Weitergabe der App-Adresse. Nur `http(s)`-Links werden erkannt, `javascript:` und Ähnliches nicht.
 - **YouTube-Videos** (auch Shorts und Links mit Startzeit) laufen direkt im Chat über `youtube-nocookie.com`. Der Player lädt erst beim Antippen, vorher geht keine Anfrage an YouTube.
 - **Sprachanrufe & Sprach-Meetings** – bewusst nur Ton, keine Videoanrufe (spart Datenvolumen, läuft auch auf schwachen Handys; Profilbild leuchtet beim Sprechen, Lautsprecher-Knopf) (WebRTC, direkt zwischen den Geräten, Verbindungsaufbau Ende-zu-Ende-verschlüsselt) mit Klingel-Bildschirm, Push „ruft dich an“ und Anrufliste im Chat. „Anrufe erlauben“ lässt sich in den Einstellungen ausschalten.
@@ -65,3 +70,6 @@ Gemessen auf Vercel (fra1) mit Supabase, ohne einen einzigen Fehler:
 | 300 | 166 | 1771 / 1771 | 1,8 s | 157 ms |
 
 Die Zustellzeit kommt fast nur von der 3-Sekunden-Abfrage, der Server selbst antwortet in ca. 0,16 s.
+
+### Datenvolumen bei Livestreams (Vercel Hobby: 100 GB/Monat)
+Pro Zuschauer und Stunde ungefähr: 1080p ≈ 1,9 GB · 720p ≈ 1 GB · 480p ≈ 0,4 GB.

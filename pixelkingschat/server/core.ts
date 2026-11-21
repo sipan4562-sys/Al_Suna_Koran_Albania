@@ -53,6 +53,63 @@ const isMuted = (p: Pref) => p.muteUntil === -1 || (!!p.muteUntil && p.muteUntil
 const meetings = () => getStore({ name: "pk-meetings", consistency: "strong" });
 const meetMembers = () => getStore({ name: "pk-meetmembers", consistency: "strong" });
 const MEET_RE = /^[A-HJ-NP-Z2-9]{6}$/;
+/* ---------- Livestreams ---------- */
+// Der Streamer lädt alle ~3 s ein in sich abgeschlossenes Video-Stück hoch (je Qualitätsstufe).
+// Nur-Kontakte-Lives sind Ende-zu-Ende-verschlüsselt (Schlüssel pro Kontakt eingepackt).
+const lives = () => getStore({ name: "pk-live", consistency: "strong" });
+const liveIdx = () => getStore({ name: "pk-liveidx", consistency: "strong" });
+const livePub = () => getStore({ name: "pk-livepub", consistency: "strong" });
+const liveLast = () => getStore({ name: "pk-livelast", consistency: "strong" });
+const liveSegs = () => getStore({ name: "pk-liveseg", consistency: "strong" });
+const liveWatch = () => getStore({ name: "pk-livewatch", consistency: "strong" });
+const LID_RE = /^[A-Za-z0-9_-]{16}$/;
+const LIVE_RS = ["hd", "sd"];
+const LIVE_SEG_MAX = 4_000_000; // unter dem Function-Limit von 4,5 MB
+const LIVE_KEEP = 20; // so viele Stücke pro Stufe bleiben gespeichert (~1 Min.)
+const LIVE_ALIVE_MS = 20000;
+const LIVE_MAX_MS = 4 * 3600_000;
+type LiveMeta = {
+  owner: string;
+  title: string;
+  pub: boolean;
+  mime: string;
+  rs: string[];
+  q: string;
+  started: number;
+  keys?: Record<string, { iv: string; ct: string }>;
+  ended?: number;
+  endReason?: string;
+};
+type LiveLast = { n: number; ts: number };
+async function liveState(lid: string) {
+  const meta = (await lives().get(lid, { type: "json" })) as LiveMeta | null;
+  if (!meta) return null;
+  const last: Record<string, number> = {};
+  let beat = meta.started;
+  for (const r of meta.rs) {
+    const l = (await liveLast().get(`${lid}/${r}`, { type: "json" })) as LiveLast | null;
+    last[r] = l?.n || 0;
+    if (l && l.ts > beat) beat = l.ts;
+  }
+  const now = Date.now();
+  const alive = !meta.ended && now - beat < LIVE_ALIVE_MS && now - meta.started < LIVE_MAX_MS;
+  return { meta, last, beat, alive };
+}
+async function liveViewers(lid: string) {
+  const { blobs } = await liveWatch().list({ prefix: `${lid}/` });
+  return blobs.length;
+}
+async function endLive(lid: string, reason = "") {
+  const meta = (await lives().get(lid, { type: "json" })) as LiveMeta | null;
+  if (!meta) return;
+  if (!meta.ended) {
+    meta.ended = Date.now();
+    if (reason) meta.endReason = reason;
+    await lives().setJSON(lid, meta);
+  }
+  if ((await liveIdx().get(meta.owner)) === lid) await liveIdx().delete(meta.owner);
+  await livePub().delete(lid);
+}
 const MEET_MAX = 8;
 const MEET_ALIVE_MS = 20000;
 const lastPresenceWrite = new Map<string, number>();
@@ -553,6 +610,31 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
       });
     }
 
+    // ---------- Livestream: Stücke & Status (ohne Anmeldung – zwischenspeicherbar) ----------
+    if (route === "live/seg" && method === "GET") {
+      const lid = url.searchParams.get("lid") || "";
+      const r = url.searchParams.get("r") || "";
+      const n = Number(url.searchParams.get("n"));
+      if (!LID_RE.test(lid) || !LIVE_RS.includes(r) || !Number.isInteger(n) || n < 1) return err("Ungültig");
+      const data = await liveSegs().get(`${lid}/${r}/${n}`, { type: "arrayBuffer" });
+      if (!data) return err("Noch nicht da", 404);
+      // Stücke ändern sich nie → das CDN darf sie für alle Zuschauer zwischenspeichern
+      return new Response(data, {
+        headers: { "content-type": "application/octet-stream", "cache-control": "public, max-age=300, s-maxage=600, immutable" },
+      });
+    }
+    if (route === "live/head" && method === "GET") {
+      const lid = url.searchParams.get("lid") || "";
+      if (!LID_RE.test(lid)) return err("Ungültig");
+      const st = await liveState(lid);
+      if (!st) return err("Dieses Live gibt es nicht.", 404);
+      const viewers = st.alive ? await liveViewers(lid) : 0;
+      return new Response(
+        JSON.stringify({ last: st.last, alive: st.alive, ended: !st.alive, endReason: st.meta.endReason || "", viewers, q: st.meta.q }),
+        { headers: { "content-type": "application/json", "cache-control": "public, max-age=1, s-maxage=1" } }
+      );
+    }
+
     const session = await auth(req);
     if (!session) return err("Nicht angemeldet", 401);
     const me = session.id;
@@ -842,6 +924,11 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
               await avatars().delete(target);
               u.av = 0;
               break;
+            case "endlive": {
+              const lid = await liveIdx().get(target);
+              if (lid) await endLive(lid, "violation");
+              break;
+            }
             case "dismiss":
               break;
             default:
@@ -919,6 +1006,145 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
     }
 
     // Verschlüsselte Nachricht senden
+    if (route === "live/start" && method === "POST") {
+      { const blk = sendBlock(meUser); if (blk) return err(blk, 403); }
+      const body = await req.json().catch(() => null);
+      if (!body || !LID_RE.test(body.lid || "")) return err("Ungültig");
+      const mime = typeof body.mime === "string" ? body.mime.slice(0, 80) : "";
+      if (!/^video\/(webm|mp4)(;[ a-z0-9.,="-]*)?$/i.test(mime)) return err("Dieses Videoformat wird nicht unterstützt.");
+      const rs = (Array.isArray(body.rs) ? body.rs : ["hd"]).filter((r: unknown) => LIVE_RS.includes(r as string));
+      if (!rs.length) return err("Ungültig");
+      const pub = body.pub === true;
+      const title = cleanName(typeof body.title === "string" ? body.title : "").slice(0, 60) || "";
+      const keys: Record<string, Enc> = {};
+      if (!pub) for (const [id, wk] of Object.entries(body.keys || {}).slice(0, 500)) if (ID_RE.test(id) && validEnc(wk, 200)) keys[id] = wk as Enc;
+      if (pub && title) {
+        const v = await moderate([{ text: title }], "public live title pre-check", "public_story", recordOf(meUser));
+        if (v?.violation) {
+          await applyVerdict(me, { ...v, delete_messages: false });
+          return err("Dieser Titel verstößt gegen die Regeln.", 422);
+        }
+      }
+      const prev = await liveIdx().get(me);
+      if (prev && prev !== body.lid) await endLive(prev);
+      const meta: LiveMeta = { owner: me, title, pub, mime, rs, q: String(body.q || "").slice(0, 10), started: Date.now(), ...(pub ? {} : { keys }) };
+      await lives().setJSON(body.lid, meta);
+      await liveIdx().set(me, body.lid);
+      if (pub) await livePub().set(body.lid, me);
+      // Kontakte benachrichtigen („… ist jetzt live“ – ohne Inhalt)
+      const notifyIds = (Array.isArray(body.notify) ? body.notify : []).filter((id: unknown) => typeof id === "string" && ID_RE.test(id) && id !== me).slice(0, 300);
+      context.waitUntil(
+        (async () => {
+          for (const to of notifyIds) {
+            if (await blocks().get(`${to}/${me}`)) continue;
+            await notify(to, me, meUser.name || "", undefined, { live: body.lid }).catch(() => {});
+          }
+        })()
+      );
+      return json({ ok: true, started: meta.started });
+    }
+    if (route === "live/seg" && method === "PUT") {
+      const lid = url.searchParams.get("lid") || "";
+      const r = url.searchParams.get("r") || "";
+      const n = Number(url.searchParams.get("n"));
+      if (!LID_RE.test(lid) || !LIVE_RS.includes(r) || !Number.isInteger(n) || n < 1 || n > 100000) return err("Ungültig");
+      const meta = (await lives().get(lid, { type: "json" })) as LiveMeta | null;
+      if (!meta || meta.owner !== me) return err("Kein eigenes Live", 404);
+      const blk = sendBlock(meUser);
+      if (blk) {
+        await endLive(lid, "blocked");
+        return err(blk, 403);
+      }
+      if (meta.ended) return err(meta.endReason === "violation" ? "Dein Live wurde wegen eines Regelverstoßes beendet." : "Das Live ist beendet.", 410);
+      if (Date.now() - meta.started > LIVE_MAX_MS) {
+        await endLive(lid, "time");
+        return err("Ein Live darf höchstens 4 Stunden dauern.", 410);
+      }
+      const buf = await req.arrayBuffer();
+      if (!buf.byteLength || buf.byteLength > LIVE_SEG_MAX) return err("Stück zu groß", 413);
+      await liveSegs().set(`${lid}/${r}/${n}`, buf);
+      const prev = (await liveLast().get(`${lid}/${r}`, { type: "json" })) as LiveLast | null;
+      await liveLast().setJSON(`${lid}/${r}`, { n: Math.max(n, prev?.n || 0), ts: Date.now() });
+      // alte Stücke sofort löschen – hält die Datenbank klein
+      if (n > LIVE_KEEP) context.waitUntil(liveSegs().delete(`${lid}/${r}/${n - LIVE_KEEP}`).catch(() => {}));
+      return json({ ok: true, viewers: r === "hd" ? await liveViewers(lid) : undefined });
+    }
+    if (route === "live/join" && method === "POST") {
+      const body = await req.json().catch(() => null);
+      const lid = String(body?.lid || "");
+      if (!LID_RE.test(lid)) return err("Ungültig");
+      const st = await liveState(lid);
+      if (!st) return err("Dieses Live gibt es nicht mehr.", 404);
+      const { meta } = st;
+      const wk = meta.keys?.[me];
+      if (!meta.pub && meta.owner !== me && !wk) return err("Dieses Live ist nur für Kontakte.", 403);
+      if (meta.owner !== me && (await blocks().get(`${meta.owner}/${me}`))) return err("Dieses Live gibt es nicht mehr.", 404);
+      if (st.alive && meta.owner !== me) await liveWatch().set(`${lid}/${me}`, String(Date.now()));
+      const ou = await getUser(meta.owner);
+      return json({
+        lid,
+        owner: meta.owner,
+        name: ou?.name || "",
+        av: ou?.av || 0,
+        title: meta.title,
+        pub: meta.pub,
+        mime: meta.mime,
+        rs: meta.rs,
+        q: meta.q,
+        started: meta.started,
+        last: st.last,
+        alive: st.alive,
+        wk,
+        viewers: st.alive ? await liveViewers(lid) : 0,
+      });
+    }
+    if (route === "live/leave" && method === "POST") {
+      const body = await req.json().catch(() => null);
+      if (LID_RE.test(String(body?.lid || ""))) await liveWatch().delete(`${body.lid}/${me}`);
+      return json({ ok: true });
+    }
+    if (route === "live/end" && method === "POST") {
+      const body = await req.json().catch(() => null);
+      const lid = String(body?.lid || "");
+      if (!LID_RE.test(lid)) return err("Ungültig");
+      const meta = (await lives().get(lid, { type: "json" })) as LiveMeta | null;
+      if (!meta) return json({ ok: true });
+      if (meta.owner !== me && meUser.role !== "owner") return err("Nicht erlaubt", 403);
+      await endLive(lid, meta.owner === me ? "" : "owner");
+      return json({ ok: true });
+    }
+    if (route === "live/list" && method === "GET") {
+      const ids = (url.searchParams.get("ids") || "").split(",").filter((x) => ID_RE.test(x)).slice(0, 300);
+      const found = new Map<string, LiveMeta & { lid: string }>();
+      for (const id of ids) {
+        const lid = await liveIdx().get(id);
+        if (lid && !found.has(lid)) {
+          const m = (await lives().get(lid, { type: "json" })) as LiveMeta | null;
+          if (m) found.set(lid, { ...m, lid });
+        }
+      }
+      if (url.searchParams.get("pub") !== "0") {
+        const { blobs } = await livePub().list();
+        for (const b of blobs.slice(-40)) {
+          if (found.has(b.key)) continue;
+          const m = (await lives().get(b.key, { type: "json" })) as LiveMeta | null;
+          if (m) found.set(b.key, { ...m, lid: b.key });
+        }
+      }
+      const out = [];
+      for (const m of found.values()) {
+        if (!m.pub && !m.keys?.[me] && m.owner !== me) continue;
+        const st = await liveState(m.lid);
+        if (!st?.alive) continue;
+        if (m.owner !== me && (await blocks().get(`${m.owner}/${me}`))) continue;
+        const ou = await getUser(m.owner);
+        if (!ou || ou.banned) continue;
+        out.push({ lid: m.lid, owner: m.owner, name: ou.name || "", av: ou.av || 0, title: m.title, pub: m.pub, started: m.started });
+      }
+      out.sort((a, b) => b.started - a.started);
+      return json({ lives: out });
+    }
+
     if (route === "send" && method === "POST") {
       { const blk = sendBlock(meUser); if (blk) return err(blk, 403); }
       const body = await req.json().catch(() => null);
@@ -1275,7 +1501,7 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
       const type = body?.type;
       const target = body?.target;
       const reason = typeof body?.reason === "string" ? body.reason.slice(0, 60) : "";
-      if (!["message", "chat", "avatar", "story"].includes(type) || typeof target !== "string" || !ID_RE.test(target))
+      if (!["message", "chat", "avatar", "story", "live"].includes(type) || typeof target !== "string" || !ID_RE.test(target))
         return err("Ungültige Meldung");
       if (target === me) return err("Du kannst dich nicht selbst melden.");
       const tUser = await getUser(target);
@@ -1283,7 +1509,15 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
 
       let parts: { text?: string; imageB64?: string; audio?: boolean }[] = [];
       let dedupeKey: string;
-      if (type === "story") {
+      if (type === "live") {
+        const lid = String(body.lid || "");
+        if (!LID_RE.test(lid)) return err("Ungültige Meldung");
+        const lm = (await lives().get(lid, { type: "json" })) as LiveMeta | null;
+        if (!lm || lm.owner !== target || (!lm.pub && !lm.keys?.[me])) return err("Dieses Live gibt es nicht mehr.", 404);
+        const img = typeof body.imageB64 === "string" && /^[A-Za-z0-9+/=]+$/.test(body.imageB64) && body.imageB64.length < 600_000 ? body.imageB64 : undefined;
+        parts = [{ text: `[Livestream${lm.pub ? ", öffentlich" : ", nur Kontakte"}] Titel: ${lm.title || "(ohne Titel)"}`, imageB64: img }];
+        dedupeKey = `live/${lid}/${me}`;
+      } else if (type === "story") {
         const skey = typeof body.skey === "string" ? body.skey : "";
         if (!SKEY_RE.test(skey)) return err("Ungültige Meldung");
         const st = (await stories().get(`${target}/${skey}`, { type: "json" })) as (Enc & { keys: Record<string, Enc>; pub?: boolean; content?: any }) | null;
@@ -1335,6 +1569,7 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
       }
       const status: keyof typeof RESULT_TEXT = !verdict ? "review" : verdict.violation ? "violation" : "ok";
       const applied = verdict ? await applyVerdict(target, verdict, { removeAvatar: type === "avatar" && verdict.violation }) : null;
+      if (verdict?.violation && type === "live") await endLive(String(body.lid), "violation");
       if (verdict?.violation && type === "story") {
         await stories().delete(`${target}/${body.skey}`);
         await pubIndex().delete(`${body.skey}~${target}`);

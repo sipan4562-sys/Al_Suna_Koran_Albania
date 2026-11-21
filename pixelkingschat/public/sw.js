@@ -9,6 +9,7 @@ const SHELL = [
   "/emoji.js",
   "/theme.js",
   "/calls.js",
+  "/live.js",
   "/style.css",
   "/vendor/qrcode.js",
   "/vendor/jsQR.js",
@@ -116,6 +117,17 @@ self.addEventListener("push", (event) => {
         });
         return;
       }
+      if (typeof data.live === "string") {
+        await self.registration.showNotification(`🔴 ${name}`, {
+          body: "ist jetzt live – tippen zum Zuschauen",
+          icon: "/icon-192.png",
+          badge: "/icon-192.png",
+          tag: `live-${from}`,
+          renotify: true,
+          data: { live: data.live },
+        });
+        return;
+      }
       if (data.call) {
         await self.registration.showNotification(`📞 ${name}`, {
           body: "ruft dich an – tippen zum Annehmen",
@@ -145,13 +157,14 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const from = event.notification.data?.from;
   const owner = !!event.notification.data?.owner;
-  const url = owner ? "/#owner" : from ? `/#chat=${from}` : "/";
+  const lid = event.notification.data?.live;
+  const url = lid ? `/#live=${lid}` : owner ? "/#owner" : from ? `/#chat=${from}` : "/";
   event.waitUntil(
     (async () => {
       const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const w of wins) {
         if ("focus" in w) {
-          w.postMessage(owner ? { type: "owner" } : { type: "open", from });
+          w.postMessage(lid ? { type: "live", lid } : owner ? { type: "owner" } : { type: "open", from });
           return w.focus();
         }
       }

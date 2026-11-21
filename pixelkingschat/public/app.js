@@ -9,6 +9,7 @@ const $ = (s) => document.querySelector(s);
 import { renderRich, isEmoji, pixelEmoji, EMOJI_SETS } from "./emoji.js";
 import { applyTheme, ACCENTS, BASES, WALLPAPERS, wallpaperUrl } from "./theme.js";
 import { initCalls } from "./calls.js";
+import { initLive } from "./live.js";
 
 /* ================= Hilfsfunktionen ================= */
 const enc = new TextEncoder();
@@ -1527,15 +1528,16 @@ const REASONS = [
   ["other", "Etwas anderes"],
 ];
 
-function showReport({ type, target, mids = [], after, skey, key }) {
+function showReport({ type, target, mids = [], after, skey, key, lid, imageB64 }) {
   const body = el("div", "stack");
-  const titles = { message: "Nachricht melden", chat: "Chat melden", avatar: "Profilbild melden", story: "Story melden" };
+  const titles = { message: "Nachricht melden", chat: "Chat melden", avatar: "Profilbild melden", story: "Story melden", live: "Live melden" };
   body.append(el("h2", null, "⚑ " + titles[type]));
   const expl = {
     message: "Die gemeldete Nachricht wird zur Prüfung übermittelt. Alle anderen Nachrichten bleiben privat.",
     chat: "Die letzten empfangenen Nachrichten dieses Kontakts werden zur Prüfung übermittelt. Deine eigenen Nachrichten bleiben privat.",
     avatar: "Das Profilbild wird zur Prüfung übermittelt.",
     story: "Die Story wird zur Prüfung übermittelt.",
+    live: "Ein Standbild des Lives und der Titel werden zur Prüfung übermittelt.",
   };
   body.append(el("p", "small muted", expl[type]));
   body.append(el("strong", null, "Was ist das Problem?"));
@@ -1556,7 +1558,8 @@ function showReport({ type, target, mids = [], after, skey, key }) {
   const lab = el("label", "check");
   const blockCb = el("input");
   blockCb.type = "checkbox";
-  blockCb.checked = type !== "avatar";
+  blockCb.checked = type !== "avatar" && type !== "live";
+  if (type === "live" && !S.contacts[target]) lab.classList.add("hidden");
   lab.append(blockCb, " Kontakt außerdem blockieren");
   send.onclick = async () => {
     send.disabled = true;
@@ -1575,7 +1578,7 @@ function showReport({ type, target, mids = [], after, skey, key }) {
         }
         if (!items.length) throw new Error("Keine Nachrichten gefunden, die gemeldet werden können.");
       }
-      const res = await api("report", { body: { type, target, reason: picked, items, skey, k: key } });
+      const res = await api("report", { body: { type, target, reason: picked, items, skey, k: key, lid, imageB64 } });
       if (res.applied) pollModeration();
       if (blockCb.checked) await setBlocked(target, true);
       const done = el("div", "stack");
@@ -2111,6 +2114,8 @@ async function doRegisterSW() {
     navigator.serviceWorker.addEventListener("message", (e) => {
       if (e.data?.type === "push") poll();
       if (e.data?.type === "owner") showOwnerPanel();
+      if (e.data?.type === "live" && e.data.lid) liveMod?.watch(e.data.lid);
+      if (e.data?.type === "push") liveMod?.refreshList();
       if (e.data?.type === "open" && e.data.from) {
         poll();
         openChat(e.data.from);
@@ -2474,6 +2479,7 @@ function showNewMenu() {
     ["👥", "Neue Gruppe", "Mit mehreren Kontakten chatten", showNewGroup],
     ["📸", "Story posten", "Für 24 Stunden für deine Kontakte", newStory],
     ["📹", "Meeting", "Starten oder mit Code beitreten", showMeetingMenu],
+    ["🔴", "Live gehen", "Livestream für Kontakte oder öffentlich", () => liveMod.showGoLive()],
   ];
   for (const [icon, title, sub, fn] of opts) {
     const b = el("button", "menu-item");
@@ -2682,6 +2688,10 @@ function renderStoryBar() {
     "discover",
     showDiscover
   );
+  for (const lv of liveMod?.list() || []) {
+    if (!S.contacts[lv.owner]) continue;
+    item(displayName(S.contacts[lv.owner]), (a) => fillAvatar(a, S.contacts[lv.owner]), "live", () => liveMod.watch(lv.lid));
+  }
   const owners = Object.keys(S.stories).filter((o) => S.contacts[o] && S.stories[o].length);
   const unseen = (o) => S.stories[o].some((st) => !S.storySeen[`${o}/${st.skey}`]);
   owners.sort((a, b) => unseen(b) - unseen(a) || S.stories[b].at(-1).ts - S.stories[a].at(-1).ts);
@@ -4108,7 +4118,31 @@ async function renderGifTab(grid) {
 async function showDiscover() {
   const body = el("div", "stack");
   body.append(el("h2", null, "🌍 Entdecken"));
-  body.append(el("p", "small muted", "Öffentliche Stories aus der ganzen Pixelkingschat-Community (24 Stunden)."));
+  body.append(el("p", "small muted", "Öffentliche Lives und Stories aus der ganzen Pixelkingschat-Community."));
+  const liveBox = el("div", "discover-grid");
+  body.append(liveBox);
+  liveMod
+    ?.refreshList()
+    .then((ls) => {
+      const pubs = ls.filter((x) => x.pub);
+      if (!pubs.length) return;
+      liveBox.before(el("strong", null, "🔴 Gerade live"));
+      for (const lv of pubs) {
+        const b = el("button", "discover-item");
+        const ring = el("div", "story-ring live");
+        const a = el("div", "avatar");
+        fillAvatar(a, S.contacts[lv.owner] || { id: lv.owner, av: lv.av, name: lv.name }, lv.name || lv.owner);
+        ring.append(a);
+        b.append(ring, rich("span", "story-label", lv.title || lv.name || lv.owner), rich("span", "small muted", lv.title ? lv.name || lv.owner : timeAgo(lv.started)));
+        b.onclick = () => {
+          closeModal();
+          liveMod.watch(lv.lid);
+        };
+        liveBox.append(b);
+      }
+      liveBox.after(el("strong", null, "📸 Stories"));
+    })
+    .catch(() => {});
   const grid = el("div", "discover-grid");
   grid.append(el("p", "small muted", "Wird geladen…"));
   body.append(grid);
@@ -4224,6 +4258,33 @@ function setupCalls() {
   };
 }
 
+/* ================= Livestreams ================= */
+let liveMod = null;
+function setupLive() {
+  liveMod = initLive({
+    api,
+    S: () => S,
+    el,
+    rich,
+    toast,
+    b64u,
+    rand,
+    msgKeyBytes,
+    aesSeal,
+    aesOpenRaw,
+    fillAvatar,
+    displayName,
+    storyContacts,
+    sendBlocked,
+    openModal,
+    closeModal,
+    showReport,
+    save,
+    isOwner: () => isOwner(),
+    onList: () => renderStoryBar(),
+  });
+}
+
 /* ================= Automatische Updates (Handy, PC, iOS) ================= */
 const APP_VERSION = "__PK_VERSION__";
 let updateReady = false;
@@ -4232,6 +4293,7 @@ function updateSafeNow() {
   // nicht mitten im Anruf, bei Aufnahme, offenem Dialog, Story oder beim Tippen neu laden
   return (
     !calls?.inCall() &&
+    !liveMod?.busy() &&
     !rec &&
     $("#modal").classList.contains("hidden") &&
     !document.querySelector(".story-view, .call-incoming") &&
@@ -4429,7 +4491,7 @@ const OWNER_ACTIONS = [
   ["timeout", "⏳ Timeout", ""],
   ["ban", "⛔ Sperren", "danger"],
 ];
-const TYPE_LABEL = { message: "Nachricht", chat: "Chat", avatar: "Profilbild", story: "Story" };
+const TYPE_LABEL = { message: "Nachricht", chat: "Chat", avatar: "Profilbild", story: "Story", live: "Livestream" };
 
 async function showOwnerPanel(tab = "open") {
   if (!isOwner()) return;
@@ -4520,7 +4582,7 @@ async function renderOwnerReports(box, filter) {
     } else if (r.status === "review") card.append(el("div", "small report-verdict", "Wartet auf deine Entscheidung."));
     if (r.ownerAction) card.append(el("div", "small accent", `✓ Von dir erledigt: ${r.ownerAction.action}${r.ownerAction.hours ? ` (${r.ownerAction.hours} Std)` : ""}`));
     const row = el("div", "owner-actions");
-    for (const [action, label, cls] of OWNER_ACTIONS) {
+    for (const [action, label, cls] of r.type === "live" ? [...OWNER_ACTIONS.slice(0, 2), ["endlive", "📴 Live beenden", ""], ...OWNER_ACTIONS.slice(2)] : OWNER_ACTIONS) {
       const b = el("button", "btn small-btn " + cls, label);
       b.onclick = () => ownerAction({ target: r.target, action, reportKey: r.key, done: () => showOwnerPanel(filter) });
       row.append(b);
@@ -4636,6 +4698,11 @@ async function renderOwnerSettings(box) {
 
 /* ================= Start ================= */
 function handleHash() {
+  const lm = /^#live=([A-Za-z0-9_-]{16})$/.exec(location.hash);
+  if (lm) {
+    history.replaceState(null, "", location.pathname);
+    return { kind: "live", code: lm[1] };
+  }
   const mm = /^#meet=([A-Z0-9]{6})$/i.exec(location.hash);
   if (mm) {
     history.replaceState(null, "", location.pathname);
@@ -4688,6 +4755,7 @@ async function startApp() {
     pendingHash = null;
     if (kind === "owner") setTimeout(() => showOwnerPanel(), 800);
     else if (kind === "meet") setTimeout(() => calls.joinMeeting(code), 300);
+    else if (kind === "live") setTimeout(() => liveMod.watch(code), 300);
     else if (kind === "new") showAdd("enter");
     else if (kind === "scan") showAdd("scan");
     else if (kind === "chat" && (S.contacts[code] || S.groups[code])) openChat(code);
@@ -4714,6 +4782,8 @@ async function startApp() {
     pollModeration();
   }, 60000);
   setInterval(updateModBanner, 30000);
+  liveMod.refreshList();
+  setInterval(() => !document.hidden && liveMod.refreshList(), 20000);
 }
 
 function loop() {
@@ -4844,6 +4914,7 @@ applyTheme(S.settings);
 adaptToDevice();
 bind();
 setupCalls();
+setupLive();
 setupUpdates();
 $("#importBtn").onclick = showImport;
 $("#restoreBtn").onclick = showRestore;
