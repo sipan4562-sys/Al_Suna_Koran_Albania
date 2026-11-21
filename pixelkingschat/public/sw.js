@@ -1,11 +1,13 @@
 // Pixelkingschat Service Worker – zeigt Benachrichtigungen bei neuen Nachrichten.
 // Der Inhalt bleibt Ende-zu-Ende-verschlüsselt: die Benachrichtigung zeigt nur, WER geschrieben hat.
 
-const CACHE = "pk-shell-v4";
+const CACHE = "pk-shell-v5";
 const SHELL = [
   "/",
   "/index.html",
   "/app.js",
+  "/emoji.js",
+  "/theme.js",
   "/style.css",
   "/vendor/qrcode.js",
   "/vendor/jsQR.js",
@@ -58,7 +60,7 @@ self.addEventListener("fetch", (event) => {
   );
 });
 
-function contactName(code) {
+function lookupName(code) {
   return new Promise((resolve) => {
     try {
       const req = indexedDB.open("pk", 1);
@@ -92,8 +94,10 @@ self.addEventListener("push", (event) => {
       } catch {}
       const from = typeof data.from === "string" ? data.from : "";
       const sentName = typeof data.name === "string" ? data.name.slice(0, 24) : "";
+      const gid = typeof data.gid === "string" ? data.gid : "";
       // Eigener Spitzname für den Kontakt > Name, den der Absender gewählt hat > Code
-      const name = (from && (await contactName(from))) || sentName || (from ? `Code ${from}` : "Pixelkingschat");
+      const name = (from && (await lookupName(from))) || sentName || (from ? `Code ${from}` : "Pixelkingschat");
+      const groupName = gid ? await lookupName(gid) : null;
       // Ist die App gerade sichtbar geöffnet, reicht die Anzeige in der App selbst.
       const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       const visible = wins.some((w) => w.visibilityState === "visible" && w.focused);
@@ -101,13 +105,13 @@ self.addEventListener("push", (event) => {
       // iOS verlangt zu jeder Push-Nachricht eine sichtbare Benachrichtigung.
       const iOS = /iPhone|iPad|iPod/.test(self.navigator.userAgent);
       if (visible && !iOS) return;
-      await self.registration.showNotification(name, {
-        body: "hat dir eine Nachricht geschickt 🔒",
+      await self.registration.showNotification(gid ? groupName || "Gruppe" : name, {
+        body: gid ? `${name} hat eine Nachricht geschickt 🔒` : "hat dir eine Nachricht geschickt 🔒",
         icon: "/icon-192.png",
         badge: "/icon-192.png",
-        tag: from ? `chat-${from}` : "pk",
+        tag: gid ? `chat-${gid}` : from ? `chat-${from}` : "pk",
         renotify: true,
-        data: { from },
+        data: { from: gid || from },
       });
     })()
   );

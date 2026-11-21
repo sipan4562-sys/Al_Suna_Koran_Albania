@@ -29,6 +29,8 @@
         <li><span>▦</span> Kontakte per Code oder QR-Code</li>
         <li><span>🖼</span> Bilder &amp; Profilbilder – ebenfalls verschlüsselt</li>
         <li><span>🔔</span> Benachrichtigungen auf dem Homebildschirm</li>
+        <li><span>👥</span> Gruppen, Stories &amp; Dateien</li>
+        <li><span>🎨</span> Eigene Farben &amp; Chat-Hintergründe</li>
       </ul>
       <label class="field">
         <span>Dein Anzeigename (sehen deine Kontakte)</span>
@@ -52,6 +54,7 @@
         <strong id="myCodeText" class="code">········</strong>
         <span class="small accent">Antippen zum Teilen ▦</span>
       </button>
+      <div id="storyBar" class="story-bar"></div>
       <div id="bannedBanner" class="banner danger hidden">⛔ Dein Konto wurde wegen Verstößen gegen die Regeln gesperrt. Du kannst keine Nachrichten mehr senden.</div>
       <div id="installBanner" class="banner hidden">
         <div class="banner-text">📲 Installiere Pixelkingschat auf deinem Homebildschirm – wie eine echte App.</div>
@@ -73,7 +76,7 @@
         <p>Noch keine Chats.</p>
         <p class="small muted">Schick jemandem deinen Code oder scanne seinen QR-Code.</p>
       </div>
-      <button id="addBtn" class="fab" aria-label="Kontakt hinzufügen">＋</button>
+      <button id="addBtn" class="fab" aria-label="Neu: Kontakt, Gruppe oder Story">＋</button>
     </aside>
 
     <main id="chat" class="no-chat">
@@ -92,13 +95,20 @@
       </header>
       <div id="messages" class="messages"></div>
       <form id="composer" class="composer" autocomplete="off">
-        <button type="button" id="onceBtn" class="once-toggle" aria-pressed="false" title="Einmal ansehen">
-          <span class="once-icon">1</span>
-        </button>
-        <button type="button" id="imgBtn" class="once-toggle" title="Bild senden" aria-label="Bild senden">🖼</button>
-        <input type="file" id="imgInput" accept="image/*" class="hidden">
-        <textarea id="msgInput" rows="1" maxlength="4000" placeholder="Verschlüsselte Nachricht…"></textarea>
+        <button type="button" id="attachBtn" class="once-toggle attach" aria-label="Anhängen" aria-expanded="false">＋</button>
+        <div class="input-wrap">
+          <textarea id="msgInput" rows="1" maxlength="4000" placeholder="Verschlüsselte Nachricht…"></textarea>
+          <button type="button" id="emojiBtn" class="emoji-btn" aria-label="Emojis"></button>
+        </div>
         <button type="submit" class="send-btn" aria-label="Senden">➤</button>
+        <input type="file" id="imgInput" accept="image/*" class="hidden">
+        <input type="file" id="fileInput" class="hidden">
+        <div id="attachMenu" class="popover attach-menu hidden">
+          <button type="button" data-act="img">🖼 <span>Foto / Bild</span></button>
+          <button type="button" data-act="file">📎 <span>Datei (bis 2,5 MB)</span></button>
+          <button type="button" data-act="once" id="onceBtn" aria-pressed="false">👁 <span>Einmal-Nachricht: aus</span></button>
+        </div>
+        <div id="emojiPanel" class="popover emoji-panel hidden"></div>
       </form>
     </main>
   </section>
@@ -114,6 +124,8 @@
   <div id="toast" class="toast hidden"></div>
 
   <input type="file" id="avatarInput" accept="image/*" class="hidden">
+  <input type="file" id="storyInput" accept="image/*" class="hidden">
+  <input type="file" id="wallpaperInput" accept="image/*" class="hidden">
   <script src="vendor/qrcode.js"></script>
   <script src="vendor/jsQR.js"></script>
   <script src="app.js" type="module"></script>

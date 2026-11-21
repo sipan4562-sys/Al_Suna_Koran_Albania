@@ -13,7 +13,12 @@ import * as webpush from "web-push";
 
 const TTL_MS = 24 * 60 * 60 * 1000;
 const HOUR = 60 * 60 * 1000;
-const MAX_CT = 1_500_000; // max. Länge verschlüsselter Inhalt (Base64) – genug für ein komprimiertes Bild
+const MAX_CT = 4_700_000; // max. Länge verschlüsselter Inhalt (Base64) – Bilder und Dateien bis 2,5 MB
+const MAX_STORY_CT = 1_700_000;
+const GID_RE = /^g_[A-Za-z0-9_-]{8,40}$/;
+const MID_RE = /^[A-Za-z0-9_-]{8,32}$/;
+const SID_RE = /^[A-Za-z0-9_-]{8,24}$/;
+const SKEY_RE = /^\d{10,16}-[A-Za-z0-9_-]{8,24}$/;
 const MAX_INBOX_BYTES = 4_000_000; // Antwortgröße pro Abruf begrenzen (Function-Limit 6 MB)
 const MAX_AVATAR = 200_000;
 const ID_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // ohne 0/O/1/I
@@ -28,6 +33,9 @@ const pushStore = () => getStore({ name: "pk-push", consistency: "strong" });
 const avatars = () => getStore({ name: "pk-avatars", consistency: "strong" });
 const blocks = () => getStore({ name: "pk-blocks", consistency: "strong" });
 const reports = () => getStore({ name: "pk-reports", consistency: "strong" });
+const gbodies = () => getStore({ name: "pk-gbody", consistency: "strong" });
+const stories = () => getStore({ name: "pk-stories", consistency: "strong" });
+const storyViews = () => getStore({ name: "pk-storyviews", consistency: "strong" });
 
 type User = {
   pub: string;
@@ -99,12 +107,12 @@ async function vapid(): Promise<string> {
   return vapidPub;
 }
 
-async function notify(to: string, from: string, name: string) {
+async function notify(to: string, from: string, name: string, gid?: string) {
   await vapid();
   const store = pushStore();
   const { blobs } = await store.list({ prefix: `${to}/` });
   // Inhalt bleibt verschlüsselt – die Benachrichtigung verrät nur den Absender-Code.
-  const payload = JSON.stringify({ from, name });
+  const payload = JSON.stringify(gid ? { from, name, gid } : { from, name });
   await Promise.all(
     blobs.map(async (b) => {
       const sub = await store.get(b.key, { type: "json" });
@@ -228,46 +236,55 @@ const RESULT_TEXT = {
   review: "Danke für deine Meldung! Sie wird jetzt genauer geprüft.",
 };
 
-type ReportItem = { mid: string; ts: number; iv: string; ct: string; k: string };
+type Enc = { iv: string; ct: string };
+type ReportItem = { mid: string; ts: number; iv: string; ct: string; k: string; body?: Enc };
+
+const validEnc = (e: any, max = MAX_CT): boolean =>
+  !!e && typeof e.iv === "string" && /^[A-Za-z0-9_-]{16}$/.test(e.iv) && typeof e.ct === "string" && B64U.test(e.ct) && e.ct.length <= max;
+
+async function aesOpen(kB64u: string, e: Enc, aad: string) {
+  const key = await crypto.subtle.importKey("raw", b64uToBytes(kB64u), "AES-GCM", false, ["decrypt"]);
+  const pt = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: b64uToBytes(e.iv), additionalData: new TextEncoder().encode(aad) },
+    key,
+    b64uToBytes(e.ct)
+  );
+  return JSON.parse(new TextDecoder().decode(pt));
+}
+
+function contentParts(p: any) {
+  let text = typeof p.t === "string" ? p.t.slice(0, 4000) : "";
+  if (p.file && typeof p.file.name === "string") text += `\n[Datei: ${p.file.name.slice(0, 120)}]`;
+  return { text: text || undefined, imageB64: typeof p.img === "string" ? p.img : undefined };
+}
 
 async function verifyItem(item: ReportItem, from: string, to: string) {
   if (
     !item ||
     typeof item.mid !== "string" ||
-    !/^[A-Za-z0-9_-]{8,32}$/.test(item.mid) ||
+    !MID_RE.test(item.mid) ||
     typeof item.ts !== "number" ||
-    typeof item.iv !== "string" ||
-    typeof item.ct !== "string" ||
+    !validEnc(item) ||
     typeof item.k !== "string" ||
-    !B64U.test(item.ct) ||
-    item.ct.length > MAX_CT ||
     !/^[A-Za-z0-9_-]{43}$/.test(item.k)
   )
     return null;
-  const f = (await franks().get(`${hourBucket(item.ts)}/${item.mid}`, { type: "json" })) as {
-    from: string;
-    to: string;
-    h: string;
-  } | null;
+  const fs = franks();
+  const b = hourBucket(item.ts);
+  const f = ((await fs.get(`${b}/${item.mid}.${to}`, { type: "json" })) ||
+    (await fs.get(`${b}/${item.mid}`, { type: "json" }))) as { from: string; to: string; h: string; hb?: string } | null;
   if (!f || f.from !== from || f.to !== to) return null;
   if ((await sha256Hex(`${item.iv}.${item.ct}`)) !== f.h) return null;
   try {
-    const key = await crypto.subtle.importKey("raw", b64uToBytes(item.k), "AES-GCM", false, ["decrypt"]);
-    const pt = await crypto.subtle.decrypt(
-      {
-        name: "AES-GCM",
-        iv: b64uToBytes(item.iv),
-        additionalData: new TextEncoder().encode(`${from}>${to}|${item.mid}`),
-      },
-      key,
-      b64uToBytes(item.ct)
-    );
-    const p = JSON.parse(new TextDecoder().decode(pt));
+    let p = await aesOpen(item.k, item, `${from}>${to}|${item.mid}`);
+    if (p?.k === "g") {
+      // Gruppennachricht: Umschlag enthält den Schlüssel des einmal gespeicherten Inhalts
+      if (!f.hb || !item.body || !validEnc(item.body) || typeof p.bk !== "string" || typeof p.gid !== "string") return null;
+      if ((await sha256Hex(`${item.body.iv}.${item.body.ct}`)) !== f.hb) return null;
+      p = await aesOpen(p.bk, item.body, `${p.gid}|${item.mid}`);
+    }
     if (p?.k !== "m") return null;
-    return {
-      text: typeof p.t === "string" ? p.t.slice(0, 4000) : undefined,
-      imageB64: typeof p.img === "string" ? p.img : undefined,
-    };
+    return contentParts(p);
   } catch {
     return null;
   }
@@ -368,8 +385,18 @@ export default async (req: Request, context: Context) => {
           await store.delete(b.key);
           continue;
         }
-        const m = (await store.get(b.key, { type: "json" })) as { ct: string } | null;
+        const m = (await store.get(b.key, { type: "json" })) as { ct: string; gb?: string; body?: Enc } | null;
         if (!m) continue;
+        if (m.gb) {
+          const body = (await gbodies().get(m.gb, { type: "json" })) as Enc | null;
+          if (!body) {
+            await store.delete(b.key);
+            continue;
+          }
+          m.body = body;
+          delete m.gb;
+          size += body.ct.length;
+        }
         size += m.ct.length + 200;
         if (out.length && size > MAX_INBOX_BYTES) break;
         out.push({ ...m, key: b.key });
@@ -405,6 +432,111 @@ export default async (req: Request, context: Context) => {
     }
 
     // Profilbild setzen / löschen
+    // Gruppennachricht: Inhalt einmal hochladen, pro Mitglied ein kleiner verschlüsselter Umschlag
+    if (route === "gsend" && method === "POST") {
+      if (meUser.banned) return err("Dein Konto wurde wegen Verstößen gegen die Regeln gesperrt.", 403);
+      const body = await req.json().catch(() => null);
+      if (!body || typeof body.gid !== "string" || !GID_RE.test(body.gid)) return err("Ungültige Gruppe");
+      if (typeof body.mid !== "string" || !MID_RE.test(body.mid)) return err("Ungültige Daten");
+      if (!validEnc(body.b)) return err("Nachricht oder Datei zu groß");
+      const envs: any[] = Array.isArray(body.envs) ? body.envs : [];
+      if (!envs.length || envs.length > 64) return err("Ungültige Mitglieder");
+      const ts = Date.now();
+      const bucket = hourBucket(ts);
+      const gb = `${bucket}/${body.mid}`;
+      await gbodies().setJSON(gb, { iv: body.b.iv, ct: body.b.ct });
+      const hb = await sha256Hex(`${body.b.iv}.${body.b.ct}`);
+      await Promise.all(
+        envs.map(async (env) => {
+          if (!env || typeof env.to !== "string" || !ID_RE.test(env.to) || env.to === me || !validEnc(env, 20000)) return;
+          const t = await getUser(env.to);
+          if (!t || t.deleted) return;
+          if (await blocks().get(`${env.to}/${me}`)) return;
+          await inbox().setJSON(`${env.to}/${ts}-${body.mid}`, { from: me, iv: env.iv, ct: env.ct, mid: body.mid, ts, gb });
+          await franks().setJSON(`${bucket}/${body.mid}.${env.to}`, {
+            from: me,
+            to: env.to,
+            h: await sha256Hex(`${env.iv}.${env.ct}`),
+            hb,
+          });
+          if (body.silent !== true) context.waitUntil(notify(env.to, me, meUser.name || "", body.gid).catch(() => {}));
+        })
+      );
+      return json({ ok: true, ts });
+    }
+
+    // ---------- Stories (24 Stunden) ----------
+    if (route === "story" && method === "POST") {
+      if (meUser.banned) return err("Dein Konto ist gesperrt.", 403);
+      const body = await req.json().catch(() => null);
+      if (!body || typeof body.sid !== "string" || !SID_RE.test(body.sid) || !validEnc(body, MAX_STORY_CT))
+        return err("Story ungültig oder zu groß");
+      const keys: Record<string, Enc> = {};
+      for (const [id, wk] of Object.entries(body.keys || {}).slice(0, 500)) if (ID_RE.test(id) && validEnc(wk, 200)) keys[id] = wk as Enc;
+      const mine = await stories().list({ prefix: `${me}/` });
+      if (mine.blobs.length >= 30) return err("Maximal 30 Stories pro Tag.");
+      const ts = Date.now();
+      const skey = `${ts}-${body.sid}`;
+      await stories().setJSON(`${me}/${skey}`, { iv: body.iv, ct: body.ct, keys, ts });
+      return json({ ok: true, skey, ts });
+    }
+    if (route === "stories" && method === "GET") {
+      const ids = (url.searchParams.get("ids") || "").split(",").filter((x) => ID_RE.test(x)).slice(0, 200);
+      const now = Date.now();
+      const out: unknown[] = [];
+      await Promise.all(
+        ids.map(async (owner) => {
+          if (await blocks().get(`${me}/${owner}`)) return;
+          const { blobs } = await stories().list({ prefix: `${owner}/` });
+          for (const b of blobs) {
+            const skey = b.key.slice(owner.length + 1);
+            const ts = Number(skey.split("-")[0]);
+            if (!ts || now - ts > TTL_MS) continue;
+            const st = (await stories().get(b.key, { type: "json" })) as { keys: Record<string, Enc> } | null;
+            const wk = st?.keys?.[me];
+            if (wk) out.push({ owner, skey, ts, wk });
+          }
+        })
+      );
+      return json({ stories: out });
+    }
+    if (route === "story/get" && method === "GET") {
+      const owner = url.searchParams.get("owner") || "";
+      const skey = url.searchParams.get("skey") || "";
+      if (!ID_RE.test(owner) || !SKEY_RE.test(skey)) return err("Ungültig");
+      const st = (await stories().get(`${owner}/${skey}`, { type: "json" })) as (Enc & { keys: Record<string, Enc> }) | null;
+      if (!st || (owner !== me && !st.keys[me])) return err("Story nicht mehr verfügbar", 404);
+      return json({ iv: st.iv, ct: st.ct, wk: st.keys[me] || null });
+    }
+    if (route === "story/seen" && method === "POST") {
+      const body = await req.json().catch(() => null);
+      if (!ID_RE.test(body?.owner || "") || !SKEY_RE.test(body?.skey || "") || body.owner === me) return err("Ungültig");
+      const st = (await stories().get(`${body.owner}/${body.skey}`, { type: "json" })) as { keys: Record<string, Enc> } | null;
+      if (st?.keys?.[me]) await storyViews().set(`${body.owner}/${body.skey}/${me}`, "1");
+      return json({ ok: true });
+    }
+    if (route === "story/mine" && method === "GET") {
+      const { blobs } = await stories().list({ prefix: `${me}/` });
+      const now = Date.now();
+      const out: unknown[] = [];
+      for (const b of blobs) {
+        const skey = b.key.slice(me.length + 1);
+        const ts = Number(skey.split("-")[0]);
+        if (!ts || now - ts > TTL_MS) continue;
+        const v = await storyViews().list({ prefix: `${me}/${skey}/` });
+        out.push({ skey, ts, viewers: v.blobs.map((x) => x.key.split("/").pop()) });
+      }
+      return json({ stories: out });
+    }
+    if (route === "story" && method === "DELETE") {
+      const skey = url.searchParams.get("skey") || "";
+      if (!SKEY_RE.test(skey)) return err("Ungültig");
+      await stories().delete(`${me}/${skey}`);
+      const v = await storyViews().list({ prefix: `${me}/${skey}/` });
+      for (const b of v.blobs) await storyViews().delete(b.key);
+      return json({ ok: true });
+    }
+
     // Anzeigenamen ändern – Kontakte sehen ihn sofort, auch in Benachrichtigungen
     if (route === "profile" && method === "PUT") {
       const body = await req.json().catch(() => null);
@@ -447,7 +579,7 @@ export default async (req: Request, context: Context) => {
       const type = body?.type;
       const target = body?.target;
       const reason = typeof body?.reason === "string" ? body.reason.slice(0, 60) : "";
-      if (!["message", "chat", "avatar"].includes(type) || typeof target !== "string" || !ID_RE.test(target))
+      if (!["message", "chat", "avatar", "story"].includes(type) || typeof target !== "string" || !ID_RE.test(target))
         return err("Ungültige Meldung");
       if (target === me) return err("Du kannst dich nicht selbst melden.");
       const tUser = await getUser(target);
@@ -455,7 +587,19 @@ export default async (req: Request, context: Context) => {
 
       let parts: { text?: string; imageB64?: string }[] = [];
       let dedupeKey: string;
-      if (type === "avatar") {
+      if (type === "story") {
+        const skey = typeof body.skey === "string" ? body.skey : "";
+        if (!SKEY_RE.test(skey) || typeof body.k !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(body.k)) return err("Ungültige Meldung");
+        const st = (await stories().get(`${target}/${skey}`, { type: "json" })) as (Enc & { keys: Record<string, Enc> }) | null;
+        if (!st || !st.keys[me]) return err("Diese Story ist nicht mehr verfügbar.", 404);
+        dedupeKey = `story/${target}/${skey}`;
+        try {
+          const p = await aesOpen(body.k, st, `story|${target}|${skey.split("-").slice(1).join("-")}`);
+          parts = [contentParts(p)];
+        } catch {
+          return err("Die Story konnte nicht überprüft werden.", 422);
+        }
+      } else if (type === "avatar") {
         if (!tUser.av) return err("Dieser Kontakt hat kein Profilbild.");
         dedupeKey = `avatar/${target}-${tUser.av}`;
         const img = await avatars().get(target, { type: "arrayBuffer" });
@@ -482,6 +626,7 @@ export default async (req: Request, context: Context) => {
       const verdict = await moderate(parts, reason, type);
       const status: keyof typeof RESULT_TEXT = !verdict ? "review" : verdict.violation ? "violation" : "ok";
       if (verdict) await applyVerdict(target, verdict, { removeAvatar: type === "avatar" && verdict.violation });
+      if (verdict?.violation && type === "story") await stories().delete(`${target}/${body.skey}`);
       await reports().setJSON(dedupeKey, {
         type,
         target,
@@ -502,6 +647,8 @@ export default async (req: Request, context: Context) => {
       const ps = await pushStore().list({ prefix: `${me}/` });
       for (const b of ps.blobs) await pushStore().delete(b.key);
       await avatars().delete(me);
+      const st = await stories().list({ prefix: `${me}/` });
+      for (const b of st.blobs) await stories().delete(b.key);
       await putUser(me, { pub: "", th: "", created: meUser.created, deleted: true, banned: meUser.banned });
       return json({ ok: true });
     }

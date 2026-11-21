@@ -32,6 +32,18 @@ export default async () => {
       }
     }
   }
+  // Gruppeninhalte (nach Stunden-Bucket), Stories und Story-Aufrufe
+  const gb = getStore({ name: "pk-gbody", consistency: "strong" });
+  for await (const page of gb.list({ paginate: true }))
+    for (const b of page.blobs) if (Number(b.key.split("/")[0]) < minBucket) await gb.delete(b.key);
+  for (const name of ["pk-stories", "pk-storyviews"]) {
+    const st = getStore({ name, consistency: "strong" });
+    for await (const page of st.list({ paginate: true }))
+      for (const b of page.blobs) {
+        const ts = Number(b.key.split("/")[1]?.split("-")[0]);
+        if (!ts || now - ts > TTL_MS) await st.delete(b.key);
+      }
+  }
   console.log(`cleanup: ${deleted} Nachrichten, ${fDeleted} Fingerabdrücke gelöscht`);
 };
 

@@ -13,6 +13,11 @@ Anonymer Chat **ohne Telefonnummer und ohne E-Mail** – live: https://pixelking
 - **Melden** von einzelnen Nachrichten, ganzen Chats und Profilbildern. Gemeldete Inhalte werden automatisch geprüft; bei Verstößen gibt es Verwarnungen bzw. eine Sperre (schwere Verstöße sofort, sonst nach 3 Verwarnungen). Meldungen sind fälschungssicher: Der Server speichert beim Senden nur einen Hash jeder Nachricht, und beim Melden wird nur der Schlüssel genau dieser Nachricht herausgegeben.
 - **Blockieren** – Nachrichten blockierter Kontakte werden schon auf dem Server verworfen.
 - **Eindeutige Codes** – jeder Code wird genau einmal vergeben, auch nach dem Löschen eines Kontos nie wieder.
+- **Dateien senden** (bis 2,5 MB) – Ende-zu-Ende-verschlüsselt.
+- **Pixel-Emojis** – jedes Emoji wird im Browser automatisch in ein eigenes Pixel-Art-Bild umgerechnet (in Nachrichten, Namen, Stories, Chatliste) und hat eine eigene Emoji-Auswahl.
+- **Stories (24 Stunden)** – Foto- oder Text-Stories für alle Kontakte, verschlüsselt mit einem Story-Schlüssel, der pro Kontakt einzeln verpackt wird. Mit Aufrufzahl, Löschen und Melden.
+- **Gruppen** – Inhalt wird einmal verschlüsselt hochgeladen, der Schlüssel pro Mitglied einzeln verpackt. Admin kann einladen, entfernen und umbenennen. In den Einstellungen lässt sich „Automatisch zu Gruppen hinzufügen“ ausschalten – dann kommt zuerst eine Einladung im Chat.
+- **Eigene Farben** (9 Akzentfarben + Farbwähler, 5 Hintergrundtöne) und **Chat-Hintergründe** (generierte Muster oder eigenes Foto, für alle Chats oder pro Chat).
 - **Homebildschirm-App (PWA)** – installierbar auf iPhone und Android, startet wie eine echte App (auch offline), mit Schnellaktionen „Kontakt hinzufügen“ und „QR-Code scannen“. Mit „Konto übertragen“ nimmst du deinen Code und deine Kontakte aus dem Browser in die App mit (wichtig auf dem iPhone, weil die App dort einen eigenen Speicher hat).
 - **Sicherheitsnummer** pro Kontakt zum Abgleichen gegen Man-in-the-Middle.
 
