@@ -1,13 +1,14 @@
 // Pixelkingschat Service Worker – zeigt Benachrichtigungen bei neuen Nachrichten.
 // Der Inhalt bleibt Ende-zu-Ende-verschlüsselt: die Benachrichtigung zeigt nur, WER geschrieben hat.
 
-const CACHE = "pk-shell-v11";
+const CACHE = "pk-shell-v12";
 const SHELL = [
   "/",
   "/index.html",
   "/app.js",
   "/emoji.js",
   "/theme.js",
+  "/calls.js",
   "/style.css",
   "/vendor/qrcode.js",
   "/vendor/jsQR.js",
@@ -105,6 +106,19 @@ self.addEventListener("push", (event) => {
       // iOS verlangt zu jeder Push-Nachricht eine sichtbare Benachrichtigung.
       const iOS = /iPhone|iPad|iPod/.test(self.navigator.userAgent);
       if (visible && !iOS) return;
+      if (data.call) {
+        await self.registration.showNotification(`${data.video ? "🎥" : "📞"} ${name}`, {
+          body: data.video ? "Videoanruf – tippen zum Annehmen" : "ruft dich an – tippen zum Annehmen",
+          icon: "/icon-192.png",
+          badge: "/icon-192.png",
+          tag: `call-${from}`,
+          renotify: true,
+          requireInteraction: true,
+          vibrate: [400, 200, 400, 200, 400],
+          data: { from },
+        });
+        return;
+      }
       await self.registration.showNotification(gid ? groupName || "Gruppe" : name, {
         body: gid ? `${name} hat eine Nachricht geschickt 🔒` : "hat dir eine Nachricht geschickt 🔒",
         icon: "/icon-192.png",

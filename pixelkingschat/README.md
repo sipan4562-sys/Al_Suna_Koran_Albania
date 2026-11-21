@@ -16,6 +16,8 @@ Anonymer Chat **ohne Telefonnummer und ohne E-Mail** – live: https://pixelking
 - **GIFs wie bei Discord** – GIF-Tab im Emoji-Menü mit 16 eigenen animierten Pixel-GIFs (`public/gifs/`), eigene GIFs vom Gerät und GIPHY-Suche (aktiv, sobald die Umgebungsvariable `GIPHY_API_KEY` gesetzt ist).
 - **Sprachnachrichten spulen** – ⏪/⏩ 10 Sek., auf die Wellenform tippen, Geschwindigkeit 1×/1,5×/2×.
 - **Öffentliche Stories** – in den Einstellungen oder pro Story wählbar; erscheinen für alle unter „🌍 Entdecken“ und werden vor dem Veröffentlichen automatisch geprüft.
+- **Anrufe & Videoanrufe** (WebRTC, direkt zwischen den Geräten, Verbindungsaufbau Ende-zu-Ende-verschlüsselt) mit Klingel-Bildschirm, Push „ruft dich an“ und Anrufliste im Chat. „Anrufe erlauben“ lässt sich in den Einstellungen ausschalten.
+- **Meetings mit Code** – bis 8 Personen, beitreten per 6-stelligem Code, Link (`#meet=CODE`) oder Einladung im Chat; Gruppenanruf aus jeder Gruppe. Für Verbindungen hinter strengen Firewalls/Mobilfunk optional TURN: `CF_TURN_KEY_ID` + `CF_TURN_API_TOKEN` (Cloudflare) oder `TURN_URL`/`TURN_USERNAME`/`TURN_CREDENTIAL`.
 - **Online-Status** (grüner Punkt, „zuletzt online“) und **Gesehen-Anzeige mit Pixel-Auge** – beides in den Einstellungen abschaltbar.
 - **Konto sichern** – dauerhafter Speicher, automatische Sicherheitskopie im Gerät und verschlüsseltes Cloud-Backup mit Passwort (PBKDF2 + AES-GCM im Browser). Wiederherstellen mit Code + Passwort auf jedem Gerät.
 - **Blockieren** – Nachrichten blockierter Kontakte werden schon auf dem Server verworfen.

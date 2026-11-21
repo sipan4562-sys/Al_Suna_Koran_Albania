@@ -8,6 +8,7 @@ const MAX_IMG_B64 = 1_050_000;
 const $ = (s) => document.querySelector(s);
 import { renderRich, isEmoji, pixelEmoji, EMOJI_SETS } from "./emoji.js";
 import { applyTheme, ACCENTS, BASES, WALLPAPERS, wallpaperUrl } from "./theme.js";
+import { initCalls } from "./calls.js";
 
 /* ================= Hilfsfunktionen ================= */
 const enc = new TextEncoder();
@@ -358,12 +359,12 @@ function sysMsg(chatId, text) {
   (S.messages[chatId] = S.messages[chatId] || []).push({ mid: newMid(), dir: "sys", ts: Date.now(), text });
 }
 
-async function sendMessage({ text = "", imgB64 = null, file = null, aud = null, vid = null, gif = null, once = false }) {
-  if (vid || gif) once = false;
+async function sendMessage({ text = "", imgB64 = null, file = null, aud = null, vid = null, gif = null, meet = null, once = false }) {
+  if (vid || gif || meet) once = false;
   const to = currentChat;
   if (!to) return;
   if (sendBlocked()) return;
-  if (isGroup(to)) return sendGroupMessage({ text, imgB64, file, aud, vid, gif });
+  if (isGroup(to)) return sendGroupMessage({ text, imgB64, file, aud, vid, gif, meet });
   const mid = newMid();
   const ts = Date.now();
   const local = { mid, dir: "out", ts, once, status: "pending" };
@@ -372,6 +373,7 @@ async function sendMessage({ text = "", imgB64 = null, file = null, aud = null, 
   if (aud) local.aud = { type: aud.type, dur: aud.dur, w: aud.w };
   if (vid) local.vid = vid;
   if (gif) local.gif = gif;
+  if (meet) local.meet = meet;
   if (!once) {
     local.text = text;
     if (imgB64) await idbPut("media", mid, imgB64);
@@ -390,6 +392,7 @@ async function sendMessage({ text = "", imgB64 = null, file = null, aud = null, 
     if (aud) payload.aud = aud;
     if (vid) payload.vid = vid;
     if (gif) payload.gif = gif;
+    if (meet) payload.meet = meet;
     const { iv, ct } = await encryptFor(to, mid, payload);
     await api("send", { body: { to, mid, iv, ct } });
     local.status = "sent";
@@ -402,7 +405,7 @@ async function sendMessage({ text = "", imgB64 = null, file = null, aud = null, 
   renderMessages();
 }
 
-async function sendGroupMessage({ text, imgB64, file, aud, vid, gif }) {
+async function sendGroupMessage({ text, imgB64, file, aud, vid, gif, meet }) {
   const gid = currentChat;
   const g = S.groups[gid];
   if (!g || g.removed) return toast("Du bist nicht mehr in dieser Gruppe.");
@@ -423,6 +426,7 @@ async function sendGroupMessage({ text, imgB64, file, aud, vid, gif }) {
   }
   if (vid) local.vid = vid;
   if (gif) local.gif = gif;
+  if (meet) local.meet = meet;
   S.messages[gid].push(local);
   g.last = ts;
   save();
@@ -445,6 +449,7 @@ async function sendGroupMessage({ text, imgB64, file, aud, vid, gif }) {
       if (aud) body.aud = aud;
       if (vid) body.vid = vid;
       if (gif) body.gif = gif;
+      if (meet) body.meet = meet;
       const b = await aesSeal(K, body, `${gid}|${mid}`);
       const envs = [];
       for (const id of targets) envs.push({ to: id, ...(await encryptFor(id, mid, { k: "g", gid, bk: b64u(K) })) });
@@ -677,6 +682,10 @@ async function poll() {
           changed = true;
           continue;
         }
+        if (p.k === "call") {
+          if (calls?.handleCallCtl(m.from, p, m)) changed = true;
+          continue;
+        }
         if (p.k === "seen") {
           if (handleSeen(m.from, p)) changed = true;
           continue;
@@ -725,6 +734,7 @@ async function poll() {
         if (q.vid && cleanRef(q.vid.ref)) {
           msg.vid = { ref: cleanRef(q.vid.ref), dur: Math.min(600, Number(q.vid.dur) || 0), w: Number(q.vid.w) || 0, h: Number(q.vid.h) || 0, poster: cleanPoster(q.vid.poster) };
         }
+        if (q.meet && /^[A-HJ-NP-Z2-9]{6}$/.test(q.meet.code || "")) msg.meet = { code: q.meet.code, title: String(q.meet.title || "").slice(0, 40) };
         if (q.gif) {
           if (typeof q.gif.p === "string" && PIXEL_GIFS.includes(q.gif.p)) msg.gif = { p: q.gif.p };
           else if (cleanRef(q.gif.ref)) msg.gif = { ref: cleanRef(q.gif.ref), w: Number(q.gif.w) || 0, h: Number(q.gif.h) || 0, poster: cleanPoster(q.gif.poster) };
@@ -829,6 +839,7 @@ function previewOf(m, isGrp) {
   if (m.once) return m.dir === "in" ? (m.opened ? "👁 Geöffnet" : "👁 Einmal-Nachricht") : "👁 Einmal-Nachricht gesendet";
   if (m.aud) return who + "🎤 Sprachnachricht (" + fmtDur(m.aud.dur) + ")";
   if (m.vid) return who + "🎬 Video (" + fmtDur(m.vid.dur) + ")";
+  if (m.meet) return who + "📹 Meeting-Einladung";
   if (m.gif) return who + "GIF";
   if (m.file) return who + "📎 " + m.file.name;
   if (m.img) return who + "🖼 " + (m.text || "Bild");
@@ -1007,6 +1018,19 @@ function renderMessages() {
         };
         d.append(img);
       }
+      if (m.meet) {
+        d.classList.add("has-meet");
+        const card = el("div", "meet-card");
+        card.append(el("div", "meet-title", "📹 " + (m.meet.title ? `Meeting „${m.meet.title}“` : "Meeting")));
+        card.append(el("div", "meet-code", "Code " + m.meet.code.slice(0, 3) + " " + m.meet.code.slice(3)));
+        const join = el("button", "btn primary small-btn", "Beitreten");
+        join.onclick = (e) => {
+          e.stopPropagation();
+          calls.joinMeeting(m.meet.code, { title: m.meet.title });
+        };
+        card.append(join);
+        d.append(card);
+      }
       if (m.vid) {
         d.classList.add("has-video");
         d.append(videoCard(m));
@@ -1081,6 +1105,8 @@ function openChat(id) {
   $("#onceBtn").classList.toggle("hidden", isGroup(id));
   renderChatHead();
   applyWallpaper(id);
+  $("#videoBtn").classList.toggle("hidden", isGroup(id));
+  $("#callBtn").title = isGroup(id) ? "Gruppenanruf (Meeting)" : "Anrufen";
   renderMessages.force = true;
   renderMessages();
   renderList();
@@ -1838,6 +1864,22 @@ function showSettings() {
     toast(pcb.checked ? "🌍 Neue Stories sind öffentlich – alle können sie unter „Entdecken“ sehen." : "👥 Neue Stories sehen nur deine Kontakte.");
   };
   pl.append(pcb, " Stories öffentlich (alle App-Nutzer können sie sehen)");
+  const cl = el("label", "check");
+  const ccb = el("input");
+  ccb.type = "checkbox";
+  ccb.checked = !S.settings.callsOff;
+  ccb.onchange = async () => {
+    S.settings.callsOff = !ccb.checked;
+    save();
+    try {
+      await api("settings", { method: "PUT", body: { callsOff: S.settings.callsOff } });
+      toast(ccb.checked ? "📞 Man kann dich wieder anrufen." : "📵 Niemand kann dich mehr anrufen.");
+    } catch (e) {
+      toast(e.message);
+    }
+  };
+  cl.append(ccb, " Anrufe erlauben");
+  root.append(cl);
   root.append(ol, rl, pl, el("p", "small muted", "Ausgeschaltet sehen andere nicht, wann du online warst bzw. ob du ihre Nachrichten gesehen hast. Öffentliche Stories erscheinen für alle unter „🌍 Entdecken“ und werden vorher geprüft."), el("hr"));
   root.append(el("strong", null, "☁️ Backup"));
   root.append(
@@ -2317,6 +2359,7 @@ function showNewMenu() {
     ["👤", "Kontakt hinzufügen", "Per Code, Link oder QR-Code", () => showAdd("mine")],
     ["👥", "Neue Gruppe", "Mit mehreren Kontakten chatten", showNewGroup],
     ["📸", "Story posten", "Für 24 Stunden für deine Kontakte", newStory],
+    ["📹", "Meeting", "Starten oder mit Code beitreten", showMeetingMenu],
   ];
   for (const [icon, title, sub, fn] of opts) {
     const b = el("button", "menu-item");
@@ -3978,8 +4021,102 @@ async function showDiscover() {
   }
 }
 
+/* ================= Anrufe & Meetings ================= */
+let calls = null;
+function showMeetingMenu() {
+  const body = el("div", "stack");
+  body.append(el("h2", null, "📹 Meeting"));
+  body.append(el("p", "small muted", "Video-Meeting mit bis zu 8 Personen. Jeder mit dem Code kann beitreten."));
+  const title = el("input");
+  title.placeholder = "Name des Meetings (optional)";
+  title.maxLength = 40;
+  const start = el("button", "btn primary big", "Neues Meeting starten");
+  start.onclick = () => {
+    closeModal();
+    calls.createMeeting(title.value.trim());
+  };
+  body.append(title, start, el("hr"), el("strong", null, "Mit Code beitreten"));
+  const code = el("input", "code-input");
+  code.maxLength = 7;
+  code.placeholder = "ABC 123";
+  code.autocapitalize = "characters";
+  const join = el("button", "btn big", "Beitreten");
+  join.onclick = () => {
+    closeModal();
+    calls.joinMeeting(code.value);
+  };
+  body.append(code, join);
+  openModal(body);
+}
+function shareMeeting(code, title) {
+  const url = `${location.origin}/#meet=${code}`;
+  const text = `Komm in mein Pixelkingschat-Meeting${title ? ` „${title}“` : ""}! Code: ${code.slice(0, 3)} ${code.slice(3)}`;
+  const box = el("div", "call-share");
+  box.append(el("h3", null, "Meeting teilen"), el("div", "call-code", code.slice(0, 3) + " " + code.slice(3)), qrNode(url));
+  const row = el("div", "btn-row");
+  const c1 = el("button", "btn", "Code kopieren");
+  c1.onclick = () => copy(code);
+  const c2 = el("button", "btn primary", "Link teilen");
+  c2.onclick = async () => {
+    if (navigator.share) {
+      try {
+        return await navigator.share({ title: "Pixelkingschat-Meeting", text, url });
+      } catch (e) {
+        if (e.name === "AbortError") return;
+      }
+    }
+    copy(`${text}\n${url}`);
+  };
+  const close = el("button", "btn", "Schließen");
+  close.onclick = () => box.remove();
+  row.append(c1, c2, close);
+  box.append(row);
+  document.body.append(box);
+}
+function sendMeetInvite(chatId, code, title) {
+  if (currentChat !== chatId) return;
+  sendMessage({ meet: { code, title } });
+}
+function setupCalls() {
+  calls = initCalls({
+    api,
+    S: () => S,
+    el,
+    rich,
+    toast,
+    b64u,
+    rand,
+    encryptFor,
+    decryptFrom,
+    ensurePeer,
+    sendCtl,
+    memberName,
+    fillAvatar,
+    sysMsg,
+    save,
+    sendBlocked,
+    shareMeeting,
+    sendMeetInvite,
+    refresh: (id) => {
+      renderList();
+      if (currentChat === id) renderMessages();
+    },
+  });
+  $("#callBtn").onclick = () => {
+    if (!currentChat) return;
+    if (isGroup(currentChat)) calls.createMeeting(S.groups[currentChat]?.name || "", currentChat);
+    else calls.startCall(currentChat, false);
+  };
+  $("#videoBtn").onclick = () => currentChat && !isGroup(currentChat) && calls.startCall(currentChat, true);
+}
+
 /* ================= Start ================= */
 function handleHash() {
+  const mm = /^#meet=([A-Z0-9]{6})$/i.exec(location.hash);
+  if (mm) {
+    history.replaceState(null, "", location.pathname);
+    return { kind: "meet", code: mm[1].toUpperCase() };
+  }
   const sc = /^#(new|scan)$/.exec(location.hash);
   if (sc) {
     history.replaceState(null, "", location.pathname);
@@ -4010,6 +4147,7 @@ async function startApp() {
   updateNotifBanner();
   updateInstallBanner();
   if (S.me.nameSynced !== (S.me.name || "")) syncMyName().catch(() => {});
+  if (S.settings.callsOff) api("settings", { method: "PUT", body: { callsOff: true } }).catch(() => {});
   refreshMe();
   pollModeration();
   pollPresence();
@@ -4020,7 +4158,8 @@ async function startApp() {
   if (pendingHash) {
     const { kind, code } = pendingHash;
     pendingHash = null;
-    if (kind === "new") showAdd("enter");
+    if (kind === "meet") setTimeout(() => calls.joinMeeting(code), 300);
+    else if (kind === "new") showAdd("enter");
     else if (kind === "scan") showAdd("scan");
     else if (kind === "chat" && (S.contacts[code] || S.groups[code])) openChat(code);
     else if (kind === "chat" && isGroup(code)) {
@@ -4156,6 +4295,7 @@ function bind() {
   window.addEventListener("hashchange", () => {
     const h = handleHash();
     if (!h || !S.me) return;
+    if (h.kind === "meet") return calls.joinMeeting(h.code);
     if (h.kind === "new") return showAdd("enter");
     if (h.kind === "scan") return showAdd("scan");
     if (h.kind === "chat" && (S.contacts[h.code] || S.groups[h.code])) openChat(h.code);
@@ -4172,6 +4312,7 @@ function bind() {
 
 applyTheme(S.settings);
 bind();
+setupCalls();
 $("#importBtn").onclick = showImport;
 $("#restoreBtn").onclick = showRestore;
 $("#backupSetup").onclick = showBackupSetup;

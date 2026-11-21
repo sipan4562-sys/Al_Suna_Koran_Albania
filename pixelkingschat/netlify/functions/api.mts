@@ -43,6 +43,12 @@ const pubIndex = () => getStore({ name: "pk-pubidx", consistency: "strong" });
 const MEDIA_CHUNK = 3_600_000; // Bytes pro Stück (unter dem Function-Limit)
 const MEDIA_MAX_CHUNKS = 10;
 const MEDIA_ID_RE = /^[A-Za-z0-9_-]{16}$/;
+const signals = () => getStore({ name: "pk-signal", consistency: "strong" });
+const meetings = () => getStore({ name: "pk-meetings", consistency: "strong" });
+const meetMembers = () => getStore({ name: "pk-meetmembers", consistency: "strong" });
+const MEET_RE = /^[A-HJ-NP-Z2-9]{6}$/;
+const MEET_MAX = 8;
+const MEET_ALIVE_MS = 20000;
 const lastPresenceWrite = new Map<string, number>();
 
 type User = {
@@ -54,6 +60,7 @@ type User = {
   strikes?: number;
   banned?: boolean;
   timeoutUntil?: number; // vorübergehende Sperre
+  callsOff?: boolean; // Anrufe ausgeschaltet
   purgeBefore?: number; // alle Nachrichten bis zu diesem Zeitpunkt wurden entfernt
   notice?: { kind: "warn" | "timeout" | "ban"; ts: number; until?: number; deleted?: boolean; reason?: string };
   deleted?: boolean;
@@ -69,6 +76,7 @@ const err = (msg: string, status = 400) => json({ error: msg }, status);
 const b64uToBytes = (s: string) => Buffer.from(s, "base64url");
 const hourBucket = (ts: number) => Math.floor(ts / HOUR);
 
+const b64uRand = (n: number) => Buffer.from(crypto.getRandomValues(new Uint8Array(n))).toString("base64url");
 function randomId(len = 8) {
   const bytes = crypto.getRandomValues(new Uint8Array(len));
   let s = "";
@@ -118,12 +126,12 @@ async function vapid(): Promise<string> {
   return vapidPub;
 }
 
-async function notify(to: string, from: string, name: string, gid?: string) {
+async function notify(to: string, from: string, name: string, gid?: string, extra?: Record<string, unknown>) {
   await vapid();
   const store = pushStore();
   const { blobs } = await store.list({ prefix: `${to}/` });
   // Inhalt bleibt verschlüsselt – die Benachrichtigung verrät nur den Absender-Code.
-  const payload = JSON.stringify(gid ? { from, name, gid } : { from, name });
+  const payload = JSON.stringify({ from, name, ...(gid ? { gid } : {}), ...(extra || {}) });
   await Promise.all(
     blobs.map(async (b) => {
       const sub = await store.get(b.key, { type: "json" });
@@ -453,6 +461,112 @@ export default async (req: Request, context: Context) => {
         delete meUser.notice;
         await putUser(me, meUser);
       }
+      return json({ ok: true });
+    }
+
+    // ---------- Anrufe ----------
+    if (route === "settings" && method === "PUT") {
+      const body = await req.json().catch(() => null);
+      if (typeof body?.callsOff === "boolean") meUser.callsOff = body.callsOff;
+      await putUser(me, meUser);
+      return json({ ok: true, callsOff: !!meUser.callsOff });
+    }
+    if (route === "turn" && method === "GET") {
+      const iceServers: unknown[] = [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }];
+      const cfKey = Netlify.env.get("CF_TURN_KEY_ID");
+      const cfTok = Netlify.env.get("CF_TURN_API_TOKEN");
+      if (cfKey && cfTok) {
+        try {
+          const r = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${cfKey}/credentials/generate-ice-servers`, {
+            method: "POST",
+            headers: { authorization: `Bearer ${cfTok}`, "content-type": "application/json" },
+            body: JSON.stringify({ ttl: 86400 }),
+          });
+          const d: any = r.ok ? await r.json() : null;
+          if (d?.iceServers) iceServers.push(...(Array.isArray(d.iceServers) ? d.iceServers : [d.iceServers]));
+        } catch {}
+      }
+      const turnUrl = Netlify.env.get("TURN_URL");
+      if (turnUrl) iceServers.push({ urls: turnUrl.split(","), username: Netlify.env.get("TURN_USERNAME") || "", credential: Netlify.env.get("TURN_CREDENTIAL") || "" });
+      return json({ iceServers });
+    }
+    // Anruf ankündigen: prüft, ob der andere Anrufe zulässt, und klingelt per Push
+    if (route === "call/ring" && method === "POST") {
+      { const blk = sendBlock(meUser); if (blk) return err(blk, 403); }
+      const body = await req.json().catch(() => null);
+      if (!ID_RE.test(body?.to || "") || typeof body.callId !== "string" || !/^[A-Za-z0-9_-]{8,24}$/.test(body.callId)) return err("Ungültig");
+      const t = await getUser(body.to);
+      if (!t || t.deleted) return err("Dieses Konto existiert nicht mehr.", 404);
+      if (t.banned) return err("Dieses Konto ist gesperrt.", 403);
+      if (t.callsOff) return json({ ok: false, reason: "off" });
+      if (await blocks().get(`${body.to}/${me}`)) return json({ ok: false, reason: "off" });
+      context.waitUntil(notify(body.to, me, meUser.name || "", undefined, { call: body.callId, video: !!body.video }).catch(() => {}));
+      return json({ ok: true });
+    }
+    // Verbindungsaufbau (verschlüsselt) zwischen zwei Geräten
+    if (route === "signal" && method === "POST") {
+      const body = await req.json().catch(() => null);
+      if (!ID_RE.test(body?.to || "") || !validEnc(body, 40000) || typeof body.sid !== "string" || !/^[A-Za-z0-9_-]{8,32}$/.test(body.sid))
+        return err("Ungültig");
+      if (await blocks().get(`${body.to}/${me}`)) return json({ ok: true });
+      await signals().setJSON(`${body.to}/${Date.now()}-${b64uRand(6)}`, { from: me, sid: body.sid, iv: body.iv, ct: body.ct });
+      return json({ ok: true });
+    }
+    if (route === "signal" && method === "GET") {
+      const store = signals();
+      const { blobs } = await store.list({ prefix: `${me}/` });
+      const now = Date.now();
+      const out: unknown[] = [];
+      for (const b of blobs.sort((x, y) => x.key.localeCompare(y.key))) {
+        const ts = Number(b.key.slice(me.length + 1).split("-")[0]);
+        const v = ts && now - ts < 120000 ? await store.get(b.key, { type: "json" }) : null;
+        await store.delete(b.key);
+        if (v) out.push({ ...(v as object), ts });
+      }
+      return json({ signals: out });
+    }
+    // ---------- Meetings mit Code ----------
+    if (route === "meet/create" && method === "POST") {
+      { const blk = sendBlock(meUser); if (blk) return err(blk, 403); }
+      const body = await req.json().catch(() => ({}));
+      const title = typeof body?.title === "string" ? cleanName(body.title).slice(0, 40) : "";
+      for (let i = 0; i < 8; i++) {
+        const code = randomId(6);
+        const { modified } = await meetings().setJSON(code, { host: me, title, created: Date.now() }, { onlyIfNew: true });
+        if (modified) return json({ code, title });
+      }
+      return err("Bitte nochmal versuchen", 503);
+    }
+    if ((route === "meet/join" || route === "meet/beat") && method === "POST") {
+      const body = await req.json().catch(() => null);
+      const code = String(body?.code || "").toUpperCase();
+      if (!MEET_RE.test(code)) return err("Ungültiger Meeting-Code");
+      const mt = (await meetings().get(code, { type: "json" })) as { host: string; title: string; created: number } | null;
+      if (!mt || Date.now() - mt.created > TTL_MS) return err("Dieses Meeting gibt es nicht (mehr).", 404);
+      const now = Date.now();
+      const { blobs } = await meetMembers().list({ prefix: `${code}/` });
+      const alive: string[] = [];
+      for (const b of blobs) {
+        const id = b.key.split("/")[1];
+        const ts = Number(await meetMembers().get(b.key));
+        if (now - ts < MEET_ALIVE_MS) alive.push(id);
+        else await meetMembers().delete(b.key);
+      }
+      if (route === "meet/join" && !alive.includes(me) && alive.length >= MEET_MAX) return err(`Das Meeting ist voll (max. ${MEET_MAX} Personen).`, 409);
+      await meetMembers().set(`${code}/${me}`, String(now));
+      if (!alive.includes(me)) alive.push(me);
+      const members = await Promise.all(
+        alive.map(async (id) => {
+          const u = id === me ? meUser : await getUser(id);
+          return { id, name: u?.name || "", av: u?.av || 0 };
+        })
+      );
+      return json({ code, title: mt.title, host: mt.host, members });
+    }
+    if (route === "meet/leave" && method === "POST") {
+      const body = await req.json().catch(() => null);
+      const code = String(body?.code || "").toUpperCase();
+      if (MEET_RE.test(code)) await meetMembers().delete(`${code}/${me}`);
       return json({ ok: true });
     }
 

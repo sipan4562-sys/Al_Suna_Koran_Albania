@@ -54,6 +54,24 @@ export default async () => {
       const ts = Number(b.key.split("-")[0]);
       if (!ts || now - ts > TTL_MS) await pi.delete(b.key);
     }
+  // Verbindungsdaten (älter als 10 Min) und alte Meetings
+  const sg = getStore({ name: "pk-signal", consistency: "strong" });
+  for await (const page of sg.list({ paginate: true }))
+    for (const b of page.blobs) {
+      const ts = Number(b.key.split("/")[1]?.split("-")[0]);
+      if (!ts || now - ts > 10 * 60 * 1000) await sg.delete(b.key);
+    }
+  const mt = getStore({ name: "pk-meetings", consistency: "strong" });
+  const mm = getStore({ name: "pk-meetmembers", consistency: "strong" });
+  for await (const page of mt.list({ paginate: true }))
+    for (const b of page.blobs) {
+      const m = (await mt.get(b.key, { type: "json" })) as { created: number } | null;
+      if (!m || now - m.created > TTL_MS) {
+        await mt.delete(b.key);
+        const mem = await mm.list({ prefix: `${b.key}/` });
+        for (const x of mem.blobs) await mm.delete(x.key);
+      }
+    }
   console.log(`cleanup: ${deleted} Nachrichten, ${fDeleted} Fingerabdrücke gelöscht`);
 };
 
