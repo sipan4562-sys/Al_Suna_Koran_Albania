@@ -36,6 +36,9 @@ const reports = () => getStore({ name: "pk-reports", consistency: "strong" });
 const gbodies = () => getStore({ name: "pk-gbody", consistency: "strong" });
 const stories = () => getStore({ name: "pk-stories", consistency: "strong" });
 const storyViews = () => getStore({ name: "pk-storyviews", consistency: "strong" });
+const presence = () => getStore({ name: "pk-presence" });
+const backups = () => getStore({ name: "pk-backups", consistency: "strong" });
+const lastPresenceWrite = new Map<string, number>();
 
 type User = {
   pub: string;
@@ -400,6 +403,14 @@ export default async (req: Request, context: Context) => {
       return json({ id, pub: u.pub, av: u.banned ? 0 : u.av || 0, name: u.banned ? "" : u.name || "" });
     }
 
+    if (route.startsWith("backup/") && method === "GET") {
+      const id = route.slice(7).toUpperCase();
+      if (!ID_RE.test(id)) return err("Ungültiger Code");
+      const bk = await backups().get(id, { type: "json" });
+      if (!bk) return err("Für diesen Code gibt es kein Backup.", 404);
+      return json(bk);
+    }
+
     // Profilbild ausliefern (öffentlich – damit es geprüft werden kann)
     if (route.startsWith("avatar/") && method === "GET") {
       const id = route.slice(7).toUpperCase();
@@ -432,6 +443,49 @@ export default async (req: Request, context: Context) => {
         delete meUser.notice;
         await putUser(me, meUser);
       }
+      return json({ ok: true });
+    }
+
+    // Online-Status von Kontakten
+    if (route === "presence" && method === "GET") {
+      const ids = (url.searchParams.get("ids") || "").split(",").filter((x) => ID_RE.test(x)).slice(0, 300);
+      const out: Record<string, number> = {};
+      await Promise.all(
+        ids.map(async (id) => {
+          const t = Number(await presence().get(id));
+          if (t) out[id] = t;
+        })
+      );
+      return json({ now: Date.now(), seen: out });
+    }
+    // Online-Status verbergen: gespeicherten Zeitpunkt löschen
+    if (route === "presence" && method === "DELETE") {
+      lastPresenceWrite.set(me, Date.now() + 365 * 24 * HOUR);
+      await presence().delete(me);
+      return json({ ok: true });
+    }
+    if (route === "presence" && method === "POST") {
+      lastPresenceWrite.delete(me);
+      return json({ ok: true });
+    }
+
+    // Verschlüsseltes Konto-Backup (mit Passwort des Nutzers verschlüsselt – Server kann es nicht lesen)
+    if (route === "backup" && method === "PUT") {
+      const body = await req.json().catch(() => null);
+      if (
+        !body ||
+        typeof body.salt !== "string" ||
+        !/^[A-Za-z0-9_-]{22}$/.test(body.salt) ||
+        !validEnc(body, 2_000_000) ||
+        typeof body.it !== "number" ||
+        body.it < 300000
+      )
+        return err("Ungültiges Backup");
+      await backups().setJSON(me, { salt: body.salt, iv: body.iv, ct: body.ct, it: body.it, ts: Date.now() });
+      return json({ ok: true });
+    }
+    if (route === "backup" && method === "DELETE") {
+      await backups().delete(me);
       return json({ ok: true });
     }
 
@@ -475,6 +529,13 @@ export default async (req: Request, context: Context) => {
 
     // Eigene Nachrichten abholen
     if (route === "inbox" && method === "GET") {
+      if (url.searchParams.get("v") === "1") {
+        const t = Date.now();
+        if (t - (lastPresenceWrite.get(me) || 0) > 20000) {
+          lastPresenceWrite.set(me, t);
+          context.waitUntil(presence().set(me, String(t)).catch(() => {}));
+        }
+      }
       const store = inbox();
       const { blobs } = await store.list({ prefix: `${me}/` });
       const now = Date.now();
@@ -766,6 +827,8 @@ export default async (req: Request, context: Context) => {
       const ps = await pushStore().list({ prefix: `${me}/` });
       for (const b of ps.blobs) await pushStore().delete(b.key);
       await avatars().delete(me);
+      await backups().delete(me);
+      await presence().delete(me);
       const st = await stories().list({ prefix: `${me}/` });
       for (const b of st.blobs) await stories().delete(b.key);
       await putUser(me, { pub: "", th: "", created: meUser.created, deleted: true, banned: meUser.banned });

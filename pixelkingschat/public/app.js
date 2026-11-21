@@ -107,6 +107,7 @@ function save() {
   }
   clearTimeout(save._n);
   save._n = setTimeout(syncNames, 300);
+  mirrorSoon();
 }
 function syncNames() {
   const names = {};
@@ -649,7 +650,7 @@ async function poll() {
   if (polling || !S.me) return;
   polling = true;
   try {
-    const { messages } = await api("inbox");
+    const { messages } = await api(`inbox${!document.hidden && !S.settings.hideOnline ? "?v=1" : ""}`);
     const acks = [];
     let changed = false;
     for (const m of messages) {
@@ -665,6 +666,10 @@ async function poll() {
             if (orig) orig.status = "opened";
           }
           changed = true;
+          continue;
+        }
+        if (p.k === "seen") {
+          if (handleSeen(m.from, p)) changed = true;
           continue;
         }
         if (["gi", "gj", "gx", "gl", "gu"].includes(p.k)) {
@@ -721,6 +726,7 @@ async function poll() {
       if (currentChat) {
         renderChatHead();
         renderMessages();
+        markSeenSoon();
       }
       updateTitle();
     }
@@ -812,7 +818,7 @@ function renderList() {
   const items = [];
   for (const c of Object.values(S.contacts)) {
     if (c.peer && !(S.messages[c.id] || []).length) continue;
-    items.push({ id: c.id, last: c.last || 0, unread: c.unread, name: (c.acctBanned ? "⛔ " : c.blocked ? "🚫 " : "") + displayName(c), fill: (n) => fillAvatar(n, c) });
+    items.push({ id: c.id, online: isOnline(c.id), last: c.last || 0, unread: c.unread, name: (c.acctBanned ? "⛔ " : c.blocked ? "🚫 " : "") + displayName(c), fill: (n) => fillAvatar(n, c) });
   }
   for (const g of Object.values(S.groups)) {
     items.push({ id: g.id, last: g.last || 0, unread: g.unread, name: g.name, grp: true, fill: (n) => fillGroupAvatar(n, g) });
@@ -833,6 +839,7 @@ function renderList() {
     if (it.unread) r2.append(el("span", "badge", String(it.unread)));
     meta.append(r1, r2);
     b.append(av, meta);
+    if (it.online) b.append(el("span", "online-dot"));
     b.onclick = () => openChat(it.id);
     list.append(b);
   }
@@ -938,11 +945,16 @@ function renderMessages() {
     const info = el("div", "info");
     const parts = [fmtTime(m.ts), fmtLeft(m.ts)];
     if (m.dir === "out") {
-      parts.push(
-        m.status === "pending" ? "…" : m.status === "failed" ? "⚠ nicht gesendet" : m.status === "opened" ? "✓✓ geöffnet" : "✓"
-      );
+      const seenGrp = grp && m.seenBy?.length;
+      if (m.status !== "seen" && !seenGrp)
+        parts.push(m.status === "pending" ? "…" : m.status === "failed" ? "⚠ nicht gesendet" : m.status === "opened" ? "✓✓ geöffnet" : "✓");
     }
     info.textContent = parts.join(" · ");
+    if (m.dir === "out" && m.status === "seen") info.append(" · ", eyeImg("Gesehen"));
+    if (m.dir === "out" && grp && m.seenBy?.length) {
+      info.append(" · ", eyeImg("Gesehen von: " + m.seenBy.map(memberName).join(", ")));
+      info.append(el("span", "seen-count", String(m.seenBy.length)));
+    }
     if (m.once) {
       d.classList.add("once");
       const badge = el("span", "once-badge", "1");
@@ -1019,7 +1031,9 @@ function renderChatHead() {
     if (!c) return;
     fillAvatar($("#chatAvatar"), c);
     renderRich($("#chatName"), displayName(c));
-    $("#chatSub").textContent = c.acctBanned ? `⛔ Dieses Konto wurde gesperrt` : `Code ${c.id} · 🔐 verschlüsselt`;
+    const ls = lastSeenText(c.id);
+    $("#chatSub").textContent = c.acctBanned ? `⛔ Dieses Konto wurde gesperrt` : ls ? ls : `Code ${c.id} · 🔐 verschlüsselt`;
+    $("#chatSub").classList.toggle("is-online", ls === "online" && !c.acctBanned);
   }
 }
 
@@ -1041,6 +1055,7 @@ function openChat(id) {
   renderList();
   updateTitle();
   if (!isGroup(id)) refreshProfile(id);
+  markSeenSoon();
   if (matchMedia("(min-width: 761px)").matches) $("#msgInput").focus();
 }
 
@@ -1763,6 +1778,33 @@ function showSettings() {
   wpb.onclick = () => showWallpaperPicker("default");
   root.append(wpb, el("hr"));
 
+  root.append(el("strong", null, "🔒 Privatsphäre"));
+  const ol = el("label", "check");
+  const ocb = el("input");
+  ocb.type = "checkbox";
+  ocb.checked = !S.settings.hideOnline;
+  ocb.onchange = () => {
+    setShowOnline(ocb.checked);
+    toast(ocb.checked ? "Deine Kontakte sehen, wann du online bist." : "Niemand sieht mehr, wann du online bist.");
+  };
+  ol.append(ocb, " Online-Status anzeigen");
+  const rl = el("label", "check");
+  const rcb = el("input");
+  rcb.type = "checkbox";
+  rcb.checked = S.settings.readReceipts !== false;
+  rcb.onchange = () => {
+    S.settings.readReceipts = rcb.checked;
+    save();
+  };
+  rl.append(rcb, " Gesehen-Auge senden (Lesebestätigung)");
+  root.append(ol, rl, el("p", "small muted", "Ausgeschaltet sehen andere nicht, wann du online warst bzw. ob du ihre Nachrichten gesehen hast."), el("hr"));
+  root.append(el("strong", null, "☁️ Backup"));
+  root.append(
+    el("p", "small muted", S.backupAt ? `✓ Gesichert – letztes Backup ${new Date(S.backupAt).toLocaleString("de-DE")}` : "Noch kein Backup. Wenn dein Handy die Website-Daten löscht, wären Code und Kontakte weg.")
+  );
+  const bkb = el("button", S.backupAt ? "btn" : "btn primary", S.backupAt ? "Backup verwalten" : "☁️ Backup einrichten");
+  bkb.onclick = showBackupSetup;
+  root.append(bkb, el("hr"));
   root.append(el("strong", null, "👥 Gruppen"));
   const gl = el("label", "check");
   const gcb = el("input");
@@ -2944,6 +2986,332 @@ function bindVoice() {
   $("#recSend").onclick = () => stopRecording(true);
 }
 
+/* ================= Online-Status ================= */
+let presenceMap = {};
+let serverSkew = 0;
+const ONLINE_MS = 45000;
+function lastSeenOf(id) {
+  return presenceMap[id] || 0;
+}
+function isOnline(id) {
+  const t = lastSeenOf(id);
+  return !!t && Date.now() + serverSkew - t < ONLINE_MS;
+}
+function lastSeenText(id) {
+  const t = lastSeenOf(id);
+  if (!t) return "";
+  const diff = Date.now() + serverSkew - t;
+  if (diff < ONLINE_MS) return "online";
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return "zuletzt online gerade eben";
+  if (min < 60) return `zuletzt online vor ${min} Min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `zuletzt online vor ${h} Std`;
+  const d = new Date(t);
+  return `zuletzt online am ${d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" })}`;
+}
+async function pollPresence() {
+  const ids = Object.values(S.contacts).filter((c) => !c.blocked).map((c) => c.id);
+  if (!ids.length || !S.me) return;
+  try {
+    const r = await api(`presence?ids=${ids.join(",")}`);
+    serverSkew = r.now - Date.now();
+    presenceMap = r.seen || {};
+    renderList();
+    if (currentChat && !isGroup(currentChat)) renderChatHead();
+  } catch {}
+}
+async function setShowOnline(on) {
+  S.settings.hideOnline = !on;
+  save();
+  try {
+    await api("presence", { method: on ? "POST" : "DELETE" });
+  } catch {}
+  if (on) poll();
+}
+
+/* ================= Gelesen-Bestätigung (Pixel-Auge) ================= */
+let eyeUrl = null;
+function pixelEyeUrl() {
+  if (eyeUrl) return eyeUrl;
+  const rows = [
+    "....XXXXXX....",
+    "..XXwwwwwwXX..",
+    ".XwwwwPPwwwwX.",
+    "XwwwwPPhPwwwwX",
+    "XwwwwPPPPwwwwX",
+    ".XwwwwPPwwwwX.",
+    "..XXwwwwwwXX..",
+    "....XXXXXX....",
+  ];
+  const col = { X: "#0b1214", w: "#ffffff", P: "#1a1a2e", h: "#ffffff" };
+  let rects = "";
+  rows.forEach((row, y) => [...row].forEach((ch, x) => ch !== "." && (rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${col[ch]}"/>`)));
+  eyeUrl = "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 8" shape-rendering="crispEdges">${rects}</svg>`);
+  return eyeUrl;
+}
+function eyeImg(title) {
+  const img = el("img", "pxeye");
+  img.src = pixelEyeUrl();
+  img.alt = "gesehen";
+  img.title = title || "Gesehen";
+  return img;
+}
+
+// Eingehende Nachrichten im offenen Chat als gesehen melden
+let seenTimer = null;
+function markSeenSoon() {
+  clearTimeout(seenTimer);
+  seenTimer = setTimeout(markSeen, 400);
+}
+function markSeen() {
+  if (!currentChat || document.hidden || !S.me) return;
+  const list = S.messages[currentChat] || [];
+  const bySender = {};
+  for (const m of list) {
+    if (m.dir !== "in" || m.seenSent || m.invite) continue;
+    m.seenSent = true;
+    if (m.once) continue; // Einmal-Nachrichten melden sich beim Öffnen selbst
+    const from = m.from || currentChat;
+    (bySender[from] = bySender[from] || []).push(m.mid);
+  }
+  const senders = Object.keys(bySender);
+  if (!senders.length) return;
+  save();
+  if (S.settings.readReceipts === false) return;
+  for (const s of senders) {
+    if (S.contacts[s]?.blocked) continue;
+    sendCtl(s, { k: "seen", mids: bySender[s].slice(-100), gid: isGroup(currentChat) ? currentChat : undefined }).catch(() => {});
+  }
+}
+function handleSeen(from, p) {
+  if (!Array.isArray(p.mids)) return false;
+  const want = new Set(p.mids.filter((x) => typeof x === "string").slice(0, 200));
+  let changed = false;
+  for (const [chatId, list] of Object.entries(S.messages)) {
+    if (isGroup(chatId) ? p.gid !== chatId : chatId !== from) continue;
+    for (const m of list) {
+      if (m.dir !== "out" || !want.has(m.mid)) continue;
+      if (isGroup(chatId)) {
+        m.seenBy = m.seenBy || [];
+        if (!m.seenBy.includes(from)) {
+          m.seenBy.push(from);
+          changed = true;
+        }
+      } else if (m.status !== "seen" && m.status !== "opened") {
+        m.status = "seen";
+        changed = true;
+      }
+    }
+  }
+  return changed;
+}
+
+/* ================= Daten sichern: Gerät + verschlüsseltes Cloud-Backup ================= */
+const BK_ITER = 600000;
+async function requestPersistence() {
+  try {
+    if (navigator.storage?.persist && !(await navigator.storage.persisted())) await navigator.storage.persist();
+  } catch {}
+}
+// Sicherheitskopie im IndexedDB des Geräts (falls localStorage verloren geht)
+let mirrorTimer = null;
+function mirrorSoon() {
+  clearTimeout(mirrorTimer);
+  mirrorTimer = setTimeout(() => {
+    if (S.me) idbPut("meta", "state", JSON.stringify(S));
+    autoBackup();
+  }, 1500);
+}
+function backupPayload() {
+  return {
+    v: 1,
+    me: { id: S.me.id, token: S.me.token, pub: S.me.pub, priv: S.me.priv, name: S.me.name, av: S.me.av },
+    contacts: Object.fromEntries(
+      Object.values(S.contacts).map((c) => [c.id, { id: c.id, pub: c.pub, av: c.av, name: c.name, nick: c.nick, blocked: !!c.blocked, last: c.last, peer: !!c.peer }])
+    ),
+    groups: Object.fromEntries(Object.values(S.groups).map((g) => [g.id, { ...g, unread: 0 }])),
+    settings: { ...S.settings, wp: {} },
+  };
+}
+async function deriveBackupKey(password, salt, it = BK_ITER) {
+  const base = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", hash: "SHA-256", salt: unb64u(salt), iterations: it },
+    base,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+let backupBusy = false;
+async function uploadBackup(force = false) {
+  const bk = await idbGet("meta", "bk-key");
+  if (!bk || !S.me || backupBusy) return false;
+  const payload = JSON.stringify(backupPayload());
+  const hash = b64u(await crypto.subtle.digest("SHA-256", enc.encode(payload)));
+  if (!force && hash === S.backupHash) return true;
+  backupBusy = true;
+  try {
+    const iv = rand(12);
+    const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: enc.encode("pk-backup|" + S.me.id) }, bk.key, enc.encode(payload));
+    await api("backup", { method: "PUT", body: { salt: bk.salt, it: bk.it, iv: b64u(iv), ct: b64u(ct) } });
+    S.backupHash = hash;
+    S.backupAt = Date.now();
+    localStorage.setItem(STORE_KEY, JSON.stringify(S));
+    return true;
+  } catch {
+    return false;
+  } finally {
+    backupBusy = false;
+  }
+}
+let autoBackupTimer = null;
+function autoBackup() {
+  clearTimeout(autoBackupTimer);
+  autoBackupTimer = setTimeout(() => uploadBackup(false), 4000);
+}
+function updateBackupBanner() {
+  let dismissed = false;
+  try {
+    dismissed = localStorage.getItem("pk_backup_dismissed") === "1";
+  } catch {}
+  $("#backupBanner").classList.toggle("hidden", !S.me || !!S.backupAt || dismissed);
+}
+
+function showBackupSetup() {
+  const body = el("div", "stack");
+  body.append(el("h2", null, "☁️ Konto-Backup"));
+  body.append(
+    el(
+      "p",
+      "small muted",
+      "Mit einem Backup-Passwort kannst du deinen Code, deine Kontakte und Gruppen jederzeit wiederherstellen – auch auf einem neuen Handy oder wenn dein Browser die Daten gelöscht hat. Das Backup wird auf deinem Gerät mit deinem Passwort verschlüsselt. Niemand außer dir kann es öffnen."
+    )
+  );
+  if (S.backupAt) body.append(el("p", "small accent", `✓ Letztes Backup: ${new Date(S.backupAt).toLocaleString("de-DE")} – wird automatisch aktualisiert.`));
+  const p1 = el("input");
+  p1.type = "password";
+  p1.placeholder = "Backup-Passwort (mind. 8 Zeichen)";
+  p1.autocomplete = "new-password";
+  const p2 = el("input");
+  p2.type = "password";
+  p2.placeholder = "Passwort wiederholen";
+  p2.autocomplete = "new-password";
+  const warn = el("p", "small");
+  warn.textContent = "⚠️ Merk dir dein Passwort und deinen Code " + S.me.id + " gut – ohne beides kann niemand das Backup wiederherstellen.";
+  const go = el("button", "btn primary big", S.backupAt ? "Passwort ändern & sichern" : "Backup aktivieren");
+  go.onclick = async () => {
+    if (p1.value.length < 8) return toast("Das Passwort muss mindestens 8 Zeichen haben.");
+    if (p1.value !== p2.value) return toast("Die Passwörter stimmen nicht überein.");
+    go.disabled = true;
+    go.textContent = "Wird verschlüsselt…";
+    try {
+      const salt = b64u(rand(16));
+      const key = await deriveBackupKey(p1.value, salt);
+      await idbPut("meta", "bk-key", { key, salt, it: BK_ITER });
+      if (!(await uploadBackup(true))) throw new Error("Backup konnte nicht hochgeladen werden.");
+      closeModal();
+      updateBackupBanner();
+      toast("☁️ Backup aktiviert – es wird ab jetzt automatisch aktualisiert.");
+    } catch (e) {
+      toast(e.message);
+      go.disabled = false;
+      go.textContent = "Backup aktivieren";
+    }
+  };
+  body.append(p1, p2, warn, go);
+  if (S.backupAt) {
+    const del = el("button", "btn danger", "Backup löschen");
+    del.onclick = async () => {
+      if (!confirm("Backup wirklich löschen?")) return;
+      await api("backup", { method: "DELETE" }).catch(() => {});
+      await idbDel("meta", "bk-key");
+      delete S.backupAt;
+      delete S.backupHash;
+      save();
+      closeModal();
+      updateBackupBanner();
+    };
+    body.append(del);
+  }
+  openModal(body);
+  setTimeout(() => p1.focus(), 50);
+}
+
+function showRestore() {
+  const body = el("div", "stack");
+  body.append(el("h2", null, "☁️ Konto wiederherstellen"));
+  body.append(el("p", "small muted", "Gib deinen Code und dein Backup-Passwort ein. Deine Kontakte und Gruppen kommen zurück."));
+  const code = el("input", "code-input");
+  code.maxLength = 8;
+  code.placeholder = "DEIN CODE";
+  code.autocapitalize = "characters";
+  const pw = el("input");
+  pw.type = "password";
+  pw.placeholder = "Backup-Passwort";
+  pw.autocomplete = "current-password";
+  const go = el("button", "btn primary big", "Wiederherstellen");
+  go.onclick = async () => {
+    const id = code.value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (id.length !== 8) return toast("Ein Code hat 8 Zeichen.");
+    go.disabled = true;
+    go.textContent = "Wird entschlüsselt…";
+    try {
+      const bk = await api(`backup/${id}`);
+      const key = await deriveBackupKey(pw.value, bk.salt, bk.it);
+      let data;
+      try {
+        const pt = await crypto.subtle.decrypt(
+          { name: "AES-GCM", iv: unb64u(bk.iv), additionalData: enc.encode("pk-backup|" + id) },
+          key,
+          unb64u(bk.ct)
+        );
+        data = JSON.parse(dec.decode(pt));
+      } catch {
+        throw new Error("Falsches Passwort.");
+      }
+      S = withDefaults({ me: data.me, settings: data.settings, groups: data.groups || {} });
+      for (const c of Object.values(data.contacts || {})) {
+        S.contacts[c.id] = { ...c, unread: 0 };
+        S.messages[c.id] = [];
+      }
+      for (const gid of Object.keys(S.groups)) S.messages[gid] = [];
+      await api("me");
+      S.backupAt = bk.ts;
+      await idbPut("meta", "bk-key", { key, salt: bk.salt, it: bk.it });
+      save();
+      applyTheme(S.settings);
+      closeModal();
+      toast("✅ Konto wiederhergestellt");
+      startApp();
+    } catch (e) {
+      S = withDefaults({ me: null });
+      toast(e.status === 404 ? "Für diesen Code gibt es kein Backup." : e.status === 401 ? "Dieses Konto existiert nicht mehr." : e.message);
+      go.disabled = false;
+      go.textContent = "Wiederherstellen";
+    }
+  };
+  body.append(code, pw, go);
+  openModal(body);
+  setTimeout(() => code.focus(), 50);
+}
+
+// Beim Start: Falls localStorage leer ist, aus der Sicherheitskopie im Gerät wiederherstellen
+async function recoverFromMirror() {
+  try {
+    const raw = await idbGet("meta", "state");
+    if (!raw) return false;
+    const st = JSON.parse(raw);
+    if (!st?.me?.id || !st.me.token) return false;
+    S = withDefaults(st);
+    localStorage.setItem(STORE_KEY, JSON.stringify(S));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /* ================= Start ================= */
 function handleHash() {
   const sc = /^#(new|scan)$/.exec(location.hash);
@@ -2978,6 +3346,11 @@ async function startApp() {
   if (S.me.nameSynced !== (S.me.name || "")) syncMyName().catch(() => {});
   refreshMe();
   pollModeration();
+  pollPresence();
+  setInterval(() => !document.hidden && pollPresence(), 20000);
+  requestPersistence();
+  updateBackupBanner();
+  uploadBackup(false);
   if (pendingHash) {
     const { kind, code } = pendingHash;
     pendingHash = null;
@@ -3103,6 +3476,8 @@ function bind() {
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
       poll();
+      markSeenSoon();
+      pollPresence();
       const holder = currentChat && (S.contacts[currentChat] || S.groups[currentChat]);
       if (holder) {
         holder.unread = 0;
@@ -3132,9 +3507,20 @@ function bind() {
 applyTheme(S.settings);
 bind();
 $("#importBtn").onclick = showImport;
+$("#restoreBtn").onclick = showRestore;
+$("#backupSetup").onclick = showBackupSetup;
+$("#backupDismiss").onclick = () => {
+  try {
+    localStorage.setItem("pk_backup_dismissed", "1");
+  } catch {}
+  updateBackupBanner();
+};
 registerSW();
 if (S.me) startApp();
-else {
+else if (await recoverFromMirror()) {
+  applyTheme(S.settings);
+  startApp();
+} else {
   $("#welcome").classList.remove("hidden");
   if (pendingHash?.kind === "add") {
     $(".tagline").after(el("p", "small accent", "Du wurdest zu einem Chat eingeladen – erstelle kurz dein anonymes Profil."));

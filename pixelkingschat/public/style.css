@@ -479,3 +479,15 @@ img.pxe.big { width: 2.6em; height: 2.6em; vertical-align: middle; }
 #sidebar > *:not(.chat-list):not(.fab) { flex-shrink: 0; }
 .story-bar { min-height: 92px; align-items: flex-start; padding-top: 4px; }
 .empty { padding-bottom: 110px; }
+
+/* ---------- v7: Online-Status, Pixel-Auge ---------- */
+.chat-item { position: relative; }
+.online-dot {
+  position: absolute; left: 44px; top: 44px; width: 14px; height: 14px; border-radius: 50%;
+  background: #22e06b; border: 3px solid var(--bg2); box-shadow: 0 0 8px rgba(34,224,107,.6);
+}
+#chatSub.is-online { color: #22e06b; font-weight: 600; }
+img.pxeye { width: 21px; height: 12px; image-rendering: pixelated; vertical-align: -2px; display: inline-block; }
+.msg.out .info { align-items: center; }
+.seen-count { font-size: 10px; font-weight: 700; margin-left: 2px; }
+#welcome #restoreBtn { margin-top: 10px; }

@@ -38,6 +38,7 @@
       </label>
       <button id="createBtn" class="btn primary big">Los geht's</button>
       <p class="small muted">Dein geheimer Schlüssel wird nur auf diesem Gerät erzeugt und verlässt es nie.</p>
+      <button id="restoreBtn" class="btn big">☁️ Konto wiederherstellen (Backup)</button>
       <button id="importBtn" class="link-btn">Du hast schon einen Code? Konto übertragen</button>
     </div>
   </section>
@@ -61,6 +62,13 @@
         <div class="banner-actions">
           <button class="btn primary small-btn" id="installBtn">Installieren</button>
           <button class="icon-btn" id="installDismiss" aria-label="Ausblenden">✕</button>
+        </div>
+      </div>
+      <div id="backupBanner" class="banner hidden">
+        <div class="banner-text">☁️ Sichere dein Konto mit einem Backup-Passwort – sonst sind Code &amp; Chats weg, wenn dein Handy die Daten löscht.</div>
+        <div class="banner-actions">
+          <button class="btn primary small-btn" id="backupSetup">Sichern</button>
+          <button class="icon-btn" id="backupDismiss" aria-label="Ausblenden">✕</button>
         </div>
       </div>
       <div id="notifBanner" class="banner hidden">
