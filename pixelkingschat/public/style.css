@@ -623,3 +623,7 @@ html.desktop .msg-text { user-select: text; }
 .yt-icon { width: 64px; height: 44px; border-radius: 10px; background: #e62117; display: grid; place-items: center; font-size: 22px; image-rendering: pixelated; box-shadow: 0 0 0 3px #000, 0 0 0 5px var(--accent); }
 .yt-label { font-size: 13px; opacity: .9; }
 .yt-play:hover .yt-icon { transform: scale(1.06); }
+
+/* ---------- v15: Ton freischalten ---------- */
+.call-unlock { align-self: center; margin: 8px auto; animation: pk-pulse 1.4s ease-in-out infinite; }
+@keyframes pk-pulse { 50% { transform: scale(1.05); } }

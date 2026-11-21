@@ -6,6 +6,7 @@ export function initCalls(ctx) {
   const { api, S, el, rich, toast } = ctx;
   const RING_MS = 45000;
   let iceServers = null;
+  let hasRelay = false;
   let call = null; // aktiver Anruf oder Meeting
   let incoming = null; // klingelnder Anruf
   let sigTimer = null;
@@ -15,6 +16,7 @@ export function initCalls(ctx) {
     if (iceServers) return iceServers;
     try {
       iceServers = (await api("turn")).iceServers;
+      hasRelay = iceServers.some((s) => [].concat(s.urls).some((u) => /^turns?:/.test(u)));
     } catch {
       iceServers = [{ urls: "stun:stun.l.google.com:19302" }];
     }
@@ -114,13 +116,27 @@ export function initCalls(ctx) {
       renderTiles();
     };
     pc.onconnectionstatechange = () => {
+      if (!call || call.peers.get(id) !== peer) return;
       if (pc.connectionState === "connected") {
         peer.connected = true;
         if (!call.connectedAt) call.connectedAt = Date.now();
         sigFast = false;
         stopRinging();
+        playRemote(peer);
       }
-      if (pc.connectionState === "failed") toast("Verbindung zu " + ctx.memberName(id) + " fehlgeschlagen.");
+      if (pc.connectionState === "failed") {
+        // einmal neu versuchen (z. B. nach Netzwechsel WLAN ↔ Mobilfunk)
+        const tries = (call.retries[id] = (call.retries[id] || 0) + 1);
+        if (peer.offerer && tries <= 2) {
+          sendOffer(id).catch(() => {});
+          return;
+        }
+        toast(
+          hasRelay
+            ? "Verbindung zu " + ctx.memberName(id) + " fehlgeschlagen."
+            : "Keine Verbindung zu " + ctx.memberName(id) + " – das Netz blockiert direkte Anrufe. Probiert es im WLAN."
+        );
+      }
       renderTiles();
     };
     call.peers.set(id, peer);
@@ -129,12 +145,22 @@ export function initCalls(ctx) {
   function gathered(pc) {
     return new Promise((res) => {
       if (pc.iceGatheringState === "complete") return res();
-      const t = setTimeout(res, 3000);
-      pc.addEventListener("icegatheringstatechange", () => {
-        if (pc.iceGatheringState === "complete") {
-          clearTimeout(t);
-          res();
-        }
+      let done = false;
+      let early = null;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(t);
+        clearTimeout(early);
+        res();
+      };
+      const t = setTimeout(finish, 6000);
+      pc.addEventListener("icegatheringstatechange", () => pc.iceGatheringState === "complete" && finish());
+      pc.addEventListener("icecandidate", (e) => {
+        const c = e.candidate?.candidate || "";
+        // Relay gefunden → gleich los; nur STUN → noch kurz auf weitere Wege warten
+        if (/ typ relay/.test(c)) early ??= setTimeout(finish, 300);
+        else if (/ typ srflx/.test(c) && !hasRelay) early ??= setTimeout(finish, 1200);
       });
     });
   }
@@ -142,7 +168,8 @@ export function initCalls(ctx) {
     let peer = call.peers.get(id);
     if (peer) closePeer(id);
     peer = await makePeer(id);
-    const offer = await peer.pc.createOffer();
+    peer.offerer = true;
+    const offer = await peer.pc.createOffer({ offerToReceiveAudio: true });
     await peer.pc.setLocalDescription(offer);
     await gathered(peer.pc);
     await signal(id, { k: "offer", room: call.room, sdp: peer.pc.localDescription.sdp });
@@ -204,7 +231,7 @@ export function initCalls(ctx) {
     } catch (e) {
       return toast(e.message);
     }
-    call = { kind: "direct", with: to, room, video, local, peers: new Map(), started: Date.now(), outgoing: true, status: "klingelt…" };
+    call = { kind: "direct", with: to, room, video, local, peers: new Map(), retries: {}, started: Date.now(), outgoing: true, status: "klingelt…" };
     openCallView();
     try {
       const r = await api("call/ring", { body: { to, callId: room, video } });
@@ -293,7 +320,7 @@ export function initCalls(ctx) {
       signal(inc.from, { k: "decline", room: inc.room }).catch(() => {});
       return toast(e.message);
     }
-    call = { kind: "direct", with: inc.from, room: inc.room, video: inc.video, local, peers: new Map(), started: Date.now(), status: "verbinde…" };
+    call = { kind: "direct", with: inc.from, room: inc.room, video: inc.video, local, peers: new Map(), retries: {}, started: Date.now(), status: "verbinde…" };
     openCallView();
     startSignalPolling(true);
     await signal(inc.from, { k: "accept", room: inc.room });
@@ -320,7 +347,7 @@ export function initCalls(ctx) {
       api("meet/leave", { body: { code } }).catch(() => {});
       return toast(e.message);
     }
-    call = { kind: "meet", room: code, title: info.title || title, video, local, peers: new Map(), started: Date.now(), members: info.members, status: "" };
+    call = { kind: "meet", room: code, title: info.title || title, video, local, peers: new Map(), retries: {}, started: Date.now(), members: info.members, status: "" };
     openCallView();
     startSignalPolling(true);
     await syncMeeting(info.members);
@@ -382,14 +409,21 @@ export function initCalls(ctx) {
       mic.textContent = t.enabled ? "🎤" : "🔇";
     };
     const spk = el("button", "call-btn", "🔊");
-    spk.title = "Lautsprecher";
+    spk.title = "Ton der anderen an/aus";
     spk.onclick = () => {
-      // auf vielen Handys: zwischen Hörer und Lautsprecher wechseln, sofern der Browser es erlaubt
       const muted = !view._muteOut;
       view._muteOut = muted;
-      for (const p of call.peers.values()) if (p.tileVideo) p.tileVideo.muted = muted;
-      spk.textContent = muted ? "🔈" : "🔊";
+      for (const p of call.peers.values()) if (p.audio) p.audio.muted = muted;
+      spk.textContent = muted ? "🔕" : "🔊";
       spk.classList.toggle("off", muted);
+      toast(muted ? "🔕 Du hörst die anderen gerade nicht." : "🔊 Ton wieder an");
+      if (!muted) unlockAudio();
+    };
+    // Falls der Browser das automatische Abspielen blockiert
+    const unlock = el("button", "btn primary call-unlock hidden", "🔊 Tippen, um den Ton zu hören");
+    unlock.onclick = (e) => {
+      e.stopPropagation();
+      unlockAudio();
     };
     const hang = el("button", "call-btn red", "📞");
     hang.title = "Auflegen";
@@ -402,9 +436,10 @@ export function initCalls(ctx) {
       bar.append(share);
     }
     bar.append(hang);
-    view.append(head, grid, self, bar);
+    view.append(head, grid, unlock, self, bar);
+    view.addEventListener("pointerdown", unlockAudio);
     document.body.append(view);
-    view._refs = { title, sub, grid, self };
+    view._refs = { title, sub, grid, self, unlock };
     renderTiles();
     clearInterval(durTimer);
     durTimer = setInterval(renderHead, 1000);
@@ -430,6 +465,22 @@ export function initCalls(ctx) {
   function nameOf(id) {
     return (call?.names && call.names[id]) || ctx.memberName(id);
   }
+  function playRemote(p) {
+    const a = p.audio;
+    if (!a) return;
+    if (a.srcObject !== p.stream) a.srcObject = p.stream;
+    a.muted = !!view?._muteOut;
+    const pr = a.play();
+    if (pr)
+      pr.then(() => view?._refs.unlock?.classList.add("hidden")).catch(() => {
+        // Autoplay blockiert → Knopf anzeigen, ein Tippen schaltet den Ton frei
+        view?._refs.unlock?.classList.remove("hidden");
+      });
+  }
+  function unlockAudio() {
+    if (!call) return;
+    for (const p of call.peers.values()) playRemote(p);
+  }
   function renderTiles() {
     if (!view || !call) return;
     renderHead();
@@ -442,9 +493,9 @@ export function initCalls(ctx) {
       keep.add(p.id);
       if (!p.tile) {
         const tile = el("div", "call-tile");
-        const v = el("video");
-        v.playsInline = true;
+        const v = el("audio");
         v.autoplay = true;
+        v.setAttribute("playsinline", "");
         const av = el("div", "avatar xl");
         ctx.fillAvatar(av, S().contacts[p.id] || { id: p.id, av: 0, name: nameOf(p.id) }, nameOf(p.id));
         const label = rich("div", "call-label", nameOf(p.id));
@@ -452,10 +503,10 @@ export function initCalls(ctx) {
         tile.append(av, v, label, state);
         p.tile = tile;
         p.tileVideo = v;
+        p.audio = v;
         p.tileState = state;
       }
-      if (p.tileVideo.srcObject !== p.stream) p.tileVideo.srcObject = p.stream;
-      p.tileVideo.play().catch(() => {});
+      if (p.audio.srcObject !== p.stream || p.audio.paused) playRemote(p);
       const st = p.pc.connectionState;
       p.tileState.textContent = st === "connected" ? "" : st === "failed" ? "⚠ keine Verbindung" : "verbinde…";
       if (p.tile.parentNode !== grid) grid.append(p.tile);
@@ -474,36 +525,39 @@ export function initCalls(ctx) {
       grid.append(wait);
     }
   }
-  // Sprech-Anzeige: Profilbild leuchtet, wenn jemand spricht
-  let meter = null;
-  function level(stream, key) {
+  // Sprech-Anzeige: Profilbild leuchtet, wenn jemand spricht.
+  // Pegel kommen direkt aus WebRTC – kein WebAudio, das auf iPhones den Ton stören kann.
+  function remoteLevel(p) {
     try {
-      meter ??= new (window.AudioContext || window.webkitAudioContext)();
-      const cache = (level.cache ??= new Map());
-      let a = cache.get(key);
-      if (!a || a.stream !== stream) {
-        const an = meter.createAnalyser();
-        an.fftSize = 256;
-        meter.createMediaStreamSource(stream).connect(an);
-        a = { an, buf: new Uint8Array(an.fftSize), stream };
-        cache.set(key, a);
-      }
-      a.an.getByteTimeDomainData(a.buf);
-      let sum = 0;
-      for (const v of a.buf) sum += (v - 128) * (v - 128);
-      return Math.sqrt(sum / a.buf.length);
+      const r = p.pc.getReceivers().find((x) => x.track?.kind === "audio");
+      const src = r?.getSynchronizationSources?.()[0];
+      return src && performance.timeOrigin + performance.now() - src.timestamp < 1000 ? src.audioLevel || 0 : 0;
     } catch {
       return 0;
     }
   }
+  let meBusy = false;
+  async function localLevel() {
+    const p = [...call.peers.values()].find((x) => x.pc.connectionState === "connected");
+    if (!p) return 0;
+    const st = await p.pc.getStats();
+    let lvl = 0;
+    st.forEach((r) => {
+      if (r.type === "media-source" && r.kind === "audio" && typeof r.audioLevel === "number") lvl = r.audioLevel;
+    });
+    return lvl;
+  }
   setInterval(() => {
     if (!call || !view) return;
-    for (const p of call.peers.values()) {
-      if (!p.tile || !p.stream.getAudioTracks().length) continue;
-      p.tile.classList.toggle("speaking", level(p.stream, p.id) > 6);
-    }
+    for (const p of call.peers.values()) if (p.tile) p.tile.classList.toggle("speaking", remoteLevel(p) > 0.03);
     const t = call.local.getAudioTracks()[0];
-    view.classList.toggle("me-speaking", !!t?.enabled && level(call.local, "me") > 6);
+    if (!t?.enabled) return view.classList.remove("me-speaking");
+    if (meBusy) return;
+    meBusy = true;
+    localLevel()
+      .then((l) => view?.classList.toggle("me-speaking", l > 0.03))
+      .catch(() => {})
+      .finally(() => (meBusy = false));
   }, 250);
 
   /* ---------- Auflegen ---------- */
@@ -526,7 +580,6 @@ export function initCalls(ctx) {
     clearInterval(beatTimer);
     clearInterval(durTimer);
     stopRinging();
-    level.cache?.clear();
     for (const p of c.peers.values())
       try {
         p.pc.close();
