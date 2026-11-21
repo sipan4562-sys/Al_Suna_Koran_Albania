@@ -471,3 +471,6 @@ img.pxe.big { width: 2.6em; height: 2.6em; vertical-align: middle; }
 .voice-time { font: 12px var(--mono); opacity: .8; min-width: 34px; text-align: right; }
 .msg.has-voice { padding: 6px 10px 6px; }
 .once-view .voice { pointer-events: auto; margin: 6px 0; }
+
+/* ---------- v6: Moderation ---------- */
+.composer.blocked textarea { opacity: .5; }

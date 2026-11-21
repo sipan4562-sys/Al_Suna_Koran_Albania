@@ -360,7 +360,7 @@ function sysMsg(chatId, text) {
 async function sendMessage({ text = "", imgB64 = null, file = null, aud = null, once = false }) {
   const to = currentChat;
   if (!to) return;
-  if (S.me.banned) return toast("Dein Konto ist gesperrt.");
+  if (sendBlocked()) return;
   if (isGroup(to)) return sendGroupMessage({ text, imgB64, file, aud });
   const mid = newMid();
   const ts = Date.now();
@@ -389,7 +389,7 @@ async function sendMessage({ text = "", imgB64 = null, file = null, aud = null, 
     local.status = "sent";
   } catch (e) {
     local.status = "failed";
-    if (e.status === 403) setBanned(true);
+    if (e.status === 403) refreshMe();
     toast("Senden fehlgeschlagen: " + e.message);
   }
   save();
@@ -443,7 +443,7 @@ async function sendGroupMessage({ text, imgB64, file, aud }) {
     }
   } catch (e) {
     local.status = "failed";
-    if (e.status === 403) setBanned(true);
+    if (e.status === 403) refreshMe();
     toast("Senden fehlgeschlagen: " + e.message);
   }
   save();
@@ -812,7 +812,7 @@ function renderList() {
   const items = [];
   for (const c of Object.values(S.contacts)) {
     if (c.peer && !(S.messages[c.id] || []).length) continue;
-    items.push({ id: c.id, last: c.last || 0, unread: c.unread, name: (c.blocked ? "🚫 " : "") + displayName(c), fill: (n) => fillAvatar(n, c) });
+    items.push({ id: c.id, last: c.last || 0, unread: c.unread, name: (c.acctBanned ? "⛔ " : c.blocked ? "🚫 " : "") + displayName(c), fill: (n) => fillAvatar(n, c) });
   }
   for (const g of Object.values(S.groups)) {
     items.push({ id: g.id, last: g.last || 0, unread: g.unread, name: g.name, grp: true, fill: (n) => fillGroupAvatar(n, g) });
@@ -1019,7 +1019,7 @@ function renderChatHead() {
     if (!c) return;
     fillAvatar($("#chatAvatar"), c);
     renderRich($("#chatName"), displayName(c));
-    $("#chatSub").textContent = `Code ${c.id} · 🔐 verschlüsselt`;
+    $("#chatSub").textContent = c.acctBanned ? `⛔ Dieses Konto wurde gesperrt` : `Code ${c.id} · 🔐 verschlüsselt`;
   }
 }
 
@@ -1054,7 +1054,132 @@ function closeChat() {
 function setBanned(on) {
   S.me.banned = !!on;
   save();
-  $("#bannedBanner").classList.toggle("hidden", !on);
+  updateModBanner();
+}
+
+/* ================= Moderation: Sperren, Timeouts, entfernte Nachrichten ================= */
+function fmtUntil(ts) {
+  return new Date(ts).toLocaleString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+}
+function timedOut() {
+  return S.me.timeoutUntil && S.me.timeoutUntil > Date.now();
+}
+function sendBlocked() {
+  if (S.me.banned) {
+    toast("⛔ Dein Konto ist gesperrt.");
+    return true;
+  }
+  if (timedOut()) {
+    toast(`⏳ Du bist bis ${fmtUntil(S.me.timeoutUntil)} Uhr vorübergehend gesperrt.`);
+    return true;
+  }
+  return false;
+}
+function updateModBanner() {
+  const b = $("#bannedBanner");
+  if (!b || !S.me) return;
+  if (S.me.banned) b.textContent = "⛔ Dein Konto wurde wegen Verstößen gegen die Regeln dauerhaft gesperrt. Du kannst keine Nachrichten mehr senden.";
+  else if (timedOut()) b.textContent = `⏳ Vorübergehend gesperrt bis ${fmtUntil(S.me.timeoutUntil)} Uhr – bis dahin kannst du nichts senden.`;
+  b.classList.toggle("hidden", !(S.me.banned || timedOut()));
+  $("#composer")?.classList.toggle("blocked", !!(S.me.banned || timedOut()));
+}
+function showNotice(n) {
+  const body = el("div", "stack");
+  const titles = { ban: "⛔ Konto gesperrt", timeout: "⏳ Vorübergehend gesperrt", warn: "⚠️ Verwarnung" };
+  body.append(el("h2", null, titles[n.kind] || "Hinweis"));
+  body.append(el("p", null, n.reason || "Deine Inhalte verstoßen gegen die Regeln von Pixelkingschat."));
+  const what = [];
+  if (n.deleted) what.push("Deine Nachrichten wurden aus allen Chats entfernt.");
+  if (n.kind === "ban") what.push("Dein Konto wurde dauerhaft gesperrt. Du kannst keine Nachrichten, Stories oder Bilder mehr senden.");
+  if (n.kind === "timeout" && n.until) what.push(`Du kannst bis ${fmtUntil(n.until)} Uhr keine Nachrichten senden.`);
+  if (n.kind === "warn") what.push("Bei weiteren Verstößen wird dein Konto gesperrt.");
+  for (const w of what) body.append(el("p", "small muted", w));
+  const ok = el("button", "btn primary big", "Verstanden");
+  ok.onclick = closeModal;
+  body.append(ok);
+  openModal(body, () => api("me/notice", { method: "DELETE" }).catch(() => {}));
+}
+async function refreshMe() {
+  try {
+    const r = await api("me");
+    S.me.banned = !!r.banned;
+    S.me.timeoutUntil = r.timeoutUntil || 0;
+    if (r.av !== S.me.av) {
+      S.me.av = r.av;
+      renderMe();
+    }
+    if (r.purgeBefore && r.purgeBefore !== S.me.purgedAt) {
+      // eigene Nachrichten wurden wegen eines Verstoßes entfernt
+      S.me.purgedAt = r.purgeBefore;
+      for (const chatId of Object.keys(S.messages)) {
+        const before = S.messages[chatId].length;
+        const keep = [];
+        for (const m of S.messages[chatId]) {
+          if (m.dir === "out" && m.ts <= r.purgeBefore) await dropMedia(m.mid);
+          else keep.push(m);
+        }
+        if (keep.length !== before) {
+          S.messages[chatId] = keep;
+          sysMsg(chatId, "Deine Nachrichten wurden wegen eines Regelverstoßes entfernt.");
+        }
+      }
+      renderList();
+      if (currentChat) renderMessages();
+    }
+    save();
+    updateModBanner();
+    if (r.notice && r.notice.ts !== S.me.noticeSeen) {
+      S.me.noticeSeen = r.notice.ts;
+      save();
+      showNotice(r.notice);
+    }
+  } catch {}
+}
+// Kontakte prüfen: gesperrte Konten markieren, entfernte Nachrichten löschen
+async function pollModeration() {
+  const ids = Object.keys(S.contacts);
+  if (!ids.length) return;
+  try {
+    const { mod } = await api(`mod?ids=${ids.join(",")}`);
+    let changed = false;
+    for (const id of ids) {
+      const c = S.contacts[id];
+      const st = mod[id];
+      const banned = !!st?.b;
+      if (!!c.acctBanned !== banned) {
+        c.acctBanned = banned;
+        changed = true;
+      }
+      const p = st?.p || 0;
+      if (p && p !== c.purgedAt) {
+        c.purgedAt = p;
+        changed = true;
+        for (const chatId of Object.keys(S.messages)) {
+          const before = S.messages[chatId].length;
+          const keep = [];
+          for (const m of S.messages[chatId]) {
+            const fromThem = m.dir === "in" && (m.from === id || (chatId === id && !m.from));
+            if (fromThem && m.ts <= p) await dropMedia(m.mid);
+            else keep.push(m);
+          }
+          if (keep.length !== before) {
+            S.messages[chatId] = keep;
+            sysMsg(chatId, `Nachrichten von ${displayName(c)} wurden wegen eines Regelverstoßes entfernt.`);
+          }
+        }
+        if (S.stories[id]) delete S.stories[id];
+      }
+    }
+    if (changed) {
+      save();
+      renderList();
+      renderStoryBar();
+      if (currentChat) {
+        renderChatHead();
+        renderMessages();
+      }
+    }
+  } catch {}
 }
 
 /* ================= Modale Dialoge ================= */
@@ -1284,6 +1409,7 @@ function showReport({ type, target, mids = [], after, skey, key }) {
         if (!items.length) throw new Error("Keine Nachrichten gefunden, die gemeldet werden können.");
       }
       const res = await api("report", { body: { type, target, reason: picked, items, skey, k: key } });
+      if (res.applied) pollModeration();
       if (blockCb.checked) await setBlocked(target, true);
       const done = el("div", "stack");
       done.append(el("h2", null, "Danke! 💚"));
@@ -2354,7 +2480,7 @@ async function storyFromPhoto(file) {
 }
 
 async function postStory(content) {
-  if (S.me.banned) return toast("Dein Konto ist gesperrt.");
+  if (sendBlocked()) return;
   const ids = storyContacts();
   try {
     const sid = b64u(rand(9));
@@ -2620,7 +2746,7 @@ function pickAudioType() {
 let rec = null;
 async function startRecording() {
   if (!currentChat || rec) return;
-  if (S.me.banned) return toast("Dein Konto ist gesperrt.");
+  if (sendBlocked()) return;
   const type = pickAudioType();
   if (type === null || !navigator.mediaDevices?.getUserMedia) return toast("Dein Browser kann keine Sprachnachrichten aufnehmen.");
   let stream;
@@ -2850,16 +2976,8 @@ async function startApp() {
   updateNotifBanner();
   updateInstallBanner();
   if (S.me.nameSynced !== (S.me.name || "")) syncMyName().catch(() => {});
-  api("me")
-    .then((r) => {
-      setBanned(r.banned);
-      if (r.av !== S.me.av) {
-        S.me.av = r.av;
-        save();
-        renderMe();
-      }
-    })
-    .catch(() => {});
+  refreshMe();
+  pollModeration();
   if (pendingHash) {
     const { kind, code } = pendingHash;
     pendingHash = null;
@@ -2882,7 +3000,13 @@ async function startApp() {
   Object.keys(S.contacts).forEach((id, i) => setTimeout(() => refreshProfile(id), 500 + i * 300));
   renderStoryBar();
   pollStories();
-  setInterval(() => !document.hidden && pollStories(), 60000);
+  setInterval(() => {
+    if (document.hidden) return;
+    pollStories();
+    refreshMe();
+    pollModeration();
+  }, 60000);
+  setInterval(updateModBanner, 30000);
 }
 
 function loop() {

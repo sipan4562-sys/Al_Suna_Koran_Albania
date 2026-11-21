@@ -11,6 +11,7 @@ Anonymer Chat **ohne Telefonnummer und ohne E-Mail** – live: https://pixelking
 - **Profilbilder** – für alle sichtbar, die deinen Code kennen.
 - **Push-Benachrichtigungen** – auch auf dem Homebildschirm (iPhone ab iOS 16.4: „Teilen → Zum Home-Bildschirm“). Die Benachrichtigung verrät nur den Absender, nie den Inhalt.
 - **Melden** von einzelnen Nachrichten, ganzen Chats und Profilbildern. Gemeldete Inhalte werden automatisch geprüft; bei Verstößen gibt es Verwarnungen bzw. eine Sperre (schwere Verstöße sofort, sonst nach 3 Verwarnungen). Meldungen sind fälschungssicher: Der Server speichert beim Senden nur einen Hash jeder Nachricht, und beim Melden wird nur der Schlüssel genau dieser Nachricht herausgegeben.
+- **Automatische Maßnahmen** – bei jeder Meldung entscheidet die Prüfung selbst (unter Berücksichtigung früherer Verstöße): Verwarnung, Nachrichten aus allen Chats entfernen, Timeout (1 Std bis 7 Tage) oder dauerhafte Sperre. Betroffene sehen einen Hinweis und ein Banner; gesperrte Konten werden bei allen Kontakten markiert. Technisch: Claude (claude-opus-5-5) über das Netlify AI Gateway, in der App wird das nicht erwähnt.
 - **Blockieren** – Nachrichten blockierter Kontakte werden schon auf dem Server verworfen.
 - **Eindeutige Codes** – jeder Code wird genau einmal vergeben, auch nach dem Löschen eines Kontos nie wieder.
 - **Dateien senden** (bis 2,5 MB) – Ende-zu-Ende-verschlüsselt.

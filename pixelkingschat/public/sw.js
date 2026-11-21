@@ -1,7 +1,7 @@
 // Pixelkingschat Service Worker – zeigt Benachrichtigungen bei neuen Nachrichten.
 // Der Inhalt bleibt Ende-zu-Ende-verschlüsselt: die Benachrichtigung zeigt nur, WER geschrieben hat.
 
-const CACHE = "pk-shell-v6";
+const CACHE = "pk-shell-v8";
 const SHELL = [
   "/",
   "/index.html",
