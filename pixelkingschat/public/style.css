@@ -610,3 +610,16 @@ html.desktop .msg-text { user-select: text; }
 .call-tile.speaking .avatar { box-shadow: 0 0 0 4px var(--accent), 0 0 24px rgba(var(--accent-rgb), .7); transform: scale(1.04); }
 .call-tile.speaking { background: #13252a; }
 .call-view.me-speaking .call-bar .call-btn:first-child { box-shadow: 0 0 0 3px var(--accent); }
+
+/* ---------- v14: Links & YouTube ---------- */
+.msg-link { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; word-break: break-all; }
+.msg.out .msg-link { color: inherit; font-weight: 600; }
+.msg.has-yt { max-width: min(420px, 86%); }
+.yt-card { margin-top: 6px; border-radius: 12px; overflow: hidden; background: #000; aspect-ratio: 16 / 9; width: min(380px, 70vw); display: flex; }
+.yt-card.short { aspect-ratio: 9 / 16; width: min(240px, 55vw); }
+.yt-card iframe { border: 0; width: 100%; height: 100%; display: block; }
+.yt-play { flex: 1; border: 0; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  background: repeating-linear-gradient(45deg, #0d1517 0 8px, #101c1f 8px 16px); color: #fff; font: inherit; }
+.yt-icon { width: 64px; height: 44px; border-radius: 10px; background: #e62117; display: grid; place-items: center; font-size: 22px; image-rendering: pixelated; box-shadow: 0 0 0 3px #000, 0 0 0 5px var(--accent); }
+.yt-label { font-size: 13px; opacity: .9; }
+.yt-play:hover .yt-icon { transform: scale(1.06); }

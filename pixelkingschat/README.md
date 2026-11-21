@@ -20,6 +20,8 @@ Anonymer Chat **ohne Telefonnummer und ohne E-Mail** – live: https://pixelking
 - **GIFs wie bei Discord** – GIF-Tab im Emoji-Menü mit 16 eigenen animierten Pixel-GIFs (`public/gifs/`), eigene GIFs vom Gerät und GIPHY-Suche (aktiv, sobald die Umgebungsvariable `GIPHY_API_KEY` gesetzt ist).
 - **Sprachnachrichten spulen** – ⏪/⏩ 10 Sek., auf die Wellenform tippen, Geschwindigkeit 1×/1,5×/2×.
 - **Öffentliche Stories** – in den Einstellungen oder pro Story wählbar; erscheinen für alle unter „🌍 Entdecken“ und werden vor dem Veröffentlichen automatisch geprüft.
+- **Links** in Nachrichten sind anklickbar und öffnen sich in einem neuen Tab, ohne Weitergabe der App-Adresse. Nur `http(s)`-Links werden erkannt, `javascript:` und Ähnliches nicht.
+- **YouTube-Videos** (auch Shorts und Links mit Startzeit) laufen direkt im Chat über `youtube-nocookie.com`. Der Player lädt erst beim Antippen, vorher geht keine Anfrage an YouTube.
 - **Sprachanrufe & Sprach-Meetings** – bewusst nur Ton, keine Videoanrufe (spart Datenvolumen, läuft auch auf schwachen Handys; Profilbild leuchtet beim Sprechen, Lautsprecher-Knopf) (WebRTC, direkt zwischen den Geräten, Verbindungsaufbau Ende-zu-Ende-verschlüsselt) mit Klingel-Bildschirm, Push „ruft dich an“ und Anrufliste im Chat. „Anrufe erlauben“ lässt sich in den Einstellungen ausschalten.
 - **Meetings mit Code** – bis 8 Personen, beitreten per 6-stelligem Code, Link (`#meet=CODE`) oder Einladung im Chat; Gruppenanruf aus jeder Gruppe. Für Verbindungen hinter strengen Firewalls/Mobilfunk optional TURN: `CF_TURN_KEY_ID` + `CF_TURN_API_TOKEN` (Cloudflare) oder `TURN_URL`/`TURN_USERNAME`/`TURN_CREDENTIAL`.
 - **Automatische Updates** – jeder Build bekommt eine Versionskennung (`scripts/stamp.mjs` → `version.json`). Offene Apps (iPhone, Android, PC, installiert oder im Browser) erkennen neue Versionen und laden sich selbst neu – aber nie mitten im Anruf, bei einer Aufnahme oder beim Tippen (dann erscheint ein Banner).
@@ -51,3 +53,15 @@ Anonymer Chat **ohne Telefonnummer und ohne E-Mail** – live: https://pixelking
 npm install
 npx netlify dev
 ```
+
+## Lasttest
+
+`node scripts/loadtest.mjs <URL> <Personen> <Sekunden>` simuliert gleichzeitige Nutzer. Jeder fragt alle 3 s den Posteingang ab, schreibt etwa alle 8 s seinem Partner und bestätigt Empfang. Am Ende löscht er seine Testkonten wieder.
+Gemessen auf Vercel (fra1) mit Supabase, ohne einen einzigen Fehler:
+
+| Nutzer | Anfragen/s | Nachrichten angekommen | Zustellzeit Median | Antwortzeit Median |
+|---|---|---|---|---|
+| 100 | 55 | 901 / 901 | 1,8 s | 160 ms |
+| 300 | 166 | 1771 / 1771 | 1,8 s | 157 ms |
+
+Die Zustellzeit kommt fast nur von der 3-Sekunden-Abfrage, der Server selbst antwortet in ca. 0,16 s.

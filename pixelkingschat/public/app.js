@@ -827,6 +827,94 @@ function fillGroupAvatar(node, g) {
 }
 const rich = (tag, cls, text) => renderRich(el(tag, cls), text);
 
+/* ---------- Links & YouTube ---------- */
+const URL_RE = /\b((?:https?:\/\/|www\.)[^\s<>"'`]+[^\s<>"'`.,;:!?)\]}»“”’])/gi;
+function safeUrl(raw) {
+  try {
+    const u = new URL(/^www\./i.test(raw) ? "https://" + raw : raw);
+    return /^https?:$/.test(u.protocol) ? u : null;
+  } catch {
+    return null;
+  }
+}
+// YouTube-Link → { id, start, short } oder null
+function youTubeInfo(u) {
+  const host = u.hostname.replace(/^(www\.|m\.|music\.)/, "");
+  let id = null;
+  let short = false;
+  if (host === "youtu.be") id = u.pathname.slice(1).split("/")[0];
+  else if (host === "youtube.com" || host === "youtube-nocookie.com") {
+    if (u.pathname === "/watch") id = u.searchParams.get("v");
+    else {
+      const m = u.pathname.match(/^\/(shorts|embed|live|v)\/([^/?#]+)/);
+      if (m) {
+        id = m[2];
+        short = m[1] === "shorts";
+      }
+    }
+  }
+  if (!id || !/^[A-Za-z0-9_-]{11}$/.test(id)) return null;
+  const t = u.searchParams.get("t") || u.searchParams.get("start") || "";
+  let start = 0;
+  const hms = t.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/);
+  if (hms) start = (+hms[1] || 0) * 3600 + (+hms[2] || 0) * 60 + (+hms[3] || 0);
+  return { id, start, short };
+}
+// Text mit Pixel-Emojis UND anklickbaren Links
+function richText(tag, cls, text) {
+  const node = el(tag, cls);
+  let last = 0;
+  for (const m of text.matchAll(URL_RE)) {
+    const u = safeUrl(m[1]);
+    if (!u) continue;
+    if (m.index > last) node.append(renderRich(el("span"), text.slice(last, m.index)));
+    const a = el("a", "msg-link", m[1]);
+    a.href = u.href;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer nofollow";
+    a.title = u.hostname;
+    a.onclick = (e) => e.stopPropagation();
+    node.append(a);
+    last = m.index + m[1].length;
+  }
+  if (last < text.length) node.append(renderRich(el("span"), text.slice(last)));
+  return node;
+}
+function youTubeLinks(text) {
+  const out = [];
+  for (const m of text.matchAll(URL_RE)) {
+    const u = safeUrl(m[1]);
+    const yt = u && youTubeInfo(u);
+    if (yt && !out.some((x) => x.id === yt.id)) out.push(yt);
+    if (out.length >= 3) break;
+  }
+  return out;
+}
+// Player direkt im Chat – lädt erst beim Antippen (vorher geht nichts an YouTube)
+function youTubeCard(yt) {
+  const box = el("div", "yt-card" + (yt.short ? " short" : ""));
+  const play = el("button", "yt-play");
+  play.type = "button";
+  play.append(el("span", "yt-icon", "▶"), el("span", "yt-label", yt.short ? "YouTube Short abspielen" : "YouTube-Video abspielen"));
+  play.onclick = (e) => {
+    e.stopPropagation();
+    const f = document.createElement("iframe");
+    const q = new URLSearchParams({ autoplay: "1", playsinline: "1", rel: "0", modestbranding: "1" });
+    if (yt.start) q.set("start", String(yt.start));
+    f.src = `https://www.youtube-nocookie.com/embed/${yt.id}?${q}`;
+    f.allow = "autoplay; encrypted-media; picture-in-picture; fullscreen";
+    f.allowFullscreen = true;
+    f.referrerPolicy = "strict-origin-when-cross-origin";
+    f.title = "YouTube";
+    box.textContent = "";
+    box.classList.add("playing");
+    box.append(f);
+  };
+  box.onclick = (e) => e.stopPropagation();
+  box.append(play);
+  return box;
+}
+
 function fmtSize(n) {
   if (n >= 1e6) return (n / 1e6).toFixed(1).replace(".", ",") + " MB";
   return Math.max(1, Math.round(n / 1000)) + " KB";
@@ -1049,7 +1137,13 @@ function renderMessages() {
         d.append(fileCard(m));
         if (/^audio\//.test(m.file.type || "")) d.append(voicePlayer({ mid: m.mid, aud: { type: m.file.type, dur: 0, w: [] } }));
       }
-      if (m.text) d.append(rich("div", "msg-text", m.text));
+      if (m.text) {
+        d.append(richText("div", "msg-text", m.text));
+        if (!m.once) for (const yt of youTubeLinks(m.text)) {
+          d.classList.add("has-yt");
+          d.append(youTubeCard(yt));
+        }
+      }
       d.append(info);
       if (m.dir === "in") d.onclick = () => messageActions(m);
     }
@@ -1289,7 +1383,7 @@ async function viewOnce(m) {
     v.append(img);
   }
   if (m.aud) v.append(voicePlayer(m));
-  if (m.text) v.append(rich("div", null, m.text));
+  if (m.text) v.append(richText("div", null, m.text));
   body.append(v);
   const btn = el("button", "btn primary big", "Gesehen – jetzt löschen");
   btn.onclick = closeModal;
