@@ -29,7 +29,7 @@
         <li><span>▦</span> Kontakte per Code oder QR-Code</li>
         <li><span>🖼</span> Bilder &amp; Profilbilder – ebenfalls verschlüsselt</li>
         <li><span>🔔</span> Benachrichtigungen auf dem Homebildschirm</li>
-        <li><span>👥</span> Gruppen, Stories &amp; Dateien</li>
+        <li><span>👥</span> Gruppen, Stories, Dateien &amp; Sprachnachrichten</li>
         <li><span>🎨</span> Eigene Farben &amp; Chat-Hintergründe</li>
       </ul>
       <label class="field">
@@ -101,6 +101,14 @@
           <button type="button" id="emojiBtn" class="emoji-btn" aria-label="Emojis"></button>
         </div>
         <button type="submit" class="send-btn" aria-label="Senden">➤</button>
+        <button type="button" id="micBtn" class="send-btn mic-btn" aria-label="Sprachnachricht aufnehmen">🎤</button>
+        <div id="recBar" class="rec-bar">
+          <button type="button" id="recCancel" class="icon-btn" aria-label="Aufnahme verwerfen">🗑</button>
+          <span class="rec-dot"></span>
+          <span id="recTime" class="rec-time">0:00</span>
+          <div id="recWave" class="rec-wave"></div>
+          <button type="button" id="recSend" class="send-btn" aria-label="Sprachnachricht senden">➤</button>
+        </div>
         <input type="file" id="imgInput" accept="image/*" class="hidden">
         <input type="file" id="fileInput" class="hidden">
         <div id="attachMenu" class="popover attach-menu hidden">

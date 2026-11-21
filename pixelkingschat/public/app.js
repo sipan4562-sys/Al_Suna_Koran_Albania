@@ -357,20 +357,22 @@ function sysMsg(chatId, text) {
   (S.messages[chatId] = S.messages[chatId] || []).push({ mid: newMid(), dir: "sys", ts: Date.now(), text });
 }
 
-async function sendMessage({ text = "", imgB64 = null, file = null, once = false }) {
+async function sendMessage({ text = "", imgB64 = null, file = null, aud = null, once = false }) {
   const to = currentChat;
   if (!to) return;
   if (S.me.banned) return toast("Dein Konto ist gesperrt.");
-  if (isGroup(to)) return sendGroupMessage({ text, imgB64, file });
+  if (isGroup(to)) return sendGroupMessage({ text, imgB64, file, aud });
   const mid = newMid();
   const ts = Date.now();
   const local = { mid, dir: "out", ts, once, status: "pending" };
   if (imgB64) local.img = true;
   if (file) local.file = { name: file.name, type: file.type, size: file.size };
+  if (aud) local.aud = { type: aud.type, dur: aud.dur, w: aud.w };
   if (!once) {
     local.text = text;
     if (imgB64) await idbPut("media", mid, imgB64);
     if (file) await idbPut("media", mid, file.d);
+    if (aud) await idbPut("media", mid, aud.d);
   }
   S.messages[to].push(local);
   S.contacts[to].last = ts;
@@ -381,6 +383,7 @@ async function sendMessage({ text = "", imgB64 = null, file = null, once = false
     const payload = { k: "m", t: text, o: !!once, n: S.me.name || "", av: S.me.av || 0 };
     if (imgB64) payload.img = imgB64;
     if (file) payload.file = file;
+    if (aud) payload.aud = aud;
     const { iv, ct } = await encryptFor(to, mid, payload);
     await api("send", { body: { to, mid, iv, ct } });
     local.status = "sent";
@@ -393,7 +396,7 @@ async function sendMessage({ text = "", imgB64 = null, file = null, once = false
   renderMessages();
 }
 
-async function sendGroupMessage({ text, imgB64, file }) {
+async function sendGroupMessage({ text, imgB64, file, aud }) {
   const gid = currentChat;
   const g = S.groups[gid];
   if (!g || g.removed) return toast("Du bist nicht mehr in dieser Gruppe.");
@@ -407,6 +410,10 @@ async function sendGroupMessage({ text, imgB64, file }) {
   if (file) {
     local.file = { name: file.name, type: file.type, size: file.size };
     await idbPut("media", mid, file.d);
+  }
+  if (aud) {
+    local.aud = { type: aud.type, dur: aud.dur, w: aud.w };
+    await idbPut("media", mid, aud.d);
   }
   S.messages[gid].push(local);
   g.last = ts;
@@ -427,6 +434,7 @@ async function sendGroupMessage({ text, imgB64, file }) {
       const body = { k: "m", t: text, n: S.me.name || "", av: S.me.av || 0 };
       if (imgB64) body.img = imgB64;
       if (file) body.file = file;
+      if (aud) body.aud = aud;
       const b = await aesSeal(K, body, `${gid}|${mid}`);
       const envs = [];
       for (const id of targets) envs.push({ to: id, ...(await encryptFor(id, mid, { k: "g", gid, bk: b64u(K) })) });
@@ -687,6 +695,14 @@ async function poll() {
           msg.file = { name: q.file.name.slice(0, 120), type: String(q.file.type || "").slice(0, 100), size: Number(q.file.size) || 0 };
           await idbPut("media", m.mid, q.file.d);
         }
+        if (q.aud && typeof q.aud.d === "string") {
+          msg.aud = {
+            type: /^audio\/[a-z0-9.+-]+$/i.test(q.aud.type || "") ? q.aud.type : "audio/webm",
+            dur: Math.min(600, Number(q.aud.dur) || 0),
+            w: Array.isArray(q.aud.w) ? q.aud.w.slice(0, 48).map((x) => Math.max(1, Math.min(20, Number(x) || 1))) : [],
+          };
+          await idbPut("media", m.mid, q.aud.d);
+        }
         // Rohdaten 24 h aufbewahren, damit die Nachricht überprüfbar gemeldet werden kann
         await idbPut("raw", m.mid, { iv: m.iv, ct: m.ct, ts: m.ts, body: m.body || null });
         list.push(msg);
@@ -784,6 +800,7 @@ function previewOf(m, isGrp) {
   if (m.invite) return "📨 Gruppen-Einladung";
   const who = m.dir === "out" ? "Du: " : isGrp ? memberName(m.from) + ": " : "";
   if (m.once) return m.dir === "in" ? (m.opened ? "👁 Geöffnet" : "👁 Einmal-Nachricht") : "👁 Einmal-Nachricht gesendet";
+  if (m.aud) return who + "🎤 Sprachnachricht (" + fmtDur(m.aud.dur) + ")";
   if (m.file) return who + "📎 " + m.file.name;
   if (m.img) return who + "🖼 " + (m.text || "Bild");
   return who + m.text;
@@ -929,7 +946,7 @@ function renderMessages() {
     if (m.once) {
       d.classList.add("once");
       const badge = el("span", "once-badge", "1");
-      const kind = m.img ? "Einmal-Bild" : "Einmal-Nachricht";
+      const kind = m.img ? "Einmal-Bild" : m.aud ? "Einmal-Sprachnachricht" : "Einmal-Nachricht";
       let label;
       if (m.dir === "out") label = m.status === "opened" ? `${kind} wurde angesehen` : kind;
       else if (m.opened) label = "Geöffnet";
@@ -955,9 +972,14 @@ function renderMessages() {
         };
         d.append(img);
       }
+      if (m.aud) {
+        d.classList.add("has-voice");
+        d.append(voicePlayer(m));
+      }
       if (m.file) {
         d.classList.add("has-file");
         d.append(fileCard(m));
+        if (/^audio\//.test(m.file.type || "")) d.append(voicePlayer({ mid: m.mid, aud: { type: m.file.type, dur: 0, w: [] } }));
       }
       if (m.text) d.append(rich("div", "msg-text", m.text));
       d.append(info);
@@ -1058,7 +1080,7 @@ function closeModal() {
 async function viewOnce(m) {
   const from = currentChat;
   const body = el("div");
-  body.append(el("h2", null, m.img ? "👁 Einmal-Bild" : "👁 Einmal-Nachricht"));
+  body.append(el("h2", null, m.img ? "👁 Einmal-Bild" : m.aud ? "👁 Einmal-Sprachnachricht" : "👁 Einmal-Nachricht"));
   body.append(el("p", "small muted", "Wird gelöscht, sobald du dieses Fenster schließt."));
   const v = el("div", "once-view");
   if (m.img) {
@@ -1068,6 +1090,7 @@ async function viewOnce(m) {
     if (u) img.src = u;
     v.append(img);
   }
+  if (m.aud) v.append(voicePlayer(m));
   if (m.text) v.append(rich("div", null, m.text));
   body.append(v);
   const btn = el("button", "btn primary big", "Gesehen – jetzt löschen");
@@ -1082,6 +1105,7 @@ async function viewOnce(m) {
 }
 function finishOnce(m, from) {
   if (m.opened) return;
+  stopVoice();
   m.text = "";
   m.opened = true;
   dropMedia(m.mid);
@@ -2577,6 +2601,223 @@ async function setPhotoWallpaper(file) {
   }
 }
 
+/* ================= Sprachnachrichten ================= */
+const MAX_REC_SEC = 180;
+function fmtDur(sec) {
+  sec = Math.max(0, Math.round(sec || 0));
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+}
+function pickAudioType() {
+  if (!window.MediaRecorder) return null;
+  for (const t of ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"]) {
+    try {
+      if (MediaRecorder.isTypeSupported(t)) return t;
+    } catch {}
+  }
+  return "";
+}
+
+let rec = null;
+async function startRecording() {
+  if (!currentChat || rec) return;
+  if (S.me.banned) return toast("Dein Konto ist gesperrt.");
+  const type = pickAudioType();
+  if (type === null || !navigator.mediaDevices?.getUserMedia) return toast("Dein Browser kann keine Sprachnachrichten aufnehmen.");
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+  } catch {
+    return toast("🎤 Bitte erlaube den Zugriff aufs Mikrofon.");
+  }
+  const opts = { audioBitsPerSecond: 32000 };
+  if (type) opts.mimeType = type;
+  let mr;
+  try {
+    mr = new MediaRecorder(stream, opts);
+  } catch {
+    mr = new MediaRecorder(stream);
+  }
+  const r = (rec = { mr, stream, chunks: [], levels: [], start: Date.now(), type: mr.mimeType || type || "audio/webm" });
+  mr.ondataavailable = (e) => e.data?.size && r.chunks.push(e.data);
+  // Lautstärke für die Wellenform messen
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    r.ctx = new Ctx();
+    const an = r.ctx.createAnalyser();
+    an.fftSize = 512;
+    r.ctx.createMediaStreamSource(stream).connect(an);
+    const buf = new Uint8Array(an.fftSize);
+    r.sampler = setInterval(() => {
+      an.getByteTimeDomainData(buf);
+      let sum = 0;
+      for (const v of buf) sum += (v - 128) * (v - 128);
+      r.levels.push(Math.sqrt(sum / buf.length));
+      drawRecWave(r.levels);
+    }, 100);
+  } catch {}
+  mr.start(250);
+  $("#composer").classList.add("recording");
+  closePopovers();
+  $("#recTime").textContent = "0:00";
+  r.ticker = setInterval(() => {
+    const sec = (Date.now() - r.start) / 1000;
+    $("#recTime").textContent = fmtDur(sec);
+    if (sec >= MAX_REC_SEC) {
+      toast("Maximal 3 Minuten – Aufnahme wird gesendet.");
+      stopRecording(true);
+    }
+  }, 250);
+  if (navigator.vibrate) navigator.vibrate(30);
+}
+
+function drawRecWave(levels) {
+  const box = $("#recWave");
+  const n = Math.max(8, Math.floor(box.clientWidth / 5));
+  const last = levels.slice(-n);
+  box.textContent = "";
+  for (const l of last) {
+    const bar = el("span");
+    bar.style.height = Math.max(3, Math.min(26, l * 1.4)) + "px";
+    box.append(bar);
+  }
+}
+
+function waveform(levels, n = 40) {
+  if (!levels.length) return [];
+  const out = [];
+  const step = levels.length / n;
+  for (let i = 0; i < n; i++) {
+    const slice = levels.slice(Math.floor(i * step), Math.max(Math.floor((i + 1) * step), Math.floor(i * step) + 1));
+    out.push(slice.reduce((a, b) => a + b, 0) / slice.length);
+  }
+  const max = Math.max(...out, 1);
+  return out.map((v) => Math.max(1, Math.round((v / max) * 20)));
+}
+
+async function stopRecording(send) {
+  const r = rec;
+  if (!r) return;
+  rec = null;
+  clearInterval(r.ticker);
+  clearInterval(r.sampler);
+  const stopped = new Promise((res) => (r.mr.onstop = res));
+  try {
+    r.mr.stop();
+  } catch {}
+  await stopped;
+  r.stream.getTracks().forEach((t) => t.stop());
+  r.ctx?.close().catch(() => {});
+  $("#composer").classList.remove("recording");
+  $("#recWave").textContent = "";
+  if (!send) return toast("Aufnahme verworfen");
+  const dur = (Date.now() - r.start) / 1000;
+  if (dur < 0.8 || !r.chunks.length) return toast("Zu kurz – halte die Aufnahme etwas länger.");
+  const baseType = (r.type.split(";")[0] || "audio/webm").trim();
+  const blob = new Blob(r.chunks, { type: baseType });
+  if (blob.size > MAX_FILE) return toast("Sprachnachricht ist zu groß.");
+  const d = await readAsB64(blob);
+  sendMessage({ aud: { d, type: baseType, dur: Math.round(dur), w: waveform(r.levels) }, once: onceMode && !isGroup(currentChat) });
+  if (onceMode) toggleOnce();
+}
+
+// Wiedergabe: ein gemeinsamer Player für alle Sprachnachrichten
+const voiceUrls = new Map();
+let voiceAudio = null;
+let voiceUi = null;
+function stopVoice() {
+  if (voiceAudio) voiceAudio.pause();
+  if (voiceUi) voiceUi.reset();
+  voiceAudio = null;
+  voiceUi = null;
+}
+
+function voicePlayer(m) {
+  const box = el("div", "voice");
+  const btn = el("button", "voice-play", "▶");
+  btn.type = "button";
+  btn.setAttribute("aria-label", "Abspielen");
+  const bars = el("div", "voice-bars");
+  const w = m.aud.w?.length ? m.aud.w : Array.from({ length: 32 }, (_, i) => 4 + ((i * 7) % 11));
+  for (const h of w) {
+    const s = el("span");
+    s.style.height = 3 + h * 1.1 + "px";
+    bars.append(s);
+  }
+  const time = el("span", "voice-time", m.aud.dur ? fmtDur(m.aud.dur) : "▶︎");
+  box.append(btn, bars, time);
+  const paint = (frac) => {
+    const n = bars.children.length;
+    [...bars.children].forEach((b, i) => b.classList.toggle("played", i / n < frac));
+  };
+  const ui = {
+    reset() {
+      btn.textContent = "▶";
+      paint(0);
+      time.textContent = m.aud.dur ? fmtDur(m.aud.dur) : "▶︎";
+    },
+  };
+  const seek = (e) => {
+    if (voiceUi !== ui || !voiceAudio?.duration || !isFinite(voiceAudio.duration)) return;
+    const r = bars.getBoundingClientRect();
+    voiceAudio.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * voiceAudio.duration;
+  };
+  bars.onclick = (e) => {
+    e.stopPropagation();
+    seek(e);
+  };
+  btn.onclick = async (e) => {
+    e.stopPropagation();
+    if (voiceUi === ui && voiceAudio) {
+      if (voiceAudio.paused) {
+        await voiceAudio.play().catch(() => {});
+        btn.textContent = "❚❚";
+      } else {
+        voiceAudio.pause();
+        btn.textContent = "▶";
+      }
+      return;
+    }
+    stopVoice();
+    let url = voiceUrls.get(m.mid);
+    if (!url) {
+      const b64 = await idbGet("media", m.mid);
+      if (!b64) return toast("Sprachnachricht ist nicht mehr verfügbar.");
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      url = URL.createObjectURL(new Blob([bytes], { type: m.aud.type || "audio/webm" }));
+      voiceUrls.set(m.mid, url);
+    }
+    const a = new Audio(url);
+    voiceAudio = a;
+    voiceUi = ui;
+    a.ontimeupdate = () => {
+      const total = isFinite(a.duration) && a.duration > 0 ? a.duration : m.aud.dur || 1;
+      paint(a.currentTime / total);
+      time.textContent = fmtDur(a.currentTime);
+    };
+    a.onended = () => {
+      ui.reset();
+      voiceAudio = null;
+      voiceUi = null;
+    };
+    try {
+      await a.play();
+      btn.textContent = "❚❚";
+    } catch {
+      toast("Diese Sprachnachricht kann auf diesem Gerät nicht abgespielt werden.");
+      ui.reset();
+    }
+  };
+  return box;
+}
+
+function bindVoice() {
+  $("#micBtn").onclick = startRecording;
+  $("#recCancel").onclick = () => stopRecording(false);
+  $("#recSend").onclick = () => stopRecording(true);
+}
+
 /* ================= Start ================= */
 function handleHash() {
   const sc = /^#(new|scan)$/.exec(location.hash);
@@ -2704,6 +2945,7 @@ function bind() {
 
   const input = $("#msgInput");
   const grow = () => {
+    $("#composer").classList.toggle("has-text", !!input.value.trim());
     input.style.height = "44px";
     if (input.value) input.style.height = Math.min(Math.max(input.scrollHeight + 2, 44), 140) + "px";
   };
@@ -2722,6 +2964,8 @@ function bind() {
     }
   });
   bindComposerExtras();
+  bindVoice();
+  grow();
   $("#composer").onsubmit = (e) => {
     e.preventDefault();
     const text = input.value.trim();

@@ -445,3 +445,29 @@ img.pxe.big { width: 2.6em; height: 2.6em; vertical-align: middle; }
 #messages { background-repeat: repeat; }
 #messages.wp-photo { background-repeat: no-repeat; }
 #chat { background: var(--bg); }
+
+/* ---------- v5: Sprachnachrichten ---------- */
+.composer .mic-btn { font-size: 19px; }
+.composer.has-text .mic-btn { display: none; }
+.composer:not(.has-text) > .send-btn[type="submit"] { display: none; }
+.rec-bar { display: none; flex: 1; align-items: center; gap: 10px; min-width: 0; }
+.composer.recording > :not(.rec-bar):not(.popover) { display: none !important; }
+.composer.recording .rec-bar { display: flex; }
+.rec-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--danger); animation: recblink 1s infinite; flex-shrink: 0; }
+@keyframes recblink { 50% { opacity: .25; } }
+.rec-time { font-family: var(--mono); font-size: 15px; min-width: 44px; }
+.rec-wave { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 2px; height: 30px; overflow: hidden; }
+.rec-wave span { width: 3px; border-radius: 2px; background: var(--accent); flex-shrink: 0; }
+.voice { display: flex; align-items: center; gap: 10px; min-width: 210px; max-width: 290px; padding: 4px 2px; }
+.voice-play {
+  width: 40px; height: 40px; border-radius: 50%; border: 0; flex-shrink: 0; font-size: 15px; font-weight: 700;
+  background: var(--accent); color: var(--on-accent);
+}
+.msg.out .voice-play { background: var(--on-accent); color: var(--accent); }
+.voice-bars { flex: 1; display: flex; align-items: center; gap: 2px; height: 30px; cursor: pointer; min-width: 0; }
+.voice-bars span { flex: 1; max-width: 4px; min-width: 2px; border-radius: 2px; background: currentColor; opacity: .35; }
+.voice-bars span.played { opacity: 1; }
+.msg.in .voice-bars span.played { background: var(--accent); }
+.voice-time { font: 12px var(--mono); opacity: .8; min-width: 34px; text-align: right; }
+.msg.has-voice { padding: 6px 10px 6px; }
+.once-view .voice { pointer-events: auto; margin: 6px 0; }

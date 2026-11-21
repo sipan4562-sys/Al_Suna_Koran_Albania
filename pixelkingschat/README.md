@@ -14,6 +14,7 @@ Anonymer Chat **ohne Telefonnummer und ohne E-Mail** – live: https://pixelking
 - **Blockieren** – Nachrichten blockierter Kontakte werden schon auf dem Server verworfen.
 - **Eindeutige Codes** – jeder Code wird genau einmal vergeben, auch nach dem Löschen eines Kontos nie wieder.
 - **Dateien senden** (bis 2,5 MB) – Ende-zu-Ende-verschlüsselt.
+- **Sprachnachrichten** (bis 3 Minuten) mit Wellenform, auch in Gruppen und als Einmal-Sprachnachricht. Gesendete Audio-Dateien lassen sich direkt im Chat abspielen.
 - **Pixel-Emojis** – jedes Emoji wird im Browser automatisch in ein eigenes Pixel-Art-Bild umgerechnet (in Nachrichten, Namen, Stories, Chatliste) und hat eine eigene Emoji-Auswahl.
 - **Stories (24 Stunden)** – Foto- oder Text-Stories für alle Kontakte, verschlüsselt mit einem Story-Schlüssel, der pro Kontakt einzeln verpackt wird. Mit Aufrufzahl, Löschen und Melden.
 - **Gruppen** – Inhalt wird einmal verschlüsselt hochgeladen, der Schlüssel pro Mitglied einzeln verpackt. Admin kann einladen, entfernen und umbenennen. In den Einstellungen lässt sich „Automatisch zu Gruppen hinzufügen“ ausschalten – dann kommt zuerst eine Einladung im Chat.
