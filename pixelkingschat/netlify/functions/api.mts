@@ -483,7 +483,12 @@ export default async (req: Request, context: Context) => {
             body: JSON.stringify({ ttl: 86400 }),
           });
           const d: any = r.ok ? await r.json() : null;
-          if (d?.iceServers) iceServers.push(...(Array.isArray(d.iceServers) ? d.iceServers : [d.iceServers]));
+          const list = d?.iceServers ? (Array.isArray(d.iceServers) ? d.iceServers : [d.iceServers]) : [];
+          // Port 53 blockieren Browser – herausfiltern
+          for (const srv of list) {
+            const urls = (Array.isArray(srv.urls) ? srv.urls : [srv.urls]).filter((u: string) => !/:53(\?|$)/.test(u));
+            if (urls.length) iceServers.push({ ...srv, urls });
+          }
         } catch {}
       }
       const turnUrl = Netlify.env.get("TURN_URL");

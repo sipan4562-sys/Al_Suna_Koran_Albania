@@ -577,3 +577,12 @@ img.pxeye { width: 21px; height: 12px; image-rendering: pixelated; vertical-alig
 .meet-title { font-weight: 700; }
 .meet-code { font: 700 14px var(--mono); letter-spacing: .1em; opacity: .85; }
 .msg.out .meet-card .btn { background: var(--on-accent); color: var(--accent); border-color: transparent; }
+
+/* ---------- v10: Geräte-Anpassung ---------- */
+.screen, #sidebar, #chat { height: var(--app-h, 100dvh); }
+html.no-rec .mic-btn { display: none !important; }
+html.no-rec .composer:not(.has-text) > .send-btn[type="submit"] { display: grid !important; }
+html.no-rtc #callBtn, html.no-rtc #videoBtn { display: none !important; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; } }
+@media (min-width: 1400px) { #sidebar { width: 380px; } .msg { max-width: min(70%, 640px); } }
+html.desktop .msg-text { user-select: text; }

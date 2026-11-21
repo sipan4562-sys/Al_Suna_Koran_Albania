@@ -2004,7 +2004,13 @@ function registerSW() {
 async function doRegisterSW() {
   if (!("serviceWorker" in navigator)) return;
   try {
-    swReg = await navigator.serviceWorker.register("/sw.js");
+    swReg = await navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" });
+    let hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!hadController) return (hadController = true);
+      updateReady = true;
+      tryApplyUpdate();
+    });
     navigator.serviceWorker.addEventListener("message", (e) => {
       if (e.data?.type === "push") poll();
       if (e.data?.type === "open" && e.data.from) {
@@ -4110,6 +4116,102 @@ function setupCalls() {
   $("#videoBtn").onclick = () => currentChat && !isGroup(currentChat) && calls.startCall(currentChat, true);
 }
 
+/* ================= Automatische Updates (Handy, PC, iOS) ================= */
+const APP_VERSION = "__PK_VERSION__";
+let updateReady = false;
+let updateTimer = null;
+function updateSafeNow() {
+  // nicht mitten im Anruf, bei Aufnahme, offenem Dialog, Story oder beim Tippen neu laden
+  return (
+    !calls?.inCall() &&
+    !rec &&
+    $("#modal").classList.contains("hidden") &&
+    !document.querySelector(".story-view, .call-incoming") &&
+    !$("#msgInput").value.trim()
+  );
+}
+function applyUpdate() {
+  try {
+    localStorage.setItem("pk_updated", "1");
+  } catch {}
+  location.reload();
+}
+function tryApplyUpdate() {
+  if (!updateReady) return;
+  if (document.hidden || updateSafeNow()) return applyUpdate();
+  $("#updateBanner").classList.remove("hidden");
+  clearTimeout(updateTimer);
+  updateTimer = setTimeout(tryApplyUpdate, 15000);
+}
+async function checkForUpdate() {
+  if (APP_VERSION.startsWith("__")) return; // lokale Entwicklung
+  try {
+    const r = await fetch("/version.json", { cache: "no-store" });
+    if (!r.ok) return;
+    const { v } = await r.json();
+    if (!v || v === APP_VERSION) return;
+    // neue Version: Service Worker aktualisieren, Dateien frisch laden
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration();
+      await reg?.update();
+    } catch {}
+    updateReady = true;
+    tryApplyUpdate();
+  } catch {}
+}
+function setupUpdates() {
+  try {
+    if (localStorage.getItem("pk_updated") === "1") {
+      localStorage.removeItem("pk_updated");
+      setTimeout(() => toast("✨ Pixelkingschat wurde auf die neueste Version aktualisiert"), 800);
+    }
+  } catch {}
+  $("#updateNow").onclick = applyUpdate;
+  checkForUpdate();
+  setInterval(checkForUpdate, 5 * 60 * 1000);
+  document.addEventListener("visibilitychange", () => !document.hidden && checkForUpdate());
+  window.addEventListener("online", checkForUpdate);
+  window.addEventListener("focus", checkForUpdate);
+}
+
+/* ================= An Gerät & Browser anpassen ================= */
+function adaptToDevice() {
+  const root = document.documentElement;
+  const ua = navigator.userAgent;
+  const android = /Android/i.test(ua);
+  root.classList.toggle("ios", isIOS);
+  root.classList.toggle("android", android);
+  root.classList.toggle("desktop", !isIOS && !android && matchMedia("(pointer: fine)").matches);
+  root.classList.toggle("standalone", isStandalone);
+  // Funktionen, die dieses Gerät nicht kann, ausblenden statt Fehler zu zeigen
+  const caps = {
+    rec: !!(window.MediaRecorder && navigator.mediaDevices?.getUserMedia),
+    rtc: !!(window.RTCPeerConnection && navigator.mediaDevices?.getUserMedia),
+    cam: !!navigator.mediaDevices?.getUserMedia,
+    share: !!navigator.share,
+  };
+  root.classList.toggle("no-rec", !caps.rec);
+  root.classList.toggle("no-rtc", !caps.rtc);
+  root.classList.toggle("no-cam", !caps.cam);
+  // Bildschirmtastatur (v. a. iOS): App-Höhe an den sichtbaren Bereich anpassen
+  const vv = window.visualViewport;
+  if (vv) {
+    const fit = () => {
+      const box = $("#messages");
+      const atBottom = box && box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+      root.style.setProperty("--app-h", vv.height + "px");
+      if (atBottom) box.scrollTop = box.scrollHeight;
+      if (isIOS) window.scrollTo(0, 0);
+    };
+    vv.addEventListener("resize", fit);
+    fit();
+  }
+  // Wechsel zwischen Hoch-/Querformat oder PC-Fenstergröße
+  matchMedia("(max-width: 760px)").addEventListener?.("change", () => {
+    if (!currentChat) $("#app").classList.remove("chat-open");
+  });
+}
+
 /* ================= Start ================= */
 function handleHash() {
   const mm = /^#meet=([A-Z0-9]{6})$/i.exec(location.hash);
@@ -4311,8 +4413,10 @@ function bind() {
 }
 
 applyTheme(S.settings);
+adaptToDevice();
 bind();
 setupCalls();
+setupUpdates();
 $("#importBtn").onclick = showImport;
 $("#restoreBtn").onclick = showRestore;
 $("#backupSetup").onclick = showBackupSetup;
