@@ -8,8 +8,7 @@ const SHELL = [
   "/app.js",
   "/emoji.js",
   "/theme.js",
-  "/calls.js",
-  "/live.js",
+  "/decor.js",
   "/style.css",
   "/vendor/qrcode.js",
   "/vendor/jsQR.js",
@@ -117,30 +116,7 @@ self.addEventListener("push", (event) => {
         });
         return;
       }
-      if (typeof data.live === "string") {
-        await self.registration.showNotification(`🔴 ${name}`, {
-          body: "ist jetzt live 🎙 – tippen zum Zuhören",
-          icon: "/icon-192.png",
-          badge: "/icon-192.png",
-          tag: `live-${from}`,
-          renotify: true,
-          data: { live: data.live },
-        });
-        return;
-      }
-      if (data.call) {
-        await self.registration.showNotification(`📞 ${name}`, {
-          body: "ruft dich an – tippen zum Annehmen",
-          icon: "/icon-192.png",
-          badge: "/icon-192.png",
-          tag: `call-${from}`,
-          renotify: true,
-          requireInteraction: true,
-          vibrate: [400, 200, 400, 200, 400],
-          data: { from },
-        });
-        return;
-      }
+      if (data.call || data.live) return; // Anrufe & Lives gibt es nicht mehr
       await self.registration.showNotification(gid ? groupName || "Gruppe" : name, {
         body: gid ? `${name} hat eine Nachricht geschickt 🔒` : "hat dir eine Nachricht geschickt 🔒",
         icon: "/icon-192.png",
@@ -157,14 +133,13 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const from = event.notification.data?.from;
   const owner = !!event.notification.data?.owner;
-  const lid = event.notification.data?.live;
-  const url = lid ? `/#live=${lid}` : owner ? "/#owner" : from ? `/#chat=${from}` : "/";
+  const url = owner ? "/#owner" : from ? `/#chat=${from}` : "/";
   event.waitUntil(
     (async () => {
       const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const w of wins) {
         if ("focus" in w) {
-          w.postMessage(lid ? { type: "live", lid } : owner ? { type: "owner" } : { type: "open", from });
+          w.postMessage(owner ? { type: "owner" } : { type: "open", from });
           return w.focus();
         }
       }

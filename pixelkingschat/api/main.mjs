@@ -2667,8 +2667,8 @@ var require_signals = __commonJS({
     var _realtime = require_realtime();
     var getSignals = function() {
       const realtimeSignals = (0, _realtime.getRealtimeSignals)();
-      const signals2 = [..._core.SIGNALS, ...realtimeSignals].map(normalizeSignal);
-      return signals2;
+      const signals = [..._core.SIGNALS, ...realtimeSignals].map(normalizeSignal);
+      return signals;
     };
     exports.getSignals = getSignals;
     var normalizeSignal = function({
@@ -2699,8 +2699,8 @@ var require_main = __commonJS({
     var _signals = require_signals();
     var _realtime = require_realtime();
     var getSignalsByName = function() {
-      const signals2 = (0, _signals.getSignals)();
-      return signals2.reduce(getSignalByName, {});
+      const signals = (0, _signals.getSignals)();
+      return signals.reduce(getSignalByName, {});
     };
     var getSignalByName = function(signalByNameMemo, { name, number: number2, description, supported, action, forced, standard }) {
       return {
@@ -2711,13 +2711,13 @@ var require_main = __commonJS({
     var signalsByName = getSignalsByName();
     exports.signalsByName = signalsByName;
     var getSignalsByNumber = function() {
-      const signals2 = (0, _signals.getSignals)();
+      const signals = (0, _signals.getSignals)();
       const length = _realtime.SIGRTMAX + 1;
-      const signalsA = Array.from({ length }, (value2, number2) => getSignalByNumber(number2, signals2));
+      const signalsA = Array.from({ length }, (value2, number2) => getSignalByNumber(number2, signals));
       return Object.assign({}, ...signalsA);
     };
-    var getSignalByNumber = function(number2, signals2) {
-      const signal = findSignalByNumber(number2, signals2);
+    var getSignalByNumber = function(number2, signals) {
+      const signal = findSignalByNumber(number2, signals);
       if (signal === void 0) {
         return {};
       }
@@ -2734,12 +2734,12 @@ var require_main = __commonJS({
         }
       };
     };
-    var findSignalByNumber = function(number2, signals2) {
-      const signal = signals2.find(({ name }) => _os.constants.signals[name] === number2);
+    var findSignalByNumber = function(number2, signals) {
+      const signal = signals.find(({ name }) => _os.constants.signals[name] === number2);
       if (signal !== void 0) {
         return signal;
       }
-      return signals2.find((signalA) => signalA.number === number2);
+      return signals.find((signalA) => signalA.number === number2);
     };
     var signalsByNumber = getSignalsByNumber();
     exports.signalsByNumber = signalsByNumber;
@@ -2917,7 +2917,7 @@ var require_signal_exit = __commonJS({
       };
     } else {
       assert2 = __require("assert");
-      signals2 = require_signals2();
+      signals = require_signals2();
       isWin = /^win/i.test(process2.platform);
       EE = __require("events");
       if (typeof EE !== "function") {
@@ -2961,7 +2961,7 @@ var require_signal_exit = __commonJS({
           return;
         }
         loaded = false;
-        signals2.forEach(function(sig) {
+        signals.forEach(function(sig) {
           try {
             process2.removeListener(sig, sigListeners[sig]);
           } catch (er) {
@@ -2980,7 +2980,7 @@ var require_signal_exit = __commonJS({
         emitter.emit(event, code, signal);
       };
       sigListeners = {};
-      signals2.forEach(function(sig) {
+      signals.forEach(function(sig) {
         sigListeners[sig] = function listener() {
           if (!processOk(global.process)) {
             return;
@@ -2998,7 +2998,7 @@ var require_signal_exit = __commonJS({
         };
       });
       module.exports.signals = function() {
-        return signals2;
+        return signals;
       };
       loaded = false;
       load = function load2() {
@@ -3007,7 +3007,7 @@ var require_signal_exit = __commonJS({
         }
         loaded = true;
         emitter.count += 1;
-        signals2 = signals2.filter(function(sig) {
+        signals = signals.filter(function(sig) {
           try {
             process2.on(sig, sigListeners[sig]);
             return true;
@@ -3046,7 +3046,7 @@ var require_signal_exit = __commonJS({
       };
     }
     var assert2;
-    var signals2;
+    var signals;
     var isWin;
     var EE;
     var emitter;
@@ -57428,20 +57428,12 @@ var TTL = {
   "pk-inbox": 25 * H2,
   "pk-franks": 26 * H2,
   "pk-gbody": 26 * H2,
-  "pk-signal": 15 * 6e4,
   "pk-media": 26 * H2,
   "pk-stories": 25 * H2,
   "pk-storyviews": 25 * H2,
   "pk-pubidx": 25 * H2,
   "pk-presence": 48 * H2,
-  "pk-meetmembers": 24 * H2,
-  "pk-meetings": 25 * H2,
-  "pk-ownertry": 24 * H2,
-  "pk-live": 25 * H2,
-  "pk-liveidx": 6 * H2,
-  "pk-livepub": 6 * H2,
-  "pk-livelast": 6 * H2,
-  "pk-livewatch": 4e4
+  "pk-ownertry": 24 * H2
 };
 var sql = null;
 var ready = null;
@@ -58591,6 +58583,7 @@ var SID_RE = /^[A-Za-z0-9_-]{8,24}$/;
 var SKEY_RE = /^\d{10,16}-[A-Za-z0-9_-]{8,24}$/;
 var MAX_INBOX_BYTES = 4e6;
 var MAX_AVATAR = 2e5;
+var MAX_ANIM_AVATAR = 1e6;
 var ID_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 var ID_RE = /^[A-HJ-NP-Z2-9]{8}$/;
 var B64U = /^[A-Za-z0-9_-]+$/;
@@ -58612,49 +58605,11 @@ var pubIndex = () => getStore2({ name: "pk-pubidx", consistency: "strong" });
 var MEDIA_CHUNK = 36e5;
 var MEDIA_MAX_CHUNKS = 10;
 var MEDIA_ID_RE = /^[A-Za-z0-9_-]{16}$/;
-var signals = () => getStore2({ name: "pk-signal", consistency: "strong" });
 var prefs = () => getStore2({ name: "pk-prefs", consistency: "strong" });
 async function getPref(owner, about) {
   return await prefs().get(`${owner}/${about}`, { type: "json" }) || {};
 }
 var isMuted = (p2) => p2.muteUntil === -1 || !!p2.muteUntil && p2.muteUntil > Date.now();
-var meetings = () => getStore2({ name: "pk-meetings", consistency: "strong" });
-var meetMembers = () => getStore2({ name: "pk-meetmembers", consistency: "strong" });
-var MEET_RE = /^[A-HJ-NP-Z2-9]{6}$/;
-var lives = () => getStore2({ name: "pk-live", consistency: "strong" });
-var liveIdx = () => getStore2({ name: "pk-liveidx", consistency: "strong" });
-var livePub = () => getStore2({ name: "pk-livepub", consistency: "strong" });
-var liveBeat = () => getStore2({ name: "pk-livelast", consistency: "strong" });
-var liveWatch = () => getStore2({ name: "pk-livewatch", consistency: "strong" });
-var LID_RE = /^[A-Za-z0-9_-]{16}$/;
-var LIVE_MAX_LISTENERS = 50;
-var LIVE_ALIVE_MS = 3e4;
-var LIVE_MAX_MS = 4 * 36e5;
-async function liveState(lid) {
-  const meta = await lives().get(lid, { type: "json" });
-  if (!meta) return null;
-  const beat = Number(await liveBeat().get(lid) || meta.started);
-  const now2 = Date.now();
-  const alive = !meta.ended && now2 - beat < LIVE_ALIVE_MS && now2 - meta.started < LIVE_MAX_MS;
-  return { meta, alive };
-}
-async function liveListeners(lid) {
-  const { blobs } = await liveWatch().list({ prefix: `${lid}/` });
-  return blobs.length;
-}
-async function endLive(lid, reason = "") {
-  const meta = await lives().get(lid, { type: "json" });
-  if (!meta) return;
-  if (!meta.ended) {
-    meta.ended = Date.now();
-    if (reason) meta.endReason = reason;
-    await lives().setJSON(lid, meta);
-  }
-  if (await liveIdx().get(meta.owner) === lid) await liveIdx().delete(meta.owner);
-  await livePub().delete(lid);
-}
-var MEET_MAX = 8;
-var MEET_ALIVE_MS = 2e4;
 var lastPresenceWrite = /* @__PURE__ */ new Map();
 var json2 = (data, status = 200) => new Response(JSON.stringify(data), {
   status,
@@ -58663,7 +58618,6 @@ var json2 = (data, status = 200) => new Response(JSON.stringify(data), {
 var err = (msg, status = 400) => json2({ error: msg }, status);
 var b64uToBytes = (s) => Buffer.from(s, "base64url");
 var hourBucket = (ts) => Math.floor(ts / HOUR);
-var b64uRand = (n) => Buffer.from(crypto.getRandomValues(new Uint8Array(n))).toString("base64url");
 function randomId(len = 8) {
   const bytes2 = crypto.getRandomValues(new Uint8Array(len));
   let s = "";
@@ -58688,6 +58642,15 @@ async function auth(req) {
   return u.th === await sha256Hex(token) ? { id, user: u } : null;
 }
 var cleanName = (n) => typeof n === "string" ? n.replace(/[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g, "").trim().slice(0, 24) : "";
+var DECOR_RE = /^[ef]-[a-z]{2,10}$/;
+function imageType(b) {
+  if (b[0] === 255 && b[1] === 216) return "image/jpeg";
+  if (b[0] === 71 && b[1] === 73 && b[2] === 70) return "image/gif";
+  if (b[0] === 82 && b[1] === 73 && b[2] === 70 && b[3] === 70 && b[8] === 87 && b[9] === 69 && b[10] === 66 && b[11] === 80) return "image/webp";
+  if (b[0] === 137 && b[1] === 80 && b[2] === 78 && b[3] === 71) return "image/png";
+  return null;
+}
+var b64ImageType = (b64) => imageType(Buffer.from(b64.slice(0, 24), "base64")) || "image/jpeg";
 var validPub = (pub) => typeof pub === "string" && /^[A-Za-z0-9_-]{80,100}$/.test(pub);
 var vapidPub = null;
 async function vapid() {
@@ -58703,7 +58666,7 @@ async function vapid() {
   return vapidPub;
 }
 async function notify(to, from, name, gid, extra) {
-  if (!extra?.call && isMuted(await getPref(to, gid || from))) return;
+  if (isMuted(await getPref(to, gid || from))) return;
   await vapid();
   const store = pushStore();
   const { blobs } = await store.list({ prefix: `${to}/` });
@@ -58787,7 +58750,7 @@ Reported content follows.`
     n++;
     if (p2.imageB64) {
       content.push({ type: "text", text: `<item ${n}: image>` });
-      content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: p2.imageB64 } });
+      content.push({ type: "image", source: { type: "base64", media_type: b64ImageType(p2.imageB64), data: p2.imageB64 } });
     }
     if (p2.text) content.push({ type: "text", text: `<item ${n}: text>
 ${p2.text}
@@ -59027,7 +58990,14 @@ async function handle(req, context5, routeOverride) {
       if (!ID_RE.test(id)) return err("Ung\xFCltiger Code");
       const u = await getUserOrImport(id);
       if (!u || u.deleted) return err("Code nicht gefunden", 404);
-      return json2({ id, pub: u.pub, av: u.banned ? 0 : u.av || 0, name: u.banned ? "" : u.name || "" });
+      return json2({
+        id,
+        pub: u.pub,
+        av: u.banned ? 0 : u.av || 0,
+        name: u.banned ? "" : u.name || "",
+        pav: u.banned ? "" : u.pav || "",
+        deco: u.banned ? "" : u.deco || ""
+      });
     }
     if (route.startsWith("backup/") && method === "GET") {
       const id = route.slice(7).toUpperCase();
@@ -59044,7 +59014,7 @@ async function handle(req, context5, routeOverride) {
       const data = await avatars().get(id, { type: "arrayBuffer" });
       if (!data) return new Response("Not found", { status: 404, headers: { "cache-control": "no-store" } });
       return new Response(data, {
-        headers: { "content-type": "image/jpeg", "cache-control": "public, max-age=300" }
+        headers: { "content-type": imageType(new Uint8Array(data)) || "image/jpeg", "cache-control": "public, max-age=300" }
       });
     }
     const session = await auth(req);
@@ -59059,7 +59029,9 @@ async function handle(req, context5, routeOverride) {
         notice: meUser.notice || null,
         purgeBefore: meUser.purgeBefore || 0,
         role: meUser.role || null,
-        av: meUser.av || 0
+        av: meUser.av || 0,
+        pav: meUser.pav || "",
+        deco: meUser.deco || ""
       });
     }
     if (route === "me/notice" && method === "DELETE") {
@@ -59069,130 +59041,15 @@ async function handle(req, context5, routeOverride) {
       }
       return json2({ ok: true });
     }
-    if (route === "settings" && method === "PUT") {
-      const body = await req.json().catch(() => null);
-      if (typeof body?.callsOff === "boolean") meUser.callsOff = body.callsOff;
-      await putUser(me, meUser);
-      return json2({ ok: true, callsOff: !!meUser.callsOff });
-    }
     if (route === "prefs" && method === "POST") {
       const body = await req.json().catch(() => null);
       const about = String(body?.id || "");
       if (!ID_RE.test(about) && !GID_RE.test(about)) return err("Ung\xFCltig");
       const cur = await getPref(me, about);
-      if (typeof body.noCalls === "boolean") cur.noCalls = body.noCalls;
       if (typeof body.muteUntil === "number") cur.muteUntil = body.muteUntil === -1 ? -1 : Math.max(0, Math.min(body.muteUntil, Date.now() + 400 * TTL_MS));
-      if (!cur.noCalls && !isMuted(cur)) await prefs().delete(`${me}/${about}`);
+      if (!isMuted(cur)) await prefs().delete(`${me}/${about}`);
       else await prefs().setJSON(`${me}/${about}`, cur);
       return json2({ ok: true, ...cur });
-    }
-    if (route === "turn" && method === "GET") {
-      const iceServers = [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }];
-      const cfKey = env("CF_TURN_KEY_ID");
-      const cfTok = env("CF_TURN_API_TOKEN");
-      if (cfKey && cfTok) {
-        try {
-          const r = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${cfKey}/credentials/generate-ice-servers`, {
-            method: "POST",
-            headers: { authorization: `Bearer ${cfTok}`, "content-type": "application/json" },
-            body: JSON.stringify({ ttl: 86400 })
-          });
-          const d2 = r.ok ? await r.json() : null;
-          const list = d2?.iceServers ? Array.isArray(d2.iceServers) ? d2.iceServers : [d2.iceServers] : [];
-          for (const srv of list) {
-            const urls = (Array.isArray(srv.urls) ? srv.urls : [srv.urls]).filter((u) => !/:53(\?|$)/.test(u));
-            if (urls.length) iceServers.push({ ...srv, urls });
-          }
-        } catch {
-        }
-      }
-      const turnUrl = env("TURN_URL");
-      if (turnUrl) iceServers.push({ urls: turnUrl.split(","), username: env("TURN_USERNAME") || "", credential: env("TURN_CREDENTIAL") || "" });
-      return json2({ iceServers });
-    }
-    if (route === "call/ring" && method === "POST") {
-      {
-        const blk = sendBlock(meUser);
-        if (blk) return err(blk, 403);
-      }
-      const body = await req.json().catch(() => null);
-      if (!ID_RE.test(body?.to || "") || typeof body.callId !== "string" || !/^[A-Za-z0-9_-]{8,24}$/.test(body.callId)) return err("Ung\xFCltig");
-      const t = await getUserOrImport(body.to);
-      if (!t || t.deleted) return err("Dieses Konto existiert nicht mehr.", 404);
-      if (t.banned) return err("Dieses Konto ist gesperrt.", 403);
-      if (t.callsOff) return json2({ ok: false, reason: "off" });
-      if ((await getPref(body.to, me)).noCalls) return json2({ ok: false, reason: "off" });
-      if (await blocks().get(`${body.to}/${me}`)) return json2({ ok: false, reason: "off" });
-      context5.waitUntil(notify(body.to, me, meUser.name || "", void 0, { call: body.callId, video: !!body.video }).catch(() => {
-      }));
-      return json2({ ok: true });
-    }
-    if (route === "signal" && method === "POST") {
-      const body = await req.json().catch(() => null);
-      if (!ID_RE.test(body?.to || "") || !validEnc(body, 4e4) || typeof body.sid !== "string" || !/^[A-Za-z0-9_-]{8,32}$/.test(body.sid))
-        return err("Ung\xFCltig");
-      if (await blocks().get(`${body.to}/${me}`)) return json2({ ok: true });
-      await signals().setJSON(`${body.to}/${Date.now()}-${b64uRand(6)}`, { from: me, sid: body.sid, iv: body.iv, ct: body.ct });
-      return json2({ ok: true });
-    }
-    if (route === "signal" && method === "GET") {
-      const store = signals();
-      const { blobs } = await store.list({ prefix: `${me}/` });
-      const now2 = Date.now();
-      const out = [];
-      for (const b of blobs.sort((x, y) => x.key.localeCompare(y.key))) {
-        const ts = Number(b.key.slice(me.length + 1).split("-")[0]);
-        const v = ts && now2 - ts < 12e4 ? await store.get(b.key, { type: "json" }) : null;
-        await store.delete(b.key);
-        if (v) out.push({ ...v, ts });
-      }
-      return json2({ signals: out });
-    }
-    if (route === "meet/create" && method === "POST") {
-      {
-        const blk = sendBlock(meUser);
-        if (blk) return err(blk, 403);
-      }
-      const body = await req.json().catch(() => ({}));
-      const title = typeof body?.title === "string" ? cleanName(body.title).slice(0, 40) : "";
-      for (let i = 0; i < 8; i++) {
-        const code = randomId(6);
-        const { modified } = await meetings().setJSON(code, { host: me, title, created: Date.now() }, { onlyIfNew: true });
-        if (modified) return json2({ code, title });
-      }
-      return err("Bitte nochmal versuchen", 503);
-    }
-    if ((route === "meet/join" || route === "meet/beat") && method === "POST") {
-      const body = await req.json().catch(() => null);
-      const code = String(body?.code || "").toUpperCase();
-      if (!MEET_RE.test(code)) return err("Ung\xFCltiger Meeting-Code");
-      const mt = await meetings().get(code, { type: "json" });
-      if (!mt || Date.now() - mt.created > TTL_MS) return err("Dieses Meeting gibt es nicht (mehr).", 404);
-      const now2 = Date.now();
-      const { blobs } = await meetMembers().list({ prefix: `${code}/` });
-      const alive = [];
-      for (const b of blobs) {
-        const id = b.key.split("/")[1];
-        const ts = Number(await meetMembers().get(b.key));
-        if (now2 - ts < MEET_ALIVE_MS) alive.push(id);
-        else await meetMembers().delete(b.key);
-      }
-      if (route === "meet/join" && !alive.includes(me) && alive.length >= MEET_MAX) return err(`Das Meeting ist voll (max. ${MEET_MAX} Personen).`, 409);
-      await meetMembers().set(`${code}/${me}`, String(now2));
-      if (!alive.includes(me)) alive.push(me);
-      const members = await Promise.all(
-        alive.map(async (id) => {
-          const u = id === me ? meUser : await getUser(id);
-          return { id, name: u?.name || "", av: u?.av || 0 };
-        })
-      );
-      return json2({ code, title: mt.title, host: mt.host, members });
-    }
-    if (route === "meet/leave" && method === "POST") {
-      const body = await req.json().catch(() => null);
-      const code = String(body?.code || "").toUpperCase();
-      if (MEET_RE.test(code)) await meetMembers().delete(`${code}/${me}`);
-      return json2({ ok: true });
     }
     if (route === "owner/claim" && method === "POST") {
       const body = await req.json().catch(() => null);
@@ -59269,8 +59126,7 @@ async function handle(req, context5, routeOverride) {
           strikes: u.strikes || 0,
           timeoutUntil: u.timeoutUntil || 0,
           av: u.av || 0,
-          role: u.role || null,
-          callsOff: !!u.callsOff
+          role: u.role || null
         });
       }
       if (route === "owner/settings" && method === "POST") {
@@ -59333,11 +59189,6 @@ async function handle(req, context5, routeOverride) {
               await avatars().delete(target);
               u.av = 0;
               break;
-            case "endlive": {
-              const lid = await liveIdx().get(target);
-              if (lid) await endLive(lid, "violation");
-              break;
-            }
             case "dismiss":
               break;
             default:
@@ -59398,128 +59249,6 @@ async function handle(req, context5, routeOverride) {
         })
       );
       return json2({ mod: out });
-    }
-    if (route === "live/start" && method === "POST") {
-      {
-        const blk = sendBlock(meUser);
-        if (blk) return err(blk, 403);
-      }
-      const body = await req.json().catch(() => null);
-      if (!body || !LID_RE.test(body.lid || "")) return err("Ung\xFCltig");
-      const pub = body.pub === true;
-      const title = cleanName(typeof body.title === "string" ? body.title : "").slice(0, 60) || "";
-      const allow = pub ? void 0 : (Array.isArray(body.allow) ? body.allow : []).filter((id) => typeof id === "string" && ID_RE.test(id)).slice(0, 1e3);
-      if (pub && title) {
-        const v = await moderate([{ text: title }], "public live title pre-check", "public_story", recordOf(meUser));
-        if (v?.violation) {
-          await applyVerdict(me, { ...v, delete_messages: false });
-          return err("Dieses Thema verst\xF6\xDFt gegen die Regeln.", 422);
-        }
-      }
-      const prev = await liveIdx().get(me);
-      if (prev && prev !== body.lid) await endLive(prev);
-      const meta = { owner: me, title, pub, started: Date.now(), ...allow ? { allow } : {} };
-      await lives().setJSON(body.lid, meta);
-      await liveBeat().set(body.lid, String(meta.started));
-      await liveIdx().set(me, body.lid);
-      if (pub) await livePub().set(body.lid, me);
-      const notifyIds = (Array.isArray(body.notify) ? body.notify : []).filter((id) => typeof id === "string" && ID_RE.test(id) && id !== me).slice(0, 300);
-      context5.waitUntil(
-        (async () => {
-          for (const to of notifyIds) {
-            if (await blocks().get(`${to}/${me}`)) continue;
-            await notify(to, me, meUser.name || "", void 0, { live: body.lid }).catch(() => {
-            });
-          }
-        })()
-      );
-      return json2({ ok: true, started: meta.started });
-    }
-    if (route === "live/beat" && method === "POST") {
-      const body = await req.json().catch(() => null);
-      const lid = String(body?.lid || "");
-      if (!LID_RE.test(lid)) return err("Ung\xFCltig");
-      const meta = await lives().get(lid, { type: "json" });
-      if (!meta || meta.owner !== me) return err("Kein eigenes Live", 404);
-      const blk = sendBlock(meUser);
-      if (blk) {
-        await endLive(lid, "blocked");
-        return err(blk, 403);
-      }
-      if (meta.ended) return err(meta.endReason ? "Dein Live wurde wegen eines Regelversto\xDFes beendet." : "Das Live ist beendet.", 410);
-      if (Date.now() - meta.started > LIVE_MAX_MS) {
-        await endLive(lid, "time");
-        return err("Ein Live darf h\xF6chstens 4 Stunden dauern.", 410);
-      }
-      await liveBeat().set(lid, String(Date.now()));
-      return json2({ ok: true, listeners: await liveListeners(lid) });
-    }
-    if (route === "live/join" && method === "POST") {
-      const body = await req.json().catch(() => null);
-      const lid = String(body?.lid || "");
-      if (!LID_RE.test(lid)) return err("Ung\xFCltig");
-      const st = await liveState(lid);
-      if (!st) return err("Dieses Live gibt es nicht mehr.", 404);
-      const { meta } = st;
-      if (!meta.pub && meta.owner !== me && !meta.allow?.includes(me)) return err("Dieses Live ist nur f\xFCr Kontakte.", 403);
-      if (meta.owner !== me && await blocks().get(`${meta.owner}/${me}`)) return err("Dieses Live gibt es nicht mehr.", 404);
-      let listeners = st.alive ? await liveListeners(lid) : 0;
-      if (st.alive && meta.owner !== me) {
-        const already = await liveWatch().get(`${lid}/${me}`);
-        if (!already && listeners >= LIVE_MAX_LISTENERS) return err(`Das Live ist voll (max. ${LIVE_MAX_LISTENERS} Zuh\xF6rer).`, 409);
-        await liveWatch().set(`${lid}/${me}`, String(Date.now()));
-        if (!already) listeners++;
-      }
-      const ou = await getUser(meta.owner);
-      return json2({
-        lid,
-        owner: meta.owner,
-        name: ou?.name || "",
-        av: ou?.av || 0,
-        title: meta.title,
-        pub: meta.pub,
-        started: meta.started,
-        alive: st.alive,
-        endReason: meta.endReason || "",
-        listeners
-      });
-    }
-    if (route === "live/leave" && method === "POST") {
-      const body = await req.json().catch(() => null);
-      if (LID_RE.test(String(body?.lid || ""))) await liveWatch().delete(`${body.lid}/${me}`);
-      return json2({ ok: true });
-    }
-    if (route === "live/end" && method === "POST") {
-      const body = await req.json().catch(() => null);
-      const lid = String(body?.lid || "");
-      if (!LID_RE.test(lid)) return err("Ung\xFCltig");
-      const meta = await lives().get(lid, { type: "json" });
-      if (!meta) return json2({ ok: true });
-      if (meta.owner !== me && meUser.role !== "owner") return err("Nicht erlaubt", 403);
-      await endLive(lid, meta.owner === me ? "" : "owner");
-      return json2({ ok: true });
-    }
-    if (route === "live/list" && method === "GET") {
-      const ids2 = (url.searchParams.get("ids") || "").split(",").filter((x) => ID_RE.test(x)).slice(0, 300);
-      const lids = /* @__PURE__ */ new Set();
-      for (const id of ids2) {
-        const lid = await liveIdx().get(id);
-        if (lid) lids.add(lid);
-      }
-      if (url.searchParams.get("pub") !== "0") for (const b of (await livePub().list()).blobs.slice(-40)) lids.add(b.key);
-      const out = [];
-      for (const lid of lids) {
-        const st = await liveState(lid);
-        if (!st?.alive) continue;
-        const m = st.meta;
-        if (!m.pub && m.owner !== me && !m.allow?.includes(me)) continue;
-        if (m.owner !== me && await blocks().get(`${m.owner}/${me}`)) continue;
-        const ou = await getUser(m.owner);
-        if (!ou || ou.banned) continue;
-        out.push({ lid, owner: m.owner, name: ou.name || "", av: ou.av || 0, title: m.title, pub: m.pub, started: m.started });
-      }
-      out.sort((a, b) => b.started - a.started);
-      return json2({ lives: out });
     }
     if (route === "send" && method === "POST") {
       {
@@ -59729,7 +59458,7 @@ async function handle(req, context5, routeOverride) {
           if (await blocks().get(`${me}/${owner}`)) return;
           const u = await getUser(owner);
           if (!u || u.deleted || u.banned) return;
-          out.push({ owner, name: u.name || "", av: u.av || 0, items: items.sort((a, b) => a.ts - b.ts) });
+          out.push({ owner, name: u.name || "", av: u.av || 0, pav: u.pav || "", deco: u.deco || "", items: items.sort((a, b) => a.ts - b.ts) });
         })
       );
       out.sort((a, b) => b.items.at(-1).ts - a.items.at(-1).ts);
@@ -59830,8 +59559,14 @@ async function handle(req, context5, routeOverride) {
     if (route === "profile" && method === "PUT") {
       const body = await req.json().catch(() => null);
       meUser.name = cleanName(body?.name);
+      for (const k of ["pav", "deco"]) {
+        if (body?.[k] === void 0) continue;
+        if (body[k] !== "" && !(typeof body[k] === "string" && DECOR_RE.test(body[k]))) return err("Ung\xFCltige Auswahl");
+        if (body[k]) meUser[k] = body[k];
+        else delete meUser[k];
+      }
       await putUser(me, meUser);
-      return json2({ name: meUser.name });
+      return json2({ name: meUser.name, pav: meUser.pav || "", deco: meUser.deco || "" });
     }
     if (route === "avatar" && method === "PUT") {
       {
@@ -59841,10 +59576,12 @@ async function handle(req, context5, routeOverride) {
       const body = await req.json().catch(() => null);
       if (typeof body?.img !== "string" || !/^[A-Za-z0-9+/=]+$/.test(body.img)) return err("Ung\xFCltiges Bild");
       const bytes2 = Buffer.from(body.img, "base64");
-      if (bytes2.length > MAX_AVATAR) return err("Bild zu gro\xDF");
-      if (!(bytes2[0] === 255 && bytes2[1] === 216)) return err("Nur JPEG erlaubt");
+      const type = imageType(bytes2);
+      if (!type || type === "image/png") return err("Nur JPEG, GIF oder WebP erlaubt");
+      if (bytes2.length > (type === "image/jpeg" ? MAX_AVATAR : MAX_ANIM_AVATAR)) return err(type === "image/jpeg" ? "Bild zu gro\xDF" : "Animiertes Profilbild ist zu gro\xDF (max. 1 MB).");
       await avatars().set(me, bytes2.buffer.slice(bytes2.byteOffset, bytes2.byteOffset + bytes2.length));
       meUser.av = Date.now();
+      delete meUser.pav;
       await putUser(me, meUser);
       return json2({ av: meUser.av });
     }
@@ -59866,21 +59603,14 @@ async function handle(req, context5, routeOverride) {
       const type = body?.type;
       const target = body?.target;
       const reason = typeof body?.reason === "string" ? body.reason.slice(0, 60) : "";
-      if (!["message", "chat", "avatar", "story", "live"].includes(type) || typeof target !== "string" || !ID_RE.test(target))
+      if (!["message", "chat", "avatar", "story"].includes(type) || typeof target !== "string" || !ID_RE.test(target))
         return err("Ung\xFCltige Meldung");
       if (target === me) return err("Du kannst dich nicht selbst melden.");
       const tUser = await getUser(target);
       if (!tUser || tUser.deleted) return err("Dieses Konto existiert nicht mehr.", 404);
       let parts2 = [];
       let dedupeKey;
-      if (type === "live") {
-        const lid = String(body.lid || "");
-        if (!LID_RE.test(lid)) return err("Ung\xFCltige Meldung");
-        const lm = await lives().get(lid, { type: "json" });
-        if (!lm || lm.owner !== target || !lm.pub && !lm.allow?.includes(me)) return err("Dieses Live gibt es nicht mehr.", 404);
-        parts2 = [{ text: `[Audio-Live${lm.pub ? ", \xF6ffentlich" : ", nur Kontakte"}] Thema: ${lm.title || "(ohne Thema)"}`, audio: true }];
-        dedupeKey = `live/${lid}/${me}`;
-      } else if (type === "story") {
+      if (type === "story") {
         const skey = typeof body.skey === "string" ? body.skey : "";
         if (!SKEY_RE.test(skey)) return err("Ung\xFCltige Meldung");
         const st = await stories().get(`${target}/${skey}`, { type: "json" });
@@ -59927,7 +59657,6 @@ async function handle(req, context5, routeOverride) {
       }
       const status = !verdict ? "review" : verdict.violation ? "violation" : "ok";
       const applied = verdict ? await applyVerdict(target, verdict, { removeAvatar: type === "avatar" && verdict.violation }) : null;
-      if (verdict?.violation && type === "live") await endLive(String(body.lid), "violation");
       if (verdict?.violation && type === "story") {
         await stories().delete(`${target}/${body.skey}`);
         await pubIndex().delete(`${body.skey}~${target}`);

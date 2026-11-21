@@ -8,8 +8,7 @@ const MAX_IMG_B64 = 1_050_000;
 const $ = (s) => document.querySelector(s);
 import { renderRich, isEmoji, pixelEmoji, EMOJI_SETS } from "./emoji.js";
 import { applyTheme, ACCENTS, BASES, WALLPAPERS, wallpaperUrl } from "./theme.js";
-import { initCalls } from "./calls.js";
-import { initLive } from "./live.js";
+import { FLAGS, EFFECT_AVATARS, EFFECT_FRAMES, avatarUrl, frameUrl, isDecorId } from "./decor.js";
 
 /* ================= Hilfsfunktionen ================= */
 const enc = new TextEncoder();
@@ -304,8 +303,8 @@ async function addContactByCode(code, { open = true, peer = false } = {}) {
   if (code.length !== 8) throw new Error("Ein Code hat 8 Zeichen.");
   if (code === S.me.id) throw new Error("Das ist dein eigener Code 😉");
   if (!S.contacts[code]) {
-    const { pub, av, name } = await api(`key/${code}`);
-    S.contacts[code] = { id: code, pub, av: av || 0, name: name || "", nick: "", added: Date.now(), unread: 0, last: Date.now(), peer };
+    const { pub, av, name, pav, deco } = await api(`key/${code}`);
+    S.contacts[code] = { id: code, pub, av: av || 0, pav: pav || "", deco: deco || "", name: name || "", nick: "", added: Date.now(), unread: 0, last: Date.now(), peer };
     S.messages[code] = S.messages[code] || [];
     save();
   } else if (!peer && S.contacts[code].peer) {
@@ -323,10 +322,12 @@ async function ensurePeer(id) {
 
 async function refreshProfile(id) {
   try {
-    const { av, name } = await api(`key/${id}`);
+    const { av, name, pav = "", deco = "" } = await api(`key/${id}`);
     const c = S.contacts[id];
-    if (c && (c.av !== av || (name && c.name !== name))) {
+    if (c && (c.av !== av || (name && c.name !== name) || (c.pav || "") !== pav || (c.deco || "") !== deco)) {
       c.av = av;
+      c.pav = pav;
+      c.deco = deco;
       if (name) c.name = name;
       save();
       renderList();
@@ -387,7 +388,7 @@ async function sendMessage({ text = "", imgB64 = null, file = null, aud = null, 
   renderMessages();
   renderList();
   try {
-    const payload = { k: "m", t: text, o: !!once, n: S.me.name || "", av: S.me.av || 0 };
+    const payload = { k: "m", t: text, o: !!once, n: S.me.name || "", av: S.me.av || 0, pa: S.me.pav || "", de: S.me.deco || "" };
     if (imgB64) payload.img = imgB64;
     if (file) payload.file = file;
     if (aud) payload.aud = aud;
@@ -444,7 +445,7 @@ async function sendGroupMessage({ text, imgB64, file, aud, vid, gif, meet }) {
       for (const id of targets) await ensurePeer(id);
       // Inhalt einmal mit Zufallsschlüssel verschlüsseln, Schlüssel pro Mitglied einzeln verpacken
       const K = rand(32);
-      const body = { k: "m", t: text, n: S.me.name || "", av: S.me.av || 0 };
+      const body = { k: "m", t: text, n: S.me.name || "", av: S.me.av || 0, pa: S.me.pav || "", de: S.me.deco || "" };
       if (imgB64) body.img = imgB64;
       if (file) body.file = file;
       if (aud) body.aud = aud;
@@ -683,10 +684,7 @@ async function poll() {
           changed = true;
           continue;
         }
-        if (p.k === "call") {
-          if (calls?.handleCallCtl(m.from, p, m)) changed = true;
-          continue;
-        }
+        if (p.k === "call") continue; // Anrufe gibt es nicht mehr
         if (p.k === "seen") {
           if (handleSeen(m.from, p)) changed = true;
           continue;
@@ -710,6 +708,8 @@ async function poll() {
         if (list.some((x) => x.mid === m.mid)) continue;
         if (q.n && typeof q.n === "string") c.name = q.n.slice(0, 24);
         if (typeof q.av === "number" && q.av !== c.av) c.av = q.av;
+        if (typeof q.pa === "string" && (isDecorId(q.pa) || !q.pa)) c.pav = q.pa;
+        if (typeof q.de === "string" && (isDecorId(q.de) || !q.de)) c.deco = q.de;
         const msg = { mid: m.mid, dir: "in", ts: m.ts, from: m.from, once: chatId === m.from && !!q.o, text: q.t.slice(0, 4000) };
         if (typeof q.img === "string") {
           msg.img = true;
@@ -806,7 +806,13 @@ function fillAvatar(node, c, letterSrc) {
     if (isEmoji(first)) renderRich(node, first);
     else node.textContent = first.toUpperCase();
   };
-  if (c.av) {
+  const preset = c.pav && avatarUrl(c.pav);
+  if (preset) {
+    const img = el("img", "pav");
+    img.alt = "";
+    img.src = preset;
+    node.append(img);
+  } else if (c.av) {
     const img = el("img");
     img.alt = "";
     img.src = `/api/avatar/${c.id}?v=${c.av}`;
@@ -816,7 +822,18 @@ function fillAvatar(node, c, letterSrc) {
     };
     node.append(img);
   } else letter();
+  // Profilrahmen: animiert, komplett rund um das Profilbild
+  const ring = c.deco && frameUrl(c.deco);
+  node.classList.toggle("decorated", !!ring);
+  if (ring) {
+    const r = el("img", "deco-ring");
+    r.alt = "";
+    r.src = ring;
+    r.draggable = false;
+    node.append(r);
+  }
 }
+const meCard = () => ({ id: S.me.id, av: S.me.av, pav: S.me.pav, deco: S.me.deco });
 function fillGroupAvatar(node, g) {
   node.textContent = "";
   node.classList.add("group-av");
@@ -1113,12 +1130,7 @@ function renderMessages() {
         const card = el("div", "meet-card");
         card.append(el("div", "meet-title", "📹 " + (m.meet.title ? `Meeting „${m.meet.title}“` : "Meeting")));
         card.append(el("div", "meet-code", "Code " + m.meet.code.slice(0, 3) + " " + m.meet.code.slice(3)));
-        const join = el("button", "btn primary small-btn", "Beitreten");
-        join.onclick = (e) => {
-          e.stopPropagation();
-          calls.joinMeeting(m.meet.code, { title: m.meet.title });
-        };
-        card.append(join);
+        card.append(el("div", "small muted", "Meetings gibt es nicht mehr."));
         d.append(card);
       }
       if (m.vid) {
@@ -1164,7 +1176,7 @@ function updateTitle() {
 
 function renderMe() {
   $("#myCodeText").textContent = S.me.id;
-  fillAvatar($("#meAvatar"), { id: S.me.id, av: S.me.av }, S.me.name || S.me.id);
+  fillAvatar($("#meAvatar"), meCard(), S.me.name || S.me.id);
 }
 
 function renderChatHead() {
@@ -1201,7 +1213,6 @@ function openChat(id) {
   $("#onceBtn").classList.toggle("hidden", isGroup(id));
   renderChatHead();
   applyWallpaper(id);
-  $("#callBtn").title = isGroup(id) ? "Gruppenanruf (Meeting)" : "Anrufen";
   renderMessages.force = true;
   renderMessages();
   renderList();
@@ -1272,8 +1283,10 @@ async function refreshMe() {
     S.me.banned = !!r.banned;
     S.me.timeoutUntil = r.timeoutUntil || 0;
     S.me.role = r.role || undefined;
-    if (r.av !== S.me.av) {
+    if (r.av !== S.me.av || (r.pav || "") !== (S.me.pav || "") || (r.deco || "") !== (S.me.deco || "")) {
       S.me.av = r.av;
+      S.me.pav = r.pav || "";
+      S.me.deco = r.deco || "";
       renderMe();
     }
     if (r.purgeBefore && r.purgeBefore !== S.me.purgedAt) {
@@ -1528,16 +1541,15 @@ const REASONS = [
   ["other", "Etwas anderes"],
 ];
 
-function showReport({ type, target, mids = [], after, skey, key, lid, imageB64 }) {
+function showReport({ type, target, mids = [], after, skey, key }) {
   const body = el("div", "stack");
-  const titles = { message: "Nachricht melden", chat: "Chat melden", avatar: "Profilbild melden", story: "Story melden", live: "Live melden" };
+  const titles = { message: "Nachricht melden", chat: "Chat melden", avatar: "Profilbild melden", story: "Story melden" };
   body.append(el("h2", null, "⚑ " + titles[type]));
   const expl = {
     message: "Die gemeldete Nachricht wird zur Prüfung übermittelt. Alle anderen Nachrichten bleiben privat.",
     chat: "Die letzten empfangenen Nachrichten dieses Kontakts werden zur Prüfung übermittelt. Deine eigenen Nachrichten bleiben privat.",
     avatar: "Das Profilbild wird zur Prüfung übermittelt.",
     story: "Die Story wird zur Prüfung übermittelt.",
-    live: "Das Live und sein Thema werden zur Prüfung übermittelt. Als Besitzer kann man zuhören und es sofort beenden.",
   };
   body.append(el("p", "small muted", expl[type]));
   body.append(el("strong", null, "Was ist das Problem?"));
@@ -1558,8 +1570,7 @@ function showReport({ type, target, mids = [], after, skey, key, lid, imageB64 }
   const lab = el("label", "check");
   const blockCb = el("input");
   blockCb.type = "checkbox";
-  blockCb.checked = type !== "avatar" && type !== "live";
-  if (type === "live" && !S.contacts[target]) lab.classList.add("hidden");
+  blockCb.checked = type !== "avatar";
   lab.append(blockCb, " Kontakt außerdem blockieren");
   send.onclick = async () => {
     send.disabled = true;
@@ -1578,7 +1589,7 @@ function showReport({ type, target, mids = [], after, skey, key, lid, imageB64 }
         }
         if (!items.length) throw new Error("Keine Nachrichten gefunden, die gemeldet werden können.");
       }
-      const res = await api("report", { body: { type, target, reason: picked, items, skey, k: key, lid, imageB64 } });
+      const res = await api("report", { body: { type, target, reason: picked, items, skey, k: key } });
       if (res.applied) pollModeration();
       if (blockCb.checked) await setBlocked(target, true);
       const done = el("div", "stack");
@@ -1849,17 +1860,22 @@ function showSettings() {
   root.append(el("h2", null, "Profil & Einstellungen"));
   const head = el("div", "profile-head");
   const av = el("div", "avatar xl");
-  fillAvatar(av, { id: S.me.id, av: S.me.av }, S.me.name || S.me.id);
+  fillAvatar(av, meCard(), S.me.name || S.me.id);
   head.append(av);
   const row = el("div", "btn-row");
-  const pick = el("button", "btn", "📷 Profilbild wählen");
+  const pick = el("button", "btn", "📷 Bild oder GIF");
   pick.onclick = () => $("#avatarInput").click();
-  row.append(pick);
-  if (S.me.av) {
+  const anim = el("button", "btn", "✨ Animiert");
+  anim.onclick = () => showDecorPicker("pav");
+  const frame = el("button", "btn", "💫 Rahmen");
+  frame.onclick = () => showDecorPicker("deco");
+  row.append(pick, anim, frame);
+  if (S.me.av || S.me.pav) {
     const rm = el("button", "btn", "Entfernen");
     rm.onclick = async () => {
       try {
-        await api("avatar", { method: "DELETE" });
+        if (S.me.pav) await setDecor({ pav: "" });
+        if (S.me.av) await api("avatar", { method: "DELETE" });
         S.me.av = 0;
         save();
         renderMe();
@@ -1872,7 +1888,7 @@ function showSettings() {
   }
   head.append(row);
   root.append(head);
-  root.append(el("p", "small muted", "Dein Profilbild ist für alle sichtbar, die deinen Code kennen."));
+  root.append(el("p", "small muted", "Dein Profilbild und dein Rahmen sind für alle sichtbar, die deinen Code kennen. GIFs bleiben animiert."));
 
   const lab = el("label", "field");
   lab.append(el("span", null, "Dein Anzeigename (sehen alle, die deinen Code haben)"));
@@ -1963,22 +1979,6 @@ function showSettings() {
     toast(pcb.checked ? "🌍 Neue Stories sind öffentlich – alle können sie unter „Entdecken“ sehen." : "👥 Neue Stories sehen nur deine Kontakte.");
   };
   pl.append(pcb, " Stories öffentlich (alle App-Nutzer können sie sehen)");
-  const cl = el("label", "check");
-  const ccb = el("input");
-  ccb.type = "checkbox";
-  ccb.checked = !S.settings.callsOff;
-  ccb.onchange = async () => {
-    S.settings.callsOff = !ccb.checked;
-    save();
-    try {
-      await api("settings", { method: "PUT", body: { callsOff: S.settings.callsOff } });
-      toast(ccb.checked ? "📞 Man kann dich wieder anrufen." : "📵 Niemand kann dich mehr anrufen.");
-    } catch (e) {
-      toast(e.message);
-    }
-  };
-  cl.append(ccb, " Anrufe erlauben");
-  root.append(cl);
   root.append(ol, rl, pl, el("p", "small muted", "Ausgeschaltet sehen andere nicht, wann du online warst bzw. ob du ihre Nachrichten gesehen hast. Öffentliche Stories erscheinen für alle unter „🌍 Entdecken“ und werden vorher geprüft."), el("hr"));
   root.append(el("strong", null, "☁️ Backup"));
   root.append(
@@ -2060,11 +2060,18 @@ function showSettings() {
   openModal(root);
 }
 
+const MAX_ANIM_AVATAR = 1_000_000;
 async function uploadAvatar(file) {
   try {
-    const b64 = await compressImage(file, { maxDim: 320, maxB64: 250_000, square: true });
+    let b64;
+    if (/^image\/(gif|webp)$/.test(file.type) && (await isAnimated(file))) {
+      // Animation behalten – nicht über die Zeichenfläche verkleinern
+      if (file.size > MAX_ANIM_AVATAR) throw new Error("Animiertes Profilbild ist zu groß (max. 1 MB).");
+      b64 = await readAsB64(file);
+    } else b64 = await compressImage(file, { maxDim: 320, maxB64: 250_000, square: true });
     const { av } = await api("avatar", { method: "PUT", body: { img: b64 } });
     S.me.av = av;
+    S.me.pav = "";
     save();
     renderMe();
     toast("Profilbild gespeichert ✓");
@@ -2072,6 +2079,98 @@ async function uploadAvatar(file) {
   } catch (e) {
     toast(e.message || "Profilbild konnte nicht gespeichert werden.");
   }
+}
+
+// Erkennt animierte GIFs/WebPs (mehr als ein Bild)
+async function isAnimated(file) {
+  const b = new Uint8Array(await file.slice(0, Math.min(file.size, 2_000_000)).arrayBuffer());
+  if (file.type === "image/webp") {
+    for (let i = 12; i < b.length - 4; i++) if (b[i] === 0x41 && b[i + 1] === 0x4e && b[i + 2] === 0x49 && b[i + 3] === 0x4d) return true; // "ANIM"
+    return false;
+  }
+  let frames = 0;
+  for (let i = 0; i < b.length - 3; i++) if (b[i] === 0x21 && b[i + 1] === 0xf9 && b[i + 2] === 0x04 && ++frames > 1) return true;
+  return false;
+}
+
+/* ================= Animierte Profilbilder & Rahmen ================= */
+async function setDecor(patch) {
+  await api("profile", { method: "PUT", body: { name: S.me.name || "", ...patch } });
+  Object.assign(S.me, patch);
+  save();
+  renderMe();
+  renderList();
+  renderStoryBar();
+}
+function showDecorPicker(kind) {
+  const isAv = kind === "pav";
+  const body = el("div", "stack decor-picker");
+  body.append(el("h2", null, isAv ? "✨ Animiertes Profilbild" : "💫 Profilrahmen"));
+  body.append(
+    el(
+      "p",
+      "small muted",
+      isAv ? "Wähle ein animiertes Profilbild – oder lade über „📷 Bild oder GIF“ dein eigenes GIF hoch." : "Ein animierter, runder Rahmen um dein Profilbild – sehen alle, die deinen Code haben."
+    )
+  );
+  const preview = el("div", "avatar xl decor-preview");
+  const cur = { pav: S.me.pav || "", deco: S.me.deco || "" };
+  const draw = () => fillAvatar(preview, { ...meCard(), ...cur }, S.me.name || S.me.id);
+  draw();
+  const tabs = el("div", "chip-row");
+  const search = el("input");
+  search.placeholder = "🔍 Land suchen…";
+  const gridEl = el("div", "decor-grid");
+  const save1 = el("button", "btn primary big", "Speichern");
+  let tab = "e";
+  const render = () => {
+    gridEl.textContent = "";
+    search.classList.toggle("hidden", tab !== "f");
+    const q = search.value.trim().toLowerCase();
+    const list = tab === "f" ? FLAGS.filter((f) => !q || f.name.toLowerCase().includes(q)) : isAv ? EFFECT_AVATARS : EFFECT_FRAMES;
+    const items = !isAv && tab === "e" ? [{ id: "", name: "Kein Rahmen" }, ...list] : list;
+    for (const it of items) {
+      const b = el("button", "decor-item" + (cur[kind] === it.id ? " active" : ""));
+      b.type = "button";
+      const a = el("div", "avatar decor-thumb");
+      if (isAv) fillAvatar(a, { id: S.me.id, pav: it.id }, "");
+      else fillAvatar(a, { ...meCard(), pav: cur.pav, deco: it.id }, S.me.name || S.me.id);
+      b.append(a, el("span", "decor-name", it.name));
+      b.onclick = () => {
+        cur[kind] = it.id;
+        for (const x of gridEl.children) x.classList.toggle("active", x === b);
+        draw();
+      };
+      gridEl.append(b);
+    }
+    if (!items.length) gridEl.append(el("p", "small muted", "Kein Land gefunden."));
+  };
+  for (const [k, label] of [["e", isAv ? "✨ Effekte" : "💫 Effekte"], ["f", "🏳️ Flaggen"]]) {
+    const c = el("button", "chip" + (k === tab ? " active" : ""), label);
+    c.type = "button";
+    c.onclick = () => {
+      tab = k;
+      for (const x of tabs.children) x.classList.toggle("active", x === c);
+      render();
+    };
+    tabs.append(c);
+  }
+  search.oninput = render;
+  save1.onclick = async () => {
+    save1.disabled = true;
+    try {
+      await setDecor({ [kind]: cur[kind] });
+      toast(isAv ? (cur.pav ? "✨ Animiertes Profilbild gespeichert" : "Profilbild zurückgesetzt") : cur.deco ? "💫 Rahmen gespeichert" : "Rahmen entfernt");
+      showSettings();
+    } catch (e) {
+      toast(e.message);
+      save1.disabled = false;
+    }
+  };
+  body.append(preview, tabs, search, gridEl, save1);
+  openModal(body);
+  $("#modal .modal-card").classList.add("wide");
+  render();
 }
 
 async function syncMyName() {
@@ -2114,8 +2213,6 @@ async function doRegisterSW() {
     navigator.serviceWorker.addEventListener("message", (e) => {
       if (e.data?.type === "push") poll();
       if (e.data?.type === "owner") showOwnerPanel();
-      if (e.data?.type === "live" && e.data.lid) liveMod?.watch(e.data.lid);
-      if (e.data?.type === "push") liveMod?.refreshList();
       if (e.data?.type === "open" && e.data.from) {
         poll();
         openChat(e.data.from);
@@ -2258,7 +2355,7 @@ async function ensureAccount() {
 function exportCode() {
   const data = {
     v: 1,
-    me: { id: S.me.id, token: S.me.token, pub: S.me.pub, priv: S.me.priv, name: S.me.name, av: S.me.av },
+    me: { id: S.me.id, token: S.me.token, pub: S.me.pub, priv: S.me.priv, name: S.me.name, av: S.me.av, pav: S.me.pav, deco: S.me.deco },
     contacts: Object.fromEntries(
       Object.values(S.contacts).map((c) => [c.id, { id: c.id, pub: c.pub, av: c.av, name: c.name, nick: c.nick, blocked: !!c.blocked, last: c.last, peer: !!c.peer }])
     ),
@@ -2478,8 +2575,6 @@ function showNewMenu() {
     ["👤", "Kontakt hinzufügen", "Per Code, Link oder QR-Code", () => showAdd("mine")],
     ["👥", "Neue Gruppe", "Mit mehreren Kontakten chatten", showNewGroup],
     ["📸", "Story posten", "Für 24 Stunden für deine Kontakte", newStory],
-    ["📹", "Meeting", "Starten oder mit Code beitreten", showMeetingMenu],
-    ["🎙", "Audio-Live", "Live sprechen – für Kontakte oder öffentlich", () => liveMod.showGoLive()],
   ];
   for (const [icon, title, sub, fn] of opts) {
     const b = el("button", "menu-item");
@@ -2568,7 +2663,7 @@ function showGroupInfo() {
   for (const [id, m] of Object.entries(g.members)) {
     const row = el("div", "member-row");
     const a = el("div", "avatar sm");
-    if (id === S.me.id) fillAvatar(a, { id, av: S.me.av }, S.me.name || id);
+    if (id === S.me.id) fillAvatar(a, meCard(), S.me.name || id);
     else fillAvatar(a, S.contacts[id] || { id, av: 0 });
     const label = el("div", "member-name");
     label.append(rich("span", null, memberName(id)));
@@ -2669,7 +2764,7 @@ function renderStoryBar() {
   };
   item(
     "Deine Story",
-    (a) => fillAvatar(a, { id: S.me.id, av: S.me.av }, S.me.name || S.me.id),
+    (a) => fillAvatar(a, meCard(), S.me.name || S.me.id),
     myStoryList.length ? "seen" : "none",
     async () => {
       if (!myStoryList.length) return newStory();
@@ -2688,10 +2783,6 @@ function renderStoryBar() {
     "discover",
     showDiscover
   );
-  for (const lv of liveMod?.list() || []) {
-    if (!S.contacts[lv.owner]) continue;
-    item(displayName(S.contacts[lv.owner]), (a) => fillAvatar(a, S.contacts[lv.owner]), "live", () => liveMod.watch(lv.lid));
-  }
   const owners = Object.keys(S.stories).filter((o) => S.contacts[o] && S.stories[o].length);
   const unseen = (o) => S.stories[o].some((st) => !S.storySeen[`${o}/${st.skey}`]);
   owners.sort((a, b) => unseen(b) - unseen(a) || S.stories[b].at(-1).ts - S.stories[a].at(-1).ts);
@@ -2891,7 +2982,7 @@ function viewStories(owner, opts = {}) {
   list.forEach(() => bars.append(el("div", "story-bar-seg")));
   const head = el("div", "story-head");
   const av = el("div", "avatar sm");
-  if (owner === S.me.id) fillAvatar(av, { id: owner, av: S.me.av }, S.me.name || owner);
+  if (owner === S.me.id) fillAvatar(av, meCard(), S.me.name || owner);
   else fillAvatar(av, known || { id: owner, av: opts.av || 0, name: opts.name }, ownerName);
   const who = el("div", "story-who");
   const close = el("button", "icon-btn story-close", "✕");
@@ -3556,7 +3647,7 @@ function mirrorSoon() {
 function backupPayload() {
   return {
     v: 1,
-    me: { id: S.me.id, token: S.me.token, pub: S.me.pub, priv: S.me.priv, name: S.me.name, av: S.me.av },
+    me: { id: S.me.id, token: S.me.token, pub: S.me.pub, priv: S.me.priv, name: S.me.name, av: S.me.av, pav: S.me.pav, deco: S.me.deco },
     contacts: Object.fromEntries(
       Object.values(S.contacts).map((c) => [c.id, { id: c.id, pub: c.pub, av: c.av, name: c.name, nick: c.nick, blocked: !!c.blocked, last: c.last, peer: !!c.peer }])
     ),
@@ -4118,31 +4209,7 @@ async function renderGifTab(grid) {
 async function showDiscover() {
   const body = el("div", "stack");
   body.append(el("h2", null, "🌍 Entdecken"));
-  body.append(el("p", "small muted", "Öffentliche Lives und Stories aus der ganzen Pixelkingschat-Community."));
-  const liveBox = el("div", "discover-grid");
-  body.append(liveBox);
-  liveMod
-    ?.refreshList()
-    .then((ls) => {
-      const pubs = ls.filter((x) => x.pub);
-      if (!pubs.length) return;
-      liveBox.before(el("strong", null, "🔴 Gerade live"));
-      for (const lv of pubs) {
-        const b = el("button", "discover-item");
-        const ring = el("div", "story-ring live");
-        const a = el("div", "avatar");
-        fillAvatar(a, S.contacts[lv.owner] || { id: lv.owner, av: lv.av, name: lv.name }, lv.name || lv.owner);
-        ring.append(a);
-        b.append(ring, rich("span", "story-label", lv.title || lv.name || lv.owner), rich("span", "small muted", lv.title ? lv.name || lv.owner : timeAgo(lv.started)));
-        b.onclick = () => {
-          closeModal();
-          liveMod.watch(lv.lid);
-        };
-        liveBox.append(b);
-      }
-      liveBox.after(el("strong", null, "📸 Stories"));
-    })
-    .catch(() => {});
+  body.append(el("p", "small muted", "Öffentliche Stories aus der ganzen Pixelkingschat-Community (24 Stunden)."));
   const grid = el("div", "discover-grid");
   grid.append(el("p", "small muted", "Wird geladen…"));
   body.append(grid);
@@ -4156,7 +4223,7 @@ async function showDiscover() {
       const b = el("button", "discover-item");
       const ring = el("div", "story-ring " + (o.items.some((st) => !S.storySeen[`${o.owner}/${st.skey}`]) ? "unseen" : "seen"));
       const a = el("div", "avatar");
-      fillAvatar(a, { id: o.owner, av: o.av, name: o.name }, o.name || o.owner);
+      fillAvatar(a, { id: o.owner, av: o.av, name: o.name, pav: o.pav, deco: o.deco }, o.name || o.owner);
       ring.append(a);
       b.append(ring, rich("span", "story-label", o.name || o.owner), el("span", "small muted", timeAgo(o.items.at(-1).ts)));
       b.onclick = () => {
@@ -4170,120 +4237,6 @@ async function showDiscover() {
   }
 }
 
-/* ================= Anrufe & Meetings ================= */
-let calls = null;
-function showMeetingMenu() {
-  const body = el("div", "stack");
-  body.append(el("h2", null, "📹 Meeting"));
-  body.append(el("p", "small muted", "Sprach-Meeting mit bis zu 8 Personen. Jeder mit dem Code kann beitreten."));
-  const title = el("input");
-  title.placeholder = "Name des Meetings (optional)";
-  title.maxLength = 40;
-  const start = el("button", "btn primary big", "Neues Meeting starten");
-  start.onclick = () => {
-    closeModal();
-    calls.createMeeting(title.value.trim());
-  };
-  body.append(title, start, el("hr"), el("strong", null, "Mit Code beitreten"));
-  const code = el("input", "code-input");
-  code.maxLength = 7;
-  code.placeholder = "ABC 123";
-  code.autocapitalize = "characters";
-  const join = el("button", "btn big", "Beitreten");
-  join.onclick = () => {
-    closeModal();
-    calls.joinMeeting(code.value);
-  };
-  body.append(code, join);
-  openModal(body);
-}
-function shareMeeting(code, title) {
-  const url = `${location.origin}/#meet=${code}`;
-  const text = `Komm in mein Pixelkingschat-Meeting${title ? ` „${title}“` : ""}! Code: ${code.slice(0, 3)} ${code.slice(3)}`;
-  const box = el("div", "call-share");
-  box.append(el("h3", null, "Meeting teilen"), el("div", "call-code", code.slice(0, 3) + " " + code.slice(3)), qrNode(url));
-  const row = el("div", "btn-row");
-  const c1 = el("button", "btn", "Code kopieren");
-  c1.onclick = () => copy(code);
-  const c2 = el("button", "btn primary", "Link teilen");
-  c2.onclick = async () => {
-    if (navigator.share) {
-      try {
-        return await navigator.share({ title: "Pixelkingschat-Meeting", text, url });
-      } catch (e) {
-        if (e.name === "AbortError") return;
-      }
-    }
-    copy(`${text}\n${url}`);
-  };
-  const close = el("button", "btn", "Schließen");
-  close.onclick = () => box.remove();
-  row.append(c1, c2, close);
-  box.append(row);
-  document.body.append(box);
-}
-function sendMeetInvite(chatId, code, title) {
-  if (currentChat !== chatId) return;
-  sendMessage({ meet: { code, title } });
-}
-function setupCalls() {
-  calls = initCalls({
-    onLiveSignal: (from, p) => liveMod?.onSignal(from, p),
-    api,
-    S: () => S,
-    el,
-    rich,
-    toast,
-    b64u,
-    rand,
-    encryptFor,
-    decryptFrom,
-    ensurePeer,
-    sendCtl,
-    memberName,
-    fillAvatar,
-    sysMsg,
-    save,
-    sendBlocked,
-    shareMeeting,
-    sendMeetInvite,
-    refresh: (id) => {
-      renderList();
-      if (currentChat === id) renderMessages();
-    },
-  });
-  $("#callBtn").onclick = () => {
-    if (!currentChat) return;
-    if (isGroup(currentChat)) calls.createMeeting(S.groups[currentChat]?.name || "", currentChat);
-    else calls.startCall(currentChat);
-  };
-}
-
-/* ================= Livestreams ================= */
-let liveMod = null;
-function setupLive() {
-  liveMod = initLive({
-    api,
-    S: () => S,
-    el,
-    rich,
-    toast,
-    b64u,
-    rand,
-    calls: () => calls,
-    fillAvatar,
-    displayName,
-    storyContacts,
-    sendBlocked,
-    openModal,
-    closeModal,
-    showReport,
-    save,
-    isOwner: () => isOwner(),
-    onList: () => renderStoryBar(),
-  });
-}
-
 /* ================= Automatische Updates (Handy, PC, iOS) ================= */
 const APP_VERSION = "__PK_VERSION__";
 let updateReady = false;
@@ -4291,8 +4244,6 @@ let updateTimer = null;
 function updateSafeNow() {
   // nicht mitten im Anruf, bei Aufnahme, offenem Dialog, Story oder beim Tippen neu laden
   return (
-    !calls?.inCall() &&
-    !liveMod?.busy() &&
     !rec &&
     $("#modal").classList.contains("hidden") &&
     !document.querySelector(".story-view, .call-incoming") &&
@@ -4381,7 +4332,7 @@ function adaptToDevice() {
   });
 }
 
-/* ================= Pro Kontakt: Stummschalten & Anrufe ================= */
+/* ================= Pro Kontakt: Stummschalten ================= */
 function isMutedLocal(h) {
   return h && (h.muteUntil === -1 || (h.muteUntil && h.muteUntil > Date.now()));
 }
@@ -4428,18 +4379,6 @@ function prefsSection(holder, id, isContact) {
   }
   describe();
   box.append(row, label);
-  if (isContact) {
-    const cl = el("label", "check");
-    const cb = el("input");
-    cb.type = "checkbox";
-    cb.checked = !holder.noCalls;
-    cb.onchange = async () => {
-      await setPref(holder, id, { noCalls: !cb.checked });
-      toast(cb.checked ? `📞 ${displayName(holder)} kann dich wieder anrufen.` : `📵 ${displayName(holder)} kann dich nicht mehr anrufen.`);
-    };
-    cl.append(cb, ` 📞 Anrufe von ${displayName(holder)} erlauben`);
-    box.append(cl);
-  }
   return box;
 }
 
@@ -4581,7 +4520,7 @@ async function renderOwnerReports(box, filter) {
     } else if (r.status === "review") card.append(el("div", "small report-verdict", "Wartet auf deine Entscheidung."));
     if (r.ownerAction) card.append(el("div", "small accent", `✓ Von dir erledigt: ${r.ownerAction.action}${r.ownerAction.hours ? ` (${r.ownerAction.hours} Std)` : ""}`));
     const row = el("div", "owner-actions");
-    for (const [action, label, cls] of r.type === "live" ? [...OWNER_ACTIONS.slice(0, 2), ["endlive", "📴 Live beenden", ""], ...OWNER_ACTIONS.slice(2)] : OWNER_ACTIONS) {
+    for (const [action, label, cls] of OWNER_ACTIONS) {
       const b = el("button", "btn small-btn " + cls, label);
       b.onclick = () => ownerAction({ target: r.target, action, reportKey: r.key, done: () => showOwnerPanel(filter) });
       row.append(b);
@@ -4697,16 +4636,6 @@ async function renderOwnerSettings(box) {
 
 /* ================= Start ================= */
 function handleHash() {
-  const lm = /^#live=([A-Za-z0-9_-]{16})$/.exec(location.hash);
-  if (lm) {
-    history.replaceState(null, "", location.pathname);
-    return { kind: "live", code: lm[1] };
-  }
-  const mm = /^#meet=([A-Z0-9]{6})$/i.exec(location.hash);
-  if (mm) {
-    history.replaceState(null, "", location.pathname);
-    return { kind: "meet", code: mm[1].toUpperCase() };
-  }
   if (location.hash === "#owner") {
     history.replaceState(null, "", location.pathname);
     return { kind: "owner" };
@@ -4741,7 +4670,6 @@ async function startApp() {
   updateNotifBanner();
   updateInstallBanner();
   if (S.me.nameSynced !== (S.me.name || "")) syncMyName().catch(() => {});
-  if (S.settings.callsOff) api("settings", { method: "PUT", body: { callsOff: true } }).catch(() => {});
   refreshMe();
   pollModeration();
   pollPresence();
@@ -4753,8 +4681,6 @@ async function startApp() {
     const { kind, code } = pendingHash;
     pendingHash = null;
     if (kind === "owner") setTimeout(() => showOwnerPanel(), 800);
-    else if (kind === "meet") setTimeout(() => calls.joinMeeting(code), 300);
-    else if (kind === "live") setTimeout(() => liveMod.watch(code), 300);
     else if (kind === "new") showAdd("enter");
     else if (kind === "scan") showAdd("scan");
     else if (kind === "chat" && (S.contacts[code] || S.groups[code])) openChat(code);
@@ -4781,8 +4707,6 @@ async function startApp() {
     pollModeration();
   }, 60000);
   setInterval(updateModBanner, 30000);
-  liveMod.refreshList();
-  setInterval(() => !document.hidden && liveMod.refreshList(), 20000);
 }
 
 function loop() {
@@ -4894,7 +4818,6 @@ function bind() {
     const h = handleHash();
     if (!h || !S.me) return;
     if (h.kind === "owner") return showOwnerPanel();
-    if (h.kind === "meet") return calls.joinMeeting(h.code);
     if (h.kind === "new") return showAdd("enter");
     if (h.kind === "scan") return showAdd("scan");
     if (h.kind === "chat" && (S.contacts[h.code] || S.groups[h.code])) openChat(h.code);
@@ -4912,8 +4835,6 @@ function bind() {
 applyTheme(S.settings);
 adaptToDevice();
 bind();
-setupCalls();
-setupLive();
 setupUpdates();
 $("#importBtn").onclick = showImport;
 $("#restoreBtn").onclick = showRestore;

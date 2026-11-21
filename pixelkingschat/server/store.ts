@@ -25,20 +25,12 @@ const TTL: Record<string, number> = {
   "pk-inbox": 25 * H,
   "pk-franks": 26 * H,
   "pk-gbody": 26 * H,
-  "pk-signal": 15 * 60_000,
   "pk-media": 26 * H,
   "pk-stories": 25 * H,
   "pk-storyviews": 25 * H,
   "pk-pubidx": 25 * H,
   "pk-presence": 48 * H,
-  "pk-meetmembers": 24 * H,
-  "pk-meetings": 25 * H,
   "pk-ownertry": 24 * H,
-  "pk-live": 25 * H,
-  "pk-liveidx": 6 * H,
-  "pk-livepub": 6 * H,
-  "pk-livelast": 6 * H,
-  "pk-livewatch": 40_000,
 };
 
 let sql: ReturnType<typeof postgres> | null = null;

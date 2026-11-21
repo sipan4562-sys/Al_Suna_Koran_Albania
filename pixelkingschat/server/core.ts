@@ -20,6 +20,7 @@ const SID_RE = /^[A-Za-z0-9_-]{8,24}$/;
 const SKEY_RE = /^\d{10,16}-[A-Za-z0-9_-]{8,24}$/;
 const MAX_INBOX_BYTES = 4_000_000; // Antwortgröße pro Abruf begrenzen (Function-Limit 6 MB)
 const MAX_AVATAR = 200_000;
+const MAX_ANIM_AVATAR = 1_000_000;
 const ID_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // ohne 0/O/1/I
 const ID_RE = /^[A-HJ-NP-Z2-9]{8}$/;
 const B64U = /^[A-Za-z0-9_-]+$/;
@@ -42,54 +43,13 @@ const pubIndex = () => getStore({ name: "pk-pubidx", consistency: "strong" });
 const MEDIA_CHUNK = 3_600_000; // Bytes pro Stück (unter dem Function-Limit)
 const MEDIA_MAX_CHUNKS = 10;
 const MEDIA_ID_RE = /^[A-Za-z0-9_-]{16}$/;
-const signals = () => getStore({ name: "pk-signal", consistency: "strong" });
-// Einstellungen pro Kontakt/Gruppe: { noCalls, muteUntil } (muteUntil: -1 = immer)
+// Einstellungen pro Kontakt/Gruppe: { muteUntil } (muteUntil: -1 = immer)
 const prefs = () => getStore({ name: "pk-prefs", consistency: "strong" });
-type Pref = { noCalls?: boolean; muteUntil?: number };
+type Pref = { muteUntil?: number };
 async function getPref(owner: string, about: string) {
   return ((await prefs().get(`${owner}/${about}`, { type: "json" })) as Pref | null) || {};
 }
 const isMuted = (p: Pref) => p.muteUntil === -1 || (!!p.muteUntil && p.muteUntil > Date.now());
-const meetings = () => getStore({ name: "pk-meetings", consistency: "strong" });
-const meetMembers = () => getStore({ name: "pk-meetmembers", consistency: "strong" });
-const MEET_RE = /^[A-HJ-NP-Z2-9]{6}$/;
-/* ---------- Audio-Lives ---------- */
-// Der Ton läuft direkt vom Streamer zu den Zuhörern (WebRTC). Der Server kennt nur, wer gerade live ist.
-const lives = () => getStore({ name: "pk-live", consistency: "strong" });
-const liveIdx = () => getStore({ name: "pk-liveidx", consistency: "strong" });
-const livePub = () => getStore({ name: "pk-livepub", consistency: "strong" });
-const liveBeat = () => getStore({ name: "pk-livelast", consistency: "strong" });
-const liveWatch = () => getStore({ name: "pk-livewatch", consistency: "strong" });
-const LID_RE = /^[A-Za-z0-9_-]{16}$/;
-const LIVE_MAX_LISTENERS = 50;
-const LIVE_ALIVE_MS = 30000;
-const LIVE_MAX_MS = 4 * 3600_000;
-type LiveMeta = { owner: string; title: string; pub: boolean; started: number; allow?: string[]; ended?: number; endReason?: string };
-async function liveState(lid: string) {
-  const meta = (await lives().get(lid, { type: "json" })) as LiveMeta | null;
-  if (!meta) return null;
-  const beat = Number((await liveBeat().get(lid)) || meta.started);
-  const now = Date.now();
-  const alive = !meta.ended && now - beat < LIVE_ALIVE_MS && now - meta.started < LIVE_MAX_MS;
-  return { meta, alive };
-}
-async function liveListeners(lid: string) {
-  const { blobs } = await liveWatch().list({ prefix: `${lid}/` });
-  return blobs.length;
-}
-async function endLive(lid: string, reason = "") {
-  const meta = (await lives().get(lid, { type: "json" })) as LiveMeta | null;
-  if (!meta) return;
-  if (!meta.ended) {
-    meta.ended = Date.now();
-    if (reason) meta.endReason = reason;
-    await lives().setJSON(lid, meta);
-  }
-  if ((await liveIdx().get(meta.owner)) === lid) await liveIdx().delete(meta.owner);
-  await livePub().delete(lid);
-}
-const MEET_MAX = 8;
-const MEET_ALIVE_MS = 20000;
 const lastPresenceWrite = new Map<string, number>();
 
 type User = {
@@ -97,11 +57,12 @@ type User = {
   th: string;
   created: number;
   av?: number;
+  pav?: string; // animiertes Profilbild (Vorlage, z. B. "f-de")
+  deco?: string; // Profilrahmen (z. B. "e-neon")
   name?: string;
   strikes?: number;
   banned?: boolean;
   timeoutUntil?: number; // vorübergehende Sperre
-  callsOff?: boolean; // Anrufe ausgeschaltet
   purgeBefore?: number; // alle Nachrichten bis zu diesem Zeitpunkt wurden entfernt
   notice?: { kind: "warn" | "timeout" | "ban"; ts: number; until?: number; deleted?: boolean; reason?: string };
   deleted?: boolean;
@@ -151,6 +112,16 @@ async function auth(req: Request): Promise<{ id: string; user: User } | null> {
 const cleanName = (n: unknown) =>
   typeof n === "string" ? n.replace(/[\u0000-\u001f\u007f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g, "").trim().slice(0, 24) : "";
 
+const DECOR_RE = /^[ef]-[a-z]{2,10}$/;
+// Bildformat an den ersten Bytes erkennen (JPEG, GIF, WebP, PNG)
+function imageType(b: Uint8Array): string | null {
+  if (b[0] === 0xff && b[1] === 0xd8) return "image/jpeg";
+  if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46) return "image/gif";
+  if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50) return "image/webp";
+  if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return "image/png";
+  return null;
+}
+const b64ImageType = (b64: string) => imageType(Buffer.from(b64.slice(0, 24), "base64")) || "image/jpeg";
 const validPub = (pub: unknown): pub is string => typeof pub === "string" && /^[A-Za-z0-9_-]{80,100}$/.test(pub);
 
 /* ---------------- Push-Benachrichtigungen ---------------- */
@@ -170,7 +141,7 @@ async function vapid(): Promise<string> {
 }
 
 async function notify(to: string, from: string, name: string, gid?: string, extra?: Record<string, unknown>) {
-  if (!extra?.call && isMuted(await getPref(to, gid || from))) return;
+  if (isMuted(await getPref(to, gid || from))) return;
   await vapid();
   const store = pushStore();
   const { blobs } = await store.list({ prefix: `${to}/` });
@@ -274,7 +245,7 @@ async function moderate(
     n++;
     if (p.imageB64) {
       content.push({ type: "text", text: `<item ${n}: image>` });
-      content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: p.imageB64 } });
+      content.push({ type: "image", source: { type: "base64", media_type: b64ImageType(p.imageB64) as any, data: p.imageB64 } });
     }
     if (p.text) content.push({ type: "text", text: `<item ${n}: text>\n${p.text}\n</item>` });
   }
@@ -564,7 +535,14 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
       if (!ID_RE.test(id)) return err("Ungültiger Code");
       const u = await getUserOrImport(id);
       if (!u || u.deleted) return err("Code nicht gefunden", 404);
-      return json({ id, pub: u.pub, av: u.banned ? 0 : u.av || 0, name: u.banned ? "" : u.name || "" });
+      return json({
+        id,
+        pub: u.pub,
+        av: u.banned ? 0 : u.av || 0,
+        name: u.banned ? "" : u.name || "",
+        pav: u.banned ? "" : u.pav || "",
+        deco: u.banned ? "" : u.deco || "",
+      });
     }
 
     if (route.startsWith("backup/") && method === "GET") {
@@ -584,7 +562,7 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
       const data = await avatars().get(id, { type: "arrayBuffer" });
       if (!data) return new Response("Not found", { status: 404, headers: { "cache-control": "no-store" } });
       return new Response(data, {
-        headers: { "content-type": "image/jpeg", "cache-control": "public, max-age=300" },
+        headers: { "content-type": imageType(new Uint8Array(data)) || "image/jpeg", "cache-control": "public, max-age=300" },
       });
     }
 
@@ -602,6 +580,8 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
         purgeBefore: meUser.purgeBefore || 0,
         role: meUser.role || null,
         av: meUser.av || 0,
+        pav: meUser.pav || "",
+        deco: meUser.deco || "",
       });
     }
 
@@ -613,129 +593,16 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
       return json({ ok: true });
     }
 
-    // ---------- Anrufe ----------
-    if (route === "settings" && method === "PUT") {
-      const body = await req.json().catch(() => null);
-      if (typeof body?.callsOff === "boolean") meUser.callsOff = body.callsOff;
-      await putUser(me, meUser);
-      return json({ ok: true, callsOff: !!meUser.callsOff });
-    }
     if (route === "prefs" && method === "POST") {
       const body = await req.json().catch(() => null);
       const about = String(body?.id || "");
       if (!ID_RE.test(about) && !GID_RE.test(about)) return err("Ungültig");
       const cur = await getPref(me, about);
-      if (typeof body.noCalls === "boolean") cur.noCalls = body.noCalls;
       if (typeof body.muteUntil === "number") cur.muteUntil = body.muteUntil === -1 ? -1 : Math.max(0, Math.min(body.muteUntil, Date.now() + 400 * TTL_MS));
-      if (!cur.noCalls && !isMuted(cur)) await prefs().delete(`${me}/${about}`);
+      if (!isMuted(cur)) await prefs().delete(`${me}/${about}`);
       else await prefs().setJSON(`${me}/${about}`, cur);
       return json({ ok: true, ...cur });
     }
-    if (route === "turn" && method === "GET") {
-      const iceServers: unknown[] = [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }];
-      const cfKey = env("CF_TURN_KEY_ID");
-      const cfTok = env("CF_TURN_API_TOKEN");
-      if (cfKey && cfTok) {
-        try {
-          const r = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${cfKey}/credentials/generate-ice-servers`, {
-            method: "POST",
-            headers: { authorization: `Bearer ${cfTok}`, "content-type": "application/json" },
-            body: JSON.stringify({ ttl: 86400 }),
-          });
-          const d: any = r.ok ? await r.json() : null;
-          const list = d?.iceServers ? (Array.isArray(d.iceServers) ? d.iceServers : [d.iceServers]) : [];
-          // Port 53 blockieren Browser – herausfiltern
-          for (const srv of list) {
-            const urls = (Array.isArray(srv.urls) ? srv.urls : [srv.urls]).filter((u: string) => !/:53(\?|$)/.test(u));
-            if (urls.length) iceServers.push({ ...srv, urls });
-          }
-        } catch {}
-      }
-      const turnUrl = env("TURN_URL");
-      if (turnUrl) iceServers.push({ urls: turnUrl.split(","), username: env("TURN_USERNAME") || "", credential: env("TURN_CREDENTIAL") || "" });
-      return json({ iceServers });
-    }
-    // Anruf ankündigen: prüft, ob der andere Anrufe zulässt, und klingelt per Push
-    if (route === "call/ring" && method === "POST") {
-      { const blk = sendBlock(meUser); if (blk) return err(blk, 403); }
-      const body = await req.json().catch(() => null);
-      if (!ID_RE.test(body?.to || "") || typeof body.callId !== "string" || !/^[A-Za-z0-9_-]{8,24}$/.test(body.callId)) return err("Ungültig");
-      const t = await getUserOrImport(body.to);
-      if (!t || t.deleted) return err("Dieses Konto existiert nicht mehr.", 404);
-      if (t.banned) return err("Dieses Konto ist gesperrt.", 403);
-      if (t.callsOff) return json({ ok: false, reason: "off" });
-      if ((await getPref(body.to, me)).noCalls) return json({ ok: false, reason: "off" });
-      if (await blocks().get(`${body.to}/${me}`)) return json({ ok: false, reason: "off" });
-      context.waitUntil(notify(body.to, me, meUser.name || "", undefined, { call: body.callId, video: !!body.video }).catch(() => {}));
-      return json({ ok: true });
-    }
-    // Verbindungsaufbau (verschlüsselt) zwischen zwei Geräten
-    if (route === "signal" && method === "POST") {
-      const body = await req.json().catch(() => null);
-      if (!ID_RE.test(body?.to || "") || !validEnc(body, 40000) || typeof body.sid !== "string" || !/^[A-Za-z0-9_-]{8,32}$/.test(body.sid))
-        return err("Ungültig");
-      if (await blocks().get(`${body.to}/${me}`)) return json({ ok: true });
-      await signals().setJSON(`${body.to}/${Date.now()}-${b64uRand(6)}`, { from: me, sid: body.sid, iv: body.iv, ct: body.ct });
-      return json({ ok: true });
-    }
-    if (route === "signal" && method === "GET") {
-      const store = signals();
-      const { blobs } = await store.list({ prefix: `${me}/` });
-      const now = Date.now();
-      const out: unknown[] = [];
-      for (const b of blobs.sort((x, y) => x.key.localeCompare(y.key))) {
-        const ts = Number(b.key.slice(me.length + 1).split("-")[0]);
-        const v = ts && now - ts < 120000 ? await store.get(b.key, { type: "json" }) : null;
-        await store.delete(b.key);
-        if (v) out.push({ ...(v as object), ts });
-      }
-      return json({ signals: out });
-    }
-    // ---------- Meetings mit Code ----------
-    if (route === "meet/create" && method === "POST") {
-      { const blk = sendBlock(meUser); if (blk) return err(blk, 403); }
-      const body = await req.json().catch(() => ({}));
-      const title = typeof body?.title === "string" ? cleanName(body.title).slice(0, 40) : "";
-      for (let i = 0; i < 8; i++) {
-        const code = randomId(6);
-        const { modified } = await meetings().setJSON(code, { host: me, title, created: Date.now() }, { onlyIfNew: true });
-        if (modified) return json({ code, title });
-      }
-      return err("Bitte nochmal versuchen", 503);
-    }
-    if ((route === "meet/join" || route === "meet/beat") && method === "POST") {
-      const body = await req.json().catch(() => null);
-      const code = String(body?.code || "").toUpperCase();
-      if (!MEET_RE.test(code)) return err("Ungültiger Meeting-Code");
-      const mt = (await meetings().get(code, { type: "json" })) as { host: string; title: string; created: number } | null;
-      if (!mt || Date.now() - mt.created > TTL_MS) return err("Dieses Meeting gibt es nicht (mehr).", 404);
-      const now = Date.now();
-      const { blobs } = await meetMembers().list({ prefix: `${code}/` });
-      const alive: string[] = [];
-      for (const b of blobs) {
-        const id = b.key.split("/")[1];
-        const ts = Number(await meetMembers().get(b.key));
-        if (now - ts < MEET_ALIVE_MS) alive.push(id);
-        else await meetMembers().delete(b.key);
-      }
-      if (route === "meet/join" && !alive.includes(me) && alive.length >= MEET_MAX) return err(`Das Meeting ist voll (max. ${MEET_MAX} Personen).`, 409);
-      await meetMembers().set(`${code}/${me}`, String(now));
-      if (!alive.includes(me)) alive.push(me);
-      const members = await Promise.all(
-        alive.map(async (id) => {
-          const u = id === me ? meUser : await getUser(id);
-          return { id, name: u?.name || "", av: u?.av || 0 };
-        })
-      );
-      return json({ code, title: mt.title, host: mt.host, members });
-    }
-    if (route === "meet/leave" && method === "POST") {
-      const body = await req.json().catch(() => null);
-      const code = String(body?.code || "").toUpperCase();
-      if (MEET_RE.test(code)) await meetMembers().delete(`${code}/${me}`);
-      return json({ ok: true });
-    }
-
     // ---------- Besitzer-Bereich ----------
     if (route === "owner/claim" && method === "POST") {
       const body = await req.json().catch(() => null);
@@ -814,7 +681,6 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
           timeoutUntil: u.timeoutUntil || 0,
           av: u.av || 0,
           role: u.role || null,
-          callsOff: !!u.callsOff,
         });
       }
       if (route === "owner/settings" && method === "POST") {
@@ -877,11 +743,6 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
               await avatars().delete(target);
               u.av = 0;
               break;
-            case "endlive": {
-              const lid = await liveIdx().get(target);
-              if (lid) await endLive(lid, "violation");
-              break;
-            }
             case "dismiss":
               break;
             default:
@@ -959,125 +820,6 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
     }
 
     // Verschlüsselte Nachricht senden
-    if (route === "live/start" && method === "POST") {
-      { const blk = sendBlock(meUser); if (blk) return err(blk, 403); }
-      const body = await req.json().catch(() => null);
-      if (!body || !LID_RE.test(body.lid || "")) return err("Ungültig");
-      const pub = body.pub === true;
-      const title = cleanName(typeof body.title === "string" ? body.title : "").slice(0, 60) || "";
-      const allow = pub ? undefined : (Array.isArray(body.allow) ? body.allow : []).filter((id: unknown) => typeof id === "string" && ID_RE.test(id)).slice(0, 1000);
-      if (pub && title) {
-        const v = await moderate([{ text: title }], "public live title pre-check", "public_story", recordOf(meUser));
-        if (v?.violation) {
-          await applyVerdict(me, { ...v, delete_messages: false });
-          return err("Dieses Thema verstößt gegen die Regeln.", 422);
-        }
-      }
-      const prev = await liveIdx().get(me);
-      if (prev && prev !== body.lid) await endLive(prev);
-      const meta: LiveMeta = { owner: me, title, pub, started: Date.now(), ...(allow ? { allow } : {}) };
-      await lives().setJSON(body.lid, meta);
-      await liveBeat().set(body.lid, String(meta.started));
-      await liveIdx().set(me, body.lid);
-      if (pub) await livePub().set(body.lid, me);
-      const notifyIds = (Array.isArray(body.notify) ? body.notify : []).filter((id: unknown) => typeof id === "string" && ID_RE.test(id) && id !== me).slice(0, 300);
-      context.waitUntil(
-        (async () => {
-          for (const to of notifyIds) {
-            if (await blocks().get(`${to}/${me}`)) continue;
-            await notify(to, me, meUser.name || "", undefined, { live: body.lid }).catch(() => {});
-          }
-        })()
-      );
-      return json({ ok: true, started: meta.started });
-    }
-    if (route === "live/beat" && method === "POST") {
-      const body = await req.json().catch(() => null);
-      const lid = String(body?.lid || "");
-      if (!LID_RE.test(lid)) return err("Ungültig");
-      const meta = (await lives().get(lid, { type: "json" })) as LiveMeta | null;
-      if (!meta || meta.owner !== me) return err("Kein eigenes Live", 404);
-      const blk = sendBlock(meUser);
-      if (blk) {
-        await endLive(lid, "blocked");
-        return err(blk, 403);
-      }
-      if (meta.ended) return err(meta.endReason ? "Dein Live wurde wegen eines Regelverstoßes beendet." : "Das Live ist beendet.", 410);
-      if (Date.now() - meta.started > LIVE_MAX_MS) {
-        await endLive(lid, "time");
-        return err("Ein Live darf höchstens 4 Stunden dauern.", 410);
-      }
-      await liveBeat().set(lid, String(Date.now()));
-      return json({ ok: true, listeners: await liveListeners(lid) });
-    }
-    if (route === "live/join" && method === "POST") {
-      const body = await req.json().catch(() => null);
-      const lid = String(body?.lid || "");
-      if (!LID_RE.test(lid)) return err("Ungültig");
-      const st = await liveState(lid);
-      if (!st) return err("Dieses Live gibt es nicht mehr.", 404);
-      const { meta } = st;
-      if (!meta.pub && meta.owner !== me && !meta.allow?.includes(me)) return err("Dieses Live ist nur für Kontakte.", 403);
-      if (meta.owner !== me && (await blocks().get(`${meta.owner}/${me}`))) return err("Dieses Live gibt es nicht mehr.", 404);
-      let listeners = st.alive ? await liveListeners(lid) : 0;
-      if (st.alive && meta.owner !== me) {
-        const already = await liveWatch().get(`${lid}/${me}`);
-        if (!already && listeners >= LIVE_MAX_LISTENERS) return err(`Das Live ist voll (max. ${LIVE_MAX_LISTENERS} Zuhörer).`, 409);
-        await liveWatch().set(`${lid}/${me}`, String(Date.now()));
-        if (!already) listeners++;
-      }
-      const ou = await getUser(meta.owner);
-      return json({
-        lid,
-        owner: meta.owner,
-        name: ou?.name || "",
-        av: ou?.av || 0,
-        title: meta.title,
-        pub: meta.pub,
-        started: meta.started,
-        alive: st.alive,
-        endReason: meta.endReason || "",
-        listeners,
-      });
-    }
-    if (route === "live/leave" && method === "POST") {
-      const body = await req.json().catch(() => null);
-      if (LID_RE.test(String(body?.lid || ""))) await liveWatch().delete(`${body.lid}/${me}`);
-      return json({ ok: true });
-    }
-    if (route === "live/end" && method === "POST") {
-      const body = await req.json().catch(() => null);
-      const lid = String(body?.lid || "");
-      if (!LID_RE.test(lid)) return err("Ungültig");
-      const meta = (await lives().get(lid, { type: "json" })) as LiveMeta | null;
-      if (!meta) return json({ ok: true });
-      if (meta.owner !== me && meUser.role !== "owner") return err("Nicht erlaubt", 403);
-      await endLive(lid, meta.owner === me ? "" : "owner");
-      return json({ ok: true });
-    }
-    if (route === "live/list" && method === "GET") {
-      const ids = (url.searchParams.get("ids") || "").split(",").filter((x) => ID_RE.test(x)).slice(0, 300);
-      const lids = new Set<string>();
-      for (const id of ids) {
-        const lid = await liveIdx().get(id);
-        if (lid) lids.add(lid);
-      }
-      if (url.searchParams.get("pub") !== "0") for (const b of (await livePub().list()).blobs.slice(-40)) lids.add(b.key);
-      const out = [];
-      for (const lid of lids) {
-        const st = await liveState(lid);
-        if (!st?.alive) continue;
-        const m = st.meta;
-        if (!m.pub && m.owner !== me && !m.allow?.includes(me)) continue;
-        if (m.owner !== me && (await blocks().get(`${m.owner}/${me}`))) continue;
-        const ou = await getUser(m.owner);
-        if (!ou || ou.banned) continue;
-        out.push({ lid, owner: m.owner, name: ou.name || "", av: ou.av || 0, title: m.title, pub: m.pub, started: m.started });
-      }
-      out.sort((a, b) => b.started - a.started);
-      return json({ lives: out });
-    }
-
     if (route === "send" && method === "POST") {
       { const blk = sendBlock(meUser); if (blk) return err(blk, 403); }
       const body = await req.json().catch(() => null);
@@ -1289,7 +1031,7 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
           if (await blocks().get(`${me}/${owner}`)) return;
           const u = await getUser(owner);
           if (!u || u.deleted || u.banned) return;
-          out.push({ owner, name: u.name || "", av: u.av || 0, items: items.sort((a, b) => a.ts - b.ts) });
+          out.push({ owner, name: u.name || "", av: u.av || 0, pav: u.pav || "", deco: u.deco || "", items: items.sort((a, b) => a.ts - b.ts) });
         })
       );
       out.sort((a: any, b: any) => b.items.at(-1).ts - a.items.at(-1).ts);
@@ -1396,8 +1138,14 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
     if (route === "profile" && method === "PUT") {
       const body = await req.json().catch(() => null);
       meUser.name = cleanName(body?.name);
+      for (const k of ["pav", "deco"] as const) {
+        if (body?.[k] === undefined) continue;
+        if (body[k] !== "" && !(typeof body[k] === "string" && DECOR_RE.test(body[k]))) return err("Ungültige Auswahl");
+        if (body[k]) meUser[k] = body[k];
+        else delete meUser[k];
+      }
       await putUser(me, meUser);
-      return json({ name: meUser.name });
+      return json({ name: meUser.name, pav: meUser.pav || "", deco: meUser.deco || "" });
     }
 
     if (route === "avatar" && method === "PUT") {
@@ -1405,10 +1153,13 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
       const body = await req.json().catch(() => null);
       if (typeof body?.img !== "string" || !/^[A-Za-z0-9+/=]+$/.test(body.img)) return err("Ungültiges Bild");
       const bytes = Buffer.from(body.img, "base64");
-      if (bytes.length > MAX_AVATAR) return err("Bild zu groß");
-      if (!(bytes[0] === 0xff && bytes[1] === 0xd8)) return err("Nur JPEG erlaubt");
+      const type = imageType(bytes);
+      if (!type || type === "image/png") return err("Nur JPEG, GIF oder WebP erlaubt");
+      // Animierte Profilbilder (GIF/WebP) dürfen größer sein
+      if (bytes.length > (type === "image/jpeg" ? MAX_AVATAR : MAX_ANIM_AVATAR)) return err(type === "image/jpeg" ? "Bild zu groß" : "Animiertes Profilbild ist zu groß (max. 1 MB).");
       await avatars().set(me, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length) as ArrayBuffer);
       meUser.av = Date.now();
+      delete meUser.pav;
       await putUser(me, meUser);
       return json({ av: meUser.av });
     }
@@ -1434,7 +1185,7 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
       const type = body?.type;
       const target = body?.target;
       const reason = typeof body?.reason === "string" ? body.reason.slice(0, 60) : "";
-      if (!["message", "chat", "avatar", "story", "live"].includes(type) || typeof target !== "string" || !ID_RE.test(target))
+      if (!["message", "chat", "avatar", "story"].includes(type) || typeof target !== "string" || !ID_RE.test(target))
         return err("Ungültige Meldung");
       if (target === me) return err("Du kannst dich nicht selbst melden.");
       const tUser = await getUser(target);
@@ -1442,15 +1193,7 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
 
       let parts: { text?: string; imageB64?: string; audio?: boolean }[] = [];
       let dedupeKey: string;
-      if (type === "live") {
-        const lid = String(body.lid || "");
-        if (!LID_RE.test(lid)) return err("Ungültige Meldung");
-        const lm = (await lives().get(lid, { type: "json" })) as LiveMeta | null;
-        if (!lm || lm.owner !== target || (!lm.pub && !lm.allow?.includes(me))) return err("Dieses Live gibt es nicht mehr.", 404);
-        // Ton kann nicht automatisch geprüft werden → genauere Prüfung (Besitzer kann zuhören)
-        parts = [{ text: `[Audio-Live${lm.pub ? ", öffentlich" : ", nur Kontakte"}] Thema: ${lm.title || "(ohne Thema)"}`, audio: true }];
-        dedupeKey = `live/${lid}/${me}`;
-      } else if (type === "story") {
+      if (type === "story") {
         const skey = typeof body.skey === "string" ? body.skey : "";
         if (!SKEY_RE.test(skey)) return err("Ungültige Meldung");
         const st = (await stories().get(`${target}/${skey}`, { type: "json" })) as (Enc & { keys: Record<string, Enc>; pub?: boolean; content?: any }) | null;
@@ -1502,7 +1245,6 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
       }
       const status: keyof typeof RESULT_TEXT = !verdict ? "review" : verdict.violation ? "violation" : "ok";
       const applied = verdict ? await applyVerdict(target, verdict, { removeAvatar: type === "avatar" && verdict.violation }) : null;
-      if (verdict?.violation && type === "live") await endLive(String(body.lid), "violation");
       if (verdict?.violation && type === "story") {
         await stories().delete(`${target}/${body.skey}`);
         await pubIndex().delete(`${body.skey}~${target}`);
