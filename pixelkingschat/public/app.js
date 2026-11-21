@@ -407,10 +407,12 @@ async function sendMessage({ text = "", imgB64 = null, file = null, aud = null, 
   renderMessages();
 }
 
-async function sendGroupMessage({ text, imgB64, file, aud, vid, gif, meet }) {
+async function sendGroupMessage({ text, imgB64, file, aud, vid, gif, meet, poll }) {
   const gid = currentChat;
   const g = S.groups[gid];
   if (!g || g.removed) return toast("Du bist nicht mehr in dieser Gruppe.");
+  if (gTimeout(g, S.me.id)) return toast(`⏳ Du hast in dieser Gruppe einen Timeout bis ${fmtUntil(gTimeout(g, S.me.id))} Uhr.`);
+  if (poll ? !canPoll(g, S.me.id) : !canWrite(g, S.me.id)) return toast(poll ? "Du darfst in dieser Gruppe keine Umfragen erstellen." : `In dieser Gruppe schreiben ${WRITE_TEXT[gcfg(g).write]}.`);
   const mid = newMid();
   const ts = Date.now();
   const local = { mid, dir: "out", ts, from: S.me.id, text, status: "pending" };
@@ -429,6 +431,7 @@ async function sendGroupMessage({ text, imgB64, file, aud, vid, gif, meet }) {
   if (vid) local.vid = vid;
   if (gif) local.gif = gif;
   if (meet) local.meet = meet;
+  if (poll) local.poll = poll;
   S.messages[gid].push(local);
   g.last = ts;
   save();
@@ -452,6 +455,7 @@ async function sendGroupMessage({ text, imgB64, file, aud, vid, gif, meet }) {
       if (vid) body.vid = vid;
       if (gif) body.gif = gif;
       if (meet) body.meet = meet;
+      if (poll) body.poll = poll;
       const b = await aesSeal(K, body, `${gid}|${mid}`);
       const envs = [];
       for (const id of targets) envs.push({ to: id, ...(await encryptFor(id, mid, { k: "g", gid, bk: b64u(K) })) });
@@ -465,6 +469,23 @@ async function sendGroupMessage({ text, imgB64, file, aud, vid, gif, meet }) {
   }
   save();
   renderMessages();
+}
+
+// Unsichtbare Gruppen-Nachricht an alle (Reaktion, Abstimmung) – ohne Benachrichtigung
+async function sendGroupSignal(gid, body) {
+  const g = S.groups[gid];
+  if (!g || g.removed) return;
+  const targets = Object.entries(g.members)
+    .filter(([id, m]) => id !== S.me.id && m.st === "active")
+    .map(([id]) => id);
+  if (!targets.length) return;
+  for (const id of targets) await ensurePeer(id);
+  const mid = newMid();
+  const K = rand(32);
+  const b = await aesSeal(K, body, `${gid}|${mid}`);
+  const envs = [];
+  for (const id of targets) envs.push({ to: id, ...(await encryptFor(id, mid, { k: "g", gid, bk: b64u(K) })) });
+  await api("gsend", { body: { gid, mid, b, envs, silent: true } });
 }
 
 // Steuernachricht (verschlüsselt, direkt an eine Person)
@@ -481,12 +502,99 @@ async function sendReceipt(to, ref) {
 }
 
 /* ================= Gruppen ================= */
+// g.admin = Besitzer (hat die Gruppe erstellt). g.roles[id] = "admin" für weitere Admins.
+// Alle Regeln werden auf jedem Gerät geprüft – der Server sieht von der Gruppe nichts.
+const GCFG_DEFAULT = { keep: false, write: "all", react: true, polls: "all" };
+const gcfg = (g) => ({ ...GCFG_DEFAULT, ...(g?.cfg || {}) });
+const isGOwner = (g, id) => !!g && g.admin === id;
+const isGAdmin = (g, id) => !!g && (g.admin === id || g.roles?.[id] === "admin");
+const gTimeout = (g, id, ts = Date.now()) => ((g?.timeouts?.[id] || 0) > ts ? g.timeouts[id] : 0);
+const keepGroup = (id) => isGroup(id) && gcfg(S.groups[id]).keep;
+function canWrite(g, id, ts = Date.now()) {
+  if (gTimeout(g, id, ts)) return false;
+  const w = gcfg(g).write;
+  return w === "owner" ? isGOwner(g, id) : w === "admins" ? isGAdmin(g, id) : true;
+}
+const canReact = (g, id, ts = Date.now()) => !gTimeout(g, id, ts) && (canWrite(g, id, ts) || gcfg(g).react);
+function canPoll(g, id, ts = Date.now()) {
+  if (gTimeout(g, id, ts)) return false;
+  const p = gcfg(g).polls;
+  return p === "owner" ? isGOwner(g, id) : p === "admins" ? isGAdmin(g, id) : true;
+}
+const canVote = (g, id, ts = Date.now()) => !gTimeout(g, id, ts);
+// darf „who“ bei „target“ moderieren (Timeout, Entfernen)?
+const canModerate = (g, who, target) => who !== target && !isGOwner(g, target) && (isGOwner(g, who) || (isGAdmin(g, who) && !isGAdmin(g, target)));
+
 const groupPayload = (g) => ({
   gid: g.id,
   name: g.name,
   admin: g.admin,
   members: Object.fromEntries(Object.entries(g.members).map(([id, m]) => [id, { st: m.st }])),
+  roles: g.roles || {},
+  cfg: gcfg(g),
+  timeouts: Object.fromEntries(Object.entries(g.timeouts || {}).filter(([, t]) => t > Date.now())),
 });
+function cleanGroupExtras(p, members) {
+  const roles = {};
+  for (const [id, r] of Object.entries(p.roles || {})) if (members[id] && r === "admin" && id !== p.admin) roles[id] = "admin";
+  const c = p.cfg || {};
+  const cfg = {
+    keep: c.keep === true,
+    write: ["all", "admins", "owner"].includes(c.write) ? c.write : "all",
+    react: c.react !== false,
+    polls: ["all", "admins", "owner"].includes(c.polls) ? c.polls : "all",
+  };
+  const timeouts = {};
+  const max = Date.now() + 31 * 24 * 3600_000;
+  for (const [id, t] of Object.entries(p.timeouts || {})) if (members[id] && Number.isFinite(t) && t > Date.now()) timeouts[id] = Math.min(t, max);
+  return { roles, cfg, timeouts };
+}
+async function pushGroupUpdate(g, extra = []) {
+  const payload = { k: "gu", ...groupPayload(g) };
+  for (const id of new Set([...Object.keys(g.members), ...extra])) if (id !== S.me.id) sendCtl(id, payload).catch(() => {});
+}
+const WRITE_TEXT = { all: "alle Mitglieder", admins: "nur Admins", owner: "nur der Besitzer" };
+function cfgChanges(a, b) {
+  const out = [];
+  if (a.keep !== b.keep) out.push(b.keep ? "Nachrichten bleiben jetzt dauerhaft (kein Löschen nach 24 Std)" : "Nachrichten löschen sich wieder nach 24 Std");
+  if (a.write !== b.write) out.push(`Schreiben dürfen jetzt ${WRITE_TEXT[b.write]}`);
+  if (a.react !== b.react && b.write !== "all") out.push(b.react ? "Alle dürfen mit Emojis reagieren" : "Reaktionen sind nur für Schreibberechtigte erlaubt");
+  if (a.polls !== b.polls) out.push(`Umfragen erstellen dürfen jetzt ${WRITE_TEXT[b.polls]}`);
+  return out;
+}
+async function setGroupCfg(gid, patch) {
+  const g = S.groups[gid];
+  if (!g || !isGOwner(g, S.me.id)) return;
+  const before = gcfg(g);
+  g.cfg = { ...before, ...patch };
+  for (const t of cfgChanges(before, gcfg(g))) sysMsg(gid, `Du hast eingestellt: ${t}.`);
+  save();
+  pushGroupUpdate(g);
+  updateComposerLock();
+  renderMessages();
+}
+async function setGroupRole(gid, id, admin) {
+  const g = S.groups[gid];
+  if (!g || !isGOwner(g, S.me.id) || id === S.me.id) return;
+  g.roles = { ...(g.roles || {}) };
+  if (admin) g.roles[id] = "admin";
+  else delete g.roles[id];
+  sysMsg(gid, admin ? `Du hast ${memberName(id)} zum Admin gemacht.` : `${memberName(id)} ist kein Admin mehr.`);
+  save();
+  pushGroupUpdate(g);
+  renderMessages();
+}
+async function setGroupTimeout(gid, id, until) {
+  const g = S.groups[gid];
+  if (!g || !canModerate(g, S.me.id, id)) return;
+  g.timeouts = { ...(g.timeouts || {}) };
+  if (until > Date.now()) g.timeouts[id] = until;
+  else delete g.timeouts[id];
+  sysMsg(gid, until > Date.now() ? `Du hast ${memberName(id)} einen Timeout bis ${fmtUntil(until)} Uhr gegeben.` : `Du hast den Timeout von ${memberName(id)} aufgehoben.`);
+  save();
+  pushGroupUpdate(g);
+  renderMessages();
+}
 
 async function createGroup(name, ids) {
   const gid = "g_" + b64u(rand(12));
@@ -502,7 +610,7 @@ async function createGroup(name, ids) {
 
 async function addGroupMembers(gid, ids) {
   const g = S.groups[gid];
-  if (!g || g.admin !== S.me.id) return;
+  if (!g || !isGAdmin(g, S.me.id)) return;
   const existing = Object.keys(g.members).filter((id) => id !== S.me.id);
   for (const id of ids) g.members[id] = { st: "invited" };
   sysMsg(gid, `Du hast ${ids.map(memberName).join(", ")} eingeladen.`);
@@ -514,8 +622,10 @@ async function addGroupMembers(gid, ids) {
 
 async function removeGroupMember(gid, id) {
   const g = S.groups[gid];
-  if (!g || g.admin !== S.me.id || id === S.me.id) return;
+  if (!g || !canModerate(g, S.me.id, id)) return;
   delete g.members[id];
+  if (g.roles) delete g.roles[id];
+  if (g.timeouts) delete g.timeouts[id];
   sysMsg(gid, `Du hast ${memberName(id)} entfernt.`);
   save();
   const payload = { k: "gu", ...groupPayload(g) };
@@ -554,6 +664,9 @@ async function joinGroup(info, inviter) {
     name: info.name,
     admin: info.admin,
     members: info.members,
+    roles: info.roles,
+    cfg: info.cfg,
+    timeouts: info.timeouts,
     created: Date.now(),
     last: Date.now(),
     unread: 1,
@@ -576,7 +689,7 @@ function validGroupInfo(p) {
     if (/^[A-HJ-NP-Z2-9]{8}$/.test(id)) members[id] = { st: m?.st === "active" ? "active" : "invited" };
   }
   if (!members[S.me.id] || !members[p.admin]) return null;
-  return { gid: p.gid, name: p.name.slice(0, 40), admin: p.admin, members };
+  return { gid: p.gid, name: p.name.slice(0, 40), admin: p.admin, members, ...cleanGroupExtras(p, members) };
 }
 
 async function acceptInvite(gid) {
@@ -602,8 +715,8 @@ async function handleGroupCtl(from, p, m) {
     const info = validGroupInfo(p);
     if (!info) return false;
     if (g && !g.removed) {
-      // schon Mitglied – nur Mitgliederliste vom Admin übernehmen
-      if (from !== g.admin) return false;
+      // schon Mitglied – nur Mitgliederliste vom Besitzer/Admin übernehmen
+      if (!isGAdmin(g, from)) return false;
       g.name = info.name;
       for (const [id, mm] of Object.entries(info.members)) if (!g.members[id]) g.members[id] = mm;
       return true;
@@ -639,22 +752,48 @@ async function handleGroupCtl(from, p, m) {
     sysMsg(g.id, `${memberName(from)} hat die Gruppe verlassen.`);
     return true;
   }
-  if (p.k === "gu" && from === g.admin) {
-    const info = validGroupInfo({ ...p, members: { ...p.members, [S.me.id]: p.members?.[S.me.id] } });
+  if (p.k === "gu" && isGAdmin(g, from)) {
+    const fromOwner = from === g.admin;
     if (!p.members?.[S.me.id]) {
+      // Admins dürfen Besitzer und andere Admins nicht entfernen
+      if (!fromOwner && isGAdmin(g, S.me.id)) return false;
       g.removed = true;
       sysMsg(g.id, `${memberName(from)} hat dich aus der Gruppe entfernt.`);
       return true;
     }
+    const info = validGroupInfo({ ...p, admin: g.admin, members: { ...p.members, [g.admin]: p.members?.[g.admin] || g.members[g.admin] } });
     if (!info) return false;
-    if (info.name !== g.name) sysMsg(g.id, `${memberName(from)} hat die Gruppe in „${info.name}“ umbenannt.`);
+    const who = memberName(from);
+    if (fromOwner && info.name !== g.name) {
+      sysMsg(g.id, `${who} hat die Gruppe in „${info.name}“ umbenannt.`);
+      g.name = info.name;
+    }
+    if (!fromOwner) for (const id of Object.keys(g.members)) if (isGAdmin(g, id) && !info.members[id]) info.members[id] = g.members[id];
     const before = new Set(Object.keys(g.members));
-    g.name = info.name;
     const mine = g.members[S.me.id];
     g.members = info.members;
     g.members[S.me.id] = mine || { st: "active" };
     for (const id of Object.keys(g.members)) if (!before.has(id)) sysMsg(g.id, `${memberName(id)} wurde eingeladen.`);
     for (const id of before) if (!g.members[id]) sysMsg(g.id, `${memberName(id)} wurde entfernt.`);
+    if (fromOwner) {
+      const oldRoles = g.roles || {};
+      for (const id of Object.keys(info.roles)) if (!oldRoles[id]) sysMsg(g.id, id === S.me.id ? `${who} hat dich zum Admin gemacht. ⭐` : `${memberName(id)} ist jetzt Admin. ⭐`);
+      for (const id of Object.keys(oldRoles)) if (!info.roles[id] && g.members[id]) sysMsg(g.id, `${id === S.me.id ? "Du bist" : memberName(id) + " ist"} kein Admin mehr.`);
+      g.roles = info.roles;
+      const oldCfg = gcfg(g);
+      for (const t of cfgChanges(oldCfg, info.cfg)) sysMsg(g.id, `${who} hat eingestellt: ${t}.`);
+      g.cfg = info.cfg;
+    }
+    // Timeouts: Admins können Besitzer und Admins keinen Timeout geben
+    const oldTo = g.timeouts || {};
+    const next = {};
+    for (const [id, t] of Object.entries(info.timeouts)) if (fromOwner || !isGAdmin(g, id)) next[id] = t;
+    if (!fromOwner) for (const [id, t] of Object.entries(oldTo)) if (isGAdmin(g, id) && t > Date.now()) next[id] = t;
+    for (const [id, t] of Object.entries(next))
+      if (oldTo[id] !== t) sysMsg(g.id, `${who} hat ${id === S.me.id ? "dir" : memberName(id)} einen Timeout bis ${fmtUntil(t)} Uhr gegeben.`);
+    for (const [id, t] of Object.entries(oldTo)) if (!next[id] && t > Date.now() && g.members[id]) sysMsg(g.id, `${who} hat den Timeout von ${id === S.me.id ? "dir" : memberName(id)} aufgehoben.`);
+    g.timeouts = next;
+    updateComposerLock();
     return true;
   }
   return false;
@@ -685,6 +824,11 @@ async function poll() {
           continue;
         }
         if (p.k === "call") continue; // Anrufe gibt es nicht mehr
+        if (p.k === "re") {
+          // Reaktion im Einzelchat
+          if (applyReaction(S.messages[m.from], m.from, p)) changed = true;
+          continue;
+        }
         if (p.k === "seen") {
           if (handleSeen(m.from, p)) changed = true;
           continue;
@@ -702,6 +846,16 @@ async function poll() {
           q = await aesOpenJson(unb64u(p.bk), m.body, `${p.gid}|${m.mid}`);
           if (g.members[m.from].st !== "active") g.members[m.from].st = "active";
           chatId = p.gid;
+          // Rechte prüfen (Timeout, Schreibrecht, Umfragen, Reaktionen)
+          if (q.k === "re") {
+            if (canReact(g, m.from, m.ts) && applyReaction(S.messages[p.gid], m.from, q)) changed = true;
+            continue;
+          }
+          if (q.k === "pv") {
+            if (canVote(g, m.from, m.ts) && applyVote(S.messages[p.gid], m.from, q)) changed = true;
+            continue;
+          }
+          if (q.k === "m" && !(q.poll ? canPoll(g, m.from, m.ts) : canWrite(g, m.from, m.ts))) continue;
         }
         if (q.k !== "m" || typeof q.t !== "string") continue;
         const list = (S.messages[chatId] = S.messages[chatId] || []);
@@ -736,6 +890,11 @@ async function poll() {
           msg.vid = { ref: cleanRef(q.vid.ref), dur: Math.min(600, Number(q.vid.dur) || 0), w: Number(q.vid.w) || 0, h: Number(q.vid.h) || 0, poster: cleanPoster(q.vid.poster) };
         }
         if (q.meet && /^[A-HJ-NP-Z2-9]{6}$/.test(q.meet.code || "")) msg.meet = { code: q.meet.code, title: String(q.meet.title || "").slice(0, 40) };
+        if (q.poll && isGroup(chatId)) {
+          const pl = cleanPoll(q.poll);
+          if (!pl) continue;
+          msg.poll = pl;
+        }
         if (q.gif) {
           if (typeof q.gif.p === "string" && PIXEL_GIFS.includes(q.gif.p)) msg.gif = { p: q.gif.p };
           else if (cleanRef(q.gif.ref)) msg.gif = { ref: cleanRef(q.gif.ref), w: Number(q.gif.w) || 0, h: Number(q.gif.h) || 0, poster: cleanPoster(q.gif.poster) };
@@ -743,6 +902,11 @@ async function poll() {
         // Rohdaten 24 h aufbewahren, damit die Nachricht überprüfbar gemeldet werden kann
         await idbPut("raw", m.mid, { iv: m.iv, ct: m.ct, ts: m.ts, body: m.body || null });
         list.push(msg);
+        // In Gruppen ohne 24-Std-Löschen: Videos/GIFs gleich speichern (auf dem Server sind sie nur 24 Std)
+        if (keepGroup(chatId)) {
+          if (msg.vid) messageMediaUrl(msg, "v").catch(() => {});
+          if (msg.gif?.ref) messageMediaUrl(msg, "g").catch(() => {});
+        }
         const holder = isGroup(chatId) ? S.groups[chatId] : c;
         if (!isGroup(chatId)) c.peer = false;
         holder.last = m.ts;
@@ -759,6 +923,7 @@ async function poll() {
         renderChatHead();
         renderMessages();
         markSeenSoon();
+        updateComposerLock();
       }
       updateTitle();
     }
@@ -776,7 +941,7 @@ async function purgeExpired() {
   const keep = new Set();
   for (const id of Object.keys(S.messages)) {
     const before = S.messages[id].length;
-    S.messages[id] = S.messages[id].filter((m) => now - m.ts < TTL);
+    if (!keepGroup(id)) S.messages[id] = S.messages[id].filter((m) => now - m.ts < TTL);
     for (const m of S.messages[id]) if (!(m.once && m.opened)) keep.add(m.mid);
     if (S.messages[id].length !== before) changed = true;
   }
@@ -946,6 +1111,7 @@ function previewOf(m, isGrp) {
   if (m.aud) return who + "🎤 Sprachnachricht (" + fmtDur(m.aud.dur) + ")";
   if (m.vid) return who + "🎬 Video (" + fmtDur(m.vid.dur) + ")";
   if (m.meet) return who + "📹 Meeting-Einladung";
+  if (m.poll) return who + "📊 " + m.poll.q;
   if (m.gif) return who + "GIF";
   if (m.file) return who + "📎 " + m.file.name;
   if (m.img) return who + "🖼 " + (m.text || "Bild");
@@ -1050,13 +1216,16 @@ function renderMessages() {
   box.textContent = "";
   const grp = isGroup(currentChat);
   const note = el("div", "sys-note");
-  note.append(
-    "🔐 ",
-    el("b", null, "Ende-zu-Ende-verschlüsselt."),
-    " Nachrichten löschen sich nach ",
-    el("b", null, "24 Stunden"),
-    " automatisch."
-  );
+  if (keepGroup(currentChat))
+    note.append("🔐 ", el("b", null, "Ende-zu-Ende-verschlüsselt."), " In dieser Gruppe ", el("b", null, "bleiben Nachrichten"), " – kein Löschen nach 24 Std.");
+  else
+    note.append(
+      "🔐 ",
+      el("b", null, "Ende-zu-Ende-verschlüsselt."),
+      " Nachrichten löschen sich nach ",
+      el("b", null, "24 Stunden"),
+      " automatisch."
+    );
   box.append(note);
   if (S.contacts[currentChat]?.blocked) box.append(el("div", "sys-note", "🚫 Du hast diesen Kontakt blockiert."));
   if (grp && S.groups[currentChat]?.removed) box.append(el("div", "sys-note", "Du bist kein Mitglied dieser Gruppe mehr."));
@@ -1078,13 +1247,14 @@ function renderMessages() {
       if (!renderMessages.force) d.classList.add("new");
     }
     if (grp && m.dir === "in" && m.from !== prevFrom) {
-      const s = rich("div", "sender", memberName(m.from));
+      const gg = S.groups[currentChat];
+      const s = rich("div", "sender", memberName(m.from) + (isGOwner(gg, m.from) ? " 👑" : isGAdmin(gg, m.from) ? " ⭐" : ""));
       s.style.color = avatarColor(m.from);
       d.append(s);
     }
     prevFrom = m.dir === "in" ? m.from : null;
     const info = el("div", "info");
-    const parts = [fmtTime(m.ts), fmtLeft(m.ts)];
+    const parts = [fmtTime(m.ts), keepGroup(currentChat) ? null : fmtLeft(m.ts)].filter(Boolean);
     if (m.dir === "out") {
       const seenGrp = grp && m.seenBy?.length;
       if (m.status !== "seen" && !seenGrp)
@@ -1133,6 +1303,10 @@ function renderMessages() {
         card.append(el("div", "small muted", "Meetings gibt es nicht mehr."));
         d.append(card);
       }
+      if (m.poll) {
+        d.classList.add("has-poll");
+        d.append(pollCard(m));
+      }
       if (m.vid) {
         d.classList.add("has-video");
         d.append(videoCard(m));
@@ -1158,7 +1332,9 @@ function renderMessages() {
         }
       }
       d.append(info);
-      if (m.dir === "in") d.onclick = () => messageActions(m);
+      const rx = reactionRow(m);
+      if (rx) d.append(rx);
+      if (m.dir === "in" || m.dir === "out") d.onclick = () => messageActions(m);
     }
     if (m.status === "pending") d.classList.add("pending");
     if (m.status === "failed") d.classList.add("failed");
@@ -1211,6 +1387,7 @@ function openChat(id) {
   $("#app").classList.add("chat-open");
   if (onceMode && isGroup(id)) toggleOnce();
   $("#onceBtn").classList.toggle("hidden", isGroup(id));
+  updateComposerLock();
   renderChatHead();
   applyWallpaper(id);
   renderMessages.force = true;
@@ -1516,7 +1693,21 @@ async function pickFileToSend(file) {
 function messageActions(m) {
   const body = el("div", "stack");
   body.append(el("h2", null, "Nachricht"));
-  if (isGroup(currentChat)) body.append(el("p", "small muted", "von " + memberName(m.from)));
+  if (isGroup(currentChat) && m.dir === "in") body.append(el("p", "small muted", "von " + memberName(m.from)));
+  if (mayReact()) {
+    const row = el("div", "react-pick");
+    const mine = m.reacts?.[S.me.id];
+    for (const e of QUICK_REACTS) {
+      const b = rich("button", "react-btn" + (mine === e ? " active" : ""), e);
+      b.type = "button";
+      b.onclick = () => {
+        closeModal();
+        react(m, mine === e ? "" : e);
+      };
+      row.append(b);
+    }
+    body.append(row);
+  }
   if (m.text) {
     body.append(rich("div", "quote", m.text));
     const copyBtn = el("button", "btn", "Text kopieren");
@@ -1526,10 +1717,211 @@ function messageActions(m) {
     };
     body.append(copyBtn);
   }
-  const rep = el("button", "btn danger", "⚑ Nachricht melden");
-  rep.onclick = () => showReport({ type: "message", target: m.from || currentChat, mids: [m.mid] });
-  body.append(rep);
+  if (m.dir === "in") {
+    const rep = el("button", "btn danger", "⚑ Nachricht melden");
+    rep.onclick = () => showReport({ type: "message", target: m.from || currentChat, mids: [m.mid] });
+    body.append(rep);
+  }
   openModal(body);
+}
+
+/* ================= Reaktionen ================= */
+const QUICK_REACTS = ["👍", "❤️", "😂", "😮", "😢", "🙏", "🔥", "👑"];
+function mayReact() {
+  if (!currentChat) return false;
+  if (!isGroup(currentChat)) return !S.contacts[currentChat]?.blocked;
+  const g = S.groups[currentChat];
+  return !!g && !g.removed && canReact(g, S.me.id);
+}
+function applyReaction(list, from, p) {
+  if (!list || typeof p.ref !== "string" || typeof p.e !== "string" || p.e.length > 16) return false;
+  const msg = list.find((x) => x.mid === p.ref);
+  if (!msg || msg.once) return false;
+  msg.reacts = { ...(msg.reacts || {}) };
+  if (p.e && isEmoji(Array.from(p.e)[0] || "")) msg.reacts[from] = p.e;
+  else delete msg.reacts[from];
+  return true;
+}
+async function react(m, e) {
+  const chat = currentChat;
+  if (!mayReact()) return toast("Du darfst hier gerade nicht reagieren.");
+  applyReaction(S.messages[chat], S.me.id, { ref: m.mid, e });
+  save();
+  renderMessages();
+  try {
+    if (isGroup(chat)) await sendGroupSignal(chat, { k: "re", ref: m.mid, e });
+    else await sendCtl(chat, { k: "re", ref: m.mid, e });
+  } catch (err) {
+    toast("Reaktion nicht gesendet: " + err.message);
+  }
+}
+function reactionRow(m) {
+  const r = m.reacts && Object.entries(m.reacts);
+  if (!r?.length) return null;
+  const by = new Map();
+  for (const [id, e] of r) by.set(e, [...(by.get(e) || []), id]);
+  const row = el("div", "reactions");
+  for (const [e, ids] of by) {
+    const chip = el("button", "react-chip" + (ids.includes(S.me.id) ? " mine" : ""));
+    chip.type = "button";
+    chip.title = ids.map(memberName).join(", ");
+    renderRich(chip, e);
+    if (ids.length > 1) chip.append(el("span", null, String(ids.length)));
+    chip.onclick = (ev) => {
+      ev.stopPropagation();
+      react(m, ids.includes(S.me.id) ? "" : e);
+    };
+    row.append(chip);
+  }
+  return row;
+}
+
+/* ================= Umfragen ================= */
+function cleanPoll(p) {
+  if (!p || typeof p.q !== "string" || !Array.isArray(p.o)) return null;
+  const o = p.o.filter((x) => typeof x === "string" && x.trim()).slice(0, 10).map((x) => x.trim().slice(0, 80));
+  if (o.length < 2 || !p.q.trim()) return null;
+  return { q: p.q.trim().slice(0, 200), o, multi: p.multi === true };
+}
+function applyVote(list, from, p) {
+  if (!list || typeof p.ref !== "string" || !Array.isArray(p.v)) return false;
+  const msg = list.find((x) => x.mid === p.ref);
+  if (!msg?.poll) return false;
+  let v = [...new Set(p.v.filter((i) => Number.isInteger(i) && i >= 0 && i < msg.poll.o.length))];
+  if (!msg.poll.multi) v = v.slice(0, 1);
+  msg.votes = { ...(msg.votes || {}) };
+  if (v.length) msg.votes[from] = v;
+  else delete msg.votes[from];
+  return true;
+}
+async function vote(m, idx) {
+  const chat = currentChat;
+  const g = S.groups[chat];
+  if (!g || g.removed) return;
+  if (!canVote(g, S.me.id)) return toast(`⏳ Du hast einen Timeout bis ${fmtUntil(gTimeout(g, S.me.id))} Uhr.`);
+  const cur = m.votes?.[S.me.id] || [];
+  let v;
+  if (m.poll.multi) v = cur.includes(idx) ? cur.filter((i) => i !== idx) : [...cur, idx];
+  else v = cur.includes(idx) ? [] : [idx];
+  applyVote(S.messages[chat], S.me.id, { ref: m.mid, v });
+  save();
+  renderMessages();
+  try {
+    await sendGroupSignal(chat, { k: "pv", ref: m.mid, v });
+  } catch (e) {
+    toast("Stimme nicht gesendet: " + e.message);
+  }
+}
+function pollCard(m) {
+  const card = el("div", "poll-card");
+  card.onclick = (e) => e.stopPropagation();
+  card.append(rich("div", "poll-q", "📊 " + m.poll.q));
+  const votes = m.votes || {};
+  const voters = Object.keys(votes);
+  const counts = m.poll.o.map((_, i) => voters.filter((id) => votes[id].includes(i)).length);
+  const mine = votes[S.me.id] || [];
+  m.poll.o.forEach((opt, i) => {
+    const b = el("button", "poll-opt" + (mine.includes(i) ? " mine" : ""));
+    b.type = "button";
+    const pct = voters.length ? Math.round((counts[i] / voters.length) * 100) : 0;
+    const bar = el("span", "poll-bar");
+    bar.style.width = pct + "%";
+    const label = el("span", "poll-label");
+    label.append(el("span", "poll-check", mine.includes(i) ? "✓" : m.poll.multi ? "☐" : "○"), rich("span", null, opt));
+    b.append(bar, label, el("span", "poll-count", String(counts[i])));
+    b.onclick = () => vote(m, i);
+    card.append(b);
+  });
+  const foot = el("div", "poll-foot small muted");
+  foot.append(`${voters.length} ${voters.length === 1 ? "Stimme" : "Stimmen"}${m.poll.multi ? " · Mehrfachauswahl" : ""}`);
+  if (voters.length) {
+    const who = el("button", "link-btn", "Wer hat abgestimmt?");
+    who.onclick = (e) => {
+      e.stopPropagation();
+      const body = el("div", "stack");
+      body.append(rich("h2", null, "📊 " + m.poll.q));
+      m.poll.o.forEach((opt, i) => {
+        const ids = voters.filter((id) => votes[id].includes(i));
+        body.append(rich("strong", null, `${opt} (${ids.length})`), rich("p", "small muted", ids.length ? ids.map(memberName).join(", ") : "–"));
+      });
+      openModal(body);
+    };
+    foot.append(" · ", who);
+  }
+  card.append(foot);
+  return card;
+}
+function showNewPoll() {
+  const g = S.groups[currentChat];
+  if (!g) return;
+  if (!canPoll(g, S.me.id)) return toast("Du darfst in dieser Gruppe keine Umfragen erstellen.");
+  const body = el("div", "stack");
+  body.append(el("h2", null, "📊 Neue Umfrage"));
+  const q = el("input");
+  q.placeholder = "Frage";
+  q.maxLength = 200;
+  const opts = el("div", "stack poll-inputs");
+  const addOpt = (v = "") => {
+    if (opts.children.length >= 10) return toast("Höchstens 10 Antworten.");
+    const i = el("input");
+    i.placeholder = `Antwort ${opts.children.length + 1}`;
+    i.maxLength = 80;
+    i.value = v;
+    opts.append(i);
+    return i;
+  };
+  addOpt();
+  addOpt();
+  const more = el("button", "btn", "➕ Antwort hinzufügen");
+  more.onclick = () => addOpt()?.focus();
+  const lab = el("label", "check");
+  const multi = el("input");
+  multi.type = "checkbox";
+  lab.append(multi, " Mehrere Antworten erlauben");
+  const go = el("button", "btn primary big", "Umfrage senden");
+  go.onclick = () => {
+    const poll = cleanPoll({ q: q.value, o: [...opts.querySelectorAll("input")].map((x) => x.value), multi: multi.checked });
+    if (!poll) return toast("Bitte eine Frage und mindestens 2 Antworten eingeben.");
+    closeModal();
+    sendGroupMessage({ text: "", poll });
+  };
+  body.append(q, opts, more, lab, go);
+  openModal(body);
+  q.focus();
+}
+
+/* ================= Schreib-Sperre in Gruppen ================= */
+function updateComposerLock() {
+  const comp = $("#composer");
+  if (!comp) return;
+  let bar = $("#lockBar");
+  const g = currentChat && isGroup(currentChat) ? S.groups[currentChat] : null;
+  const pollBtn = $("#attachMenu [data-act=poll]");
+  pollBtn?.classList.toggle("hidden", !(g && !g.removed && canPoll(g, S.me.id)));
+  const to = g && gTimeout(g, S.me.id);
+  const locked = !!g && !g.removed && (!!to || !canWrite(g, S.me.id));
+  comp.classList.toggle("locked", locked);
+  if (!locked) return bar?.remove();
+  if (!bar) {
+    bar = el("div", "lock-bar");
+    bar.id = "lockBar";
+    comp.after(bar);
+  }
+  bar.textContent = "";
+  bar.append(
+    el(
+      "span",
+      null,
+      to
+        ? `⏳ Du hast in dieser Gruppe einen Timeout bis ${fmtUntil(to)} Uhr.`
+        : `📢 Hier schreiben ${WRITE_TEXT[gcfg(g).write]}.${canReact(g, S.me.id) ? " Du kannst mit Emojis reagieren – tippe auf eine Nachricht." : ""}`
+    )
+  );
+  if (!to && canPoll(g, S.me.id)) {
+    const pb = el("button", "btn small-btn", "📊 Umfrage");
+    pb.onclick = showNewPoll;
+    bar.append(pb);
+  }
 }
 
 const REASONS = [
@@ -2538,6 +2930,7 @@ function bindComposerExtras() {
     if (act === "file") $("#fileInput").click();
     if (act === "video") $("#videoInput").click();
     if (act === "once") toggleOnce();
+    if (act === "poll") showNewPoll();
   };
   document.addEventListener("click", () => closePopovers());
   $("#videoInput").onchange = (e) => {
@@ -2636,15 +3029,17 @@ function showNewGroup() {
 function showGroupInfo() {
   const g = S.groups[currentChat];
   if (!g) return;
-  const admin = g.admin === S.me.id && !g.removed;
+  const owner = isGOwner(g, S.me.id) && !g.removed;
+  const admin = isGAdmin(g, S.me.id) && !g.removed;
   const root = el("div", "stack");
   const head = el("div", "profile-head");
   const av = el("div", "avatar xl");
   fillGroupAvatar(av, g);
   head.append(av, rich("h2", null, g.name));
-  head.append(el("p", "small muted", `Gruppe · Admin: ${memberName(g.admin)}`));
+  head.append(el("p", "small muted", owner ? "Gruppe · 👑 Du bist der Besitzer" : `Gruppe · 👑 Besitzer: ${memberName(g.admin)}${admin ? " · du bist ⭐ Admin" : ""}`));
   root.append(head);
-  if (admin) {
+  root.append(groupSettingsSection(g, owner));
+  if (owner) {
     const lab = el("label", "field");
     lab.append(el("span", null, "Gruppenname"));
     const inp = el("input");
@@ -2668,18 +3063,16 @@ function showGroupInfo() {
     const label = el("div", "member-name");
     label.append(rich("span", null, memberName(id)));
     const tags = [];
-    if (id === g.admin) tags.push("Admin");
+    if (isGOwner(g, id)) tags.push("👑 Besitzer");
+    else if (isGAdmin(g, id)) tags.push("⭐ Admin");
+    if (gTimeout(g, id)) tags.push(`⏳ Timeout bis ${fmtUntil(gTimeout(g, id))}`);
     if (m.st === "invited") tags.push("eingeladen");
     if (tags.length) label.append(el("span", "small muted", " · " + tags.join(" · ")));
     row.append(a, label);
-    if (admin && id !== S.me.id) {
-      const x = el("button", "icon-btn", "✕");
-      x.title = "Entfernen";
-      x.onclick = () => {
-        if (!confirm(`${memberName(id)} aus der Gruppe entfernen?`)) return;
-        removeGroupMember(g.id, id);
-        showGroupInfo();
-      };
+    if (admin && id !== S.me.id && (owner || canModerate(g, S.me.id, id))) {
+      const x = el("button", "icon-btn", "⋯");
+      x.title = "Verwalten";
+      x.onclick = () => showMemberActions(g, id);
       row.append(x);
     }
     list.append(row);
@@ -4332,6 +4725,117 @@ function adaptToDevice() {
   });
 }
 
+/* ================= Gruppen: Einstellungen & Mitglieder verwalten ================= */
+function groupSettingsSection(g, owner) {
+  const c = gcfg(g);
+  const box = el("div", "stack group-settings");
+  box.append(el("strong", null, "⚙️ Gruppen-Einstellungen"));
+  if (!owner) {
+    box.append(
+      el(
+        "p",
+        "small muted",
+        [
+          c.keep ? "🕓 Nachrichten bleiben dauerhaft." : "🕓 Nachrichten löschen sich nach 24 Std.",
+          `✍️ Schreiben: ${WRITE_TEXT[c.write]}.`,
+          c.write !== "all" ? (c.react ? "😀 Alle dürfen reagieren." : "😀 Reagieren nur mit Schreibrecht.") : null,
+          `📊 Umfragen: ${WRITE_TEXT[c.polls]}.`,
+          "Nur der Besitzer kann das ändern.",
+        ]
+          .filter(Boolean)
+          .join(" ")
+      )
+    );
+    return box;
+  }
+  const toggle = (text, checked, onChange, hint) => {
+    const lab = el("label", "check");
+    const cb = el("input");
+    cb.type = "checkbox";
+    cb.checked = checked;
+    cb.onchange = () => onChange(cb.checked);
+    lab.append(cb, " " + text);
+    box.append(lab);
+    if (hint) box.append(el("p", "small muted", hint));
+  };
+  const chips = (label, cur, onPick) => {
+    const row = el("div", "chip-row");
+    for (const [k, t] of [["all", "Alle"], ["admins", "Admins"], ["owner", "Nur ich"]]) {
+      const ch = el("button", "chip" + (k === cur ? " active" : ""), t);
+      ch.type = "button";
+      ch.onclick = () => {
+        for (const x of row.children) x.classList.toggle("active", x === ch);
+        onPick(k);
+      };
+      row.append(ch);
+    }
+    box.append(el("span", "small", label), row);
+  };
+  toggle(
+    "Nachrichten nach 24 Stunden löschen",
+    !c.keep,
+    async (on) => {
+      if (on && !confirm("Wieder nach 24 Stunden löschen? Ältere Nachrichten verschwinden dann bei allen.")) return showGroupInfo();
+      await setGroupCfg(g.id, { keep: !on });
+    },
+    "Ausgeschaltet bleiben Nachrichten auf den Handys der Mitglieder. Wer länger als 24 Std offline ist, bekommt verpasste Nachrichten aber nicht nachgeliefert."
+  );
+  chips("✍️ Wer darf schreiben?", c.write, async (k) => {
+    await setGroupCfg(g.id, { write: k });
+    showGroupInfo();
+  });
+  if (c.write !== "all") toggle("😀 Alle dürfen mit Emojis reagieren", c.react, (on) => setGroupCfg(g.id, { react: on }));
+  chips("📊 Wer darf Umfragen erstellen?", c.polls, (k) => setGroupCfg(g.id, { polls: k }));
+  return box;
+}
+function showMemberActions(g, id) {
+  const owner = isGOwner(g, S.me.id);
+  const body = el("div", "stack");
+  body.append(rich("h2", null, memberName(id)));
+  const to = gTimeout(g, id);
+  if (to) body.append(el("p", "small muted", `⏳ Timeout bis ${fmtUntil(to)} Uhr`));
+  if (owner) {
+    const adm = isGAdmin(g, id);
+    const b = el("button", "btn", adm ? "⭐ Admin-Rechte entziehen" : "⭐ Zum Admin machen");
+    b.onclick = async () => {
+      await setGroupRole(g.id, id, !adm);
+      showGroupInfo();
+    };
+    body.append(b, el("p", "small muted", "Admins können Mitglieder hinzufügen, entfernen und ihnen einen Timeout geben."));
+  }
+  if (canModerate(g, S.me.id, id)) {
+    body.append(el("strong", null, "⏳ Timeout (darf nicht schreiben, reagieren oder abstimmen)"));
+    const row = el("div", "chip-row");
+    for (const [ms, t] of [[10 * 60_000, "10 Min"], [3600_000, "1 Std"], [8 * 3600_000, "8 Std"], [24 * 3600_000, "24 Std"], [7 * 24 * 3600_000, "7 Tage"]]) {
+      const ch = el("button", "chip", t);
+      ch.type = "button";
+      ch.onclick = async () => {
+        await setGroupTimeout(g.id, id, Date.now() + ms);
+        toast(`⏳ Timeout für ${memberName(id)} (${t})`);
+        showGroupInfo();
+      };
+      row.append(ch);
+    }
+    body.append(row);
+    if (to) {
+      const un = el("button", "btn", "Timeout aufheben");
+      un.onclick = async () => {
+        await setGroupTimeout(g.id, id, 0);
+        showGroupInfo();
+      };
+      body.append(un);
+    }
+    const rm = el("button", "btn danger", "Aus der Gruppe entfernen");
+    rm.onclick = () => {
+      if (!confirm(`${memberName(id)} aus der Gruppe entfernen?`)) return;
+      removeGroupMember(g.id, id);
+      showGroupInfo();
+    };
+    body.append(rm);
+  }
+  openModal(body);
+}
+
 /* ================= Pro Kontakt: Stummschalten ================= */
 function isMutedLocal(h) {
   return h && (h.muteUntil === -1 || (h.muteUntil && h.muteUntil > Date.now()));
@@ -4707,6 +5211,7 @@ async function startApp() {
     pollModeration();
   }, 60000);
   setInterval(updateModBanner, 30000);
+  setInterval(updateComposerLock, 20000);
 }
 
 function loop() {

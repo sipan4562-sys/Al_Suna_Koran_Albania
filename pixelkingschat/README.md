@@ -20,6 +20,15 @@ Anonymer Chat **ohne Telefonnummer und ohne E-Mail** – live: https://pixelking
 - **GIFs wie bei Discord** – GIF-Tab im Emoji-Menü mit 16 eigenen animierten Pixel-GIFs (`public/gifs/`), eigene GIFs vom Gerät und GIPHY-Suche (aktiv, sobald die Umgebungsvariable `GIPHY_API_KEY` gesetzt ist).
 - **Sprachnachrichten spulen** – ⏪/⏩ 10 Sek., auf die Wellenform tippen, Geschwindigkeit 1×/1,5×/2×.
 - **Öffentliche Stories** – in den Einstellungen oder pro Story wählbar; erscheinen für alle unter „🌍 Entdecken“ und werden vor dem Veröffentlichen automatisch geprüft.
+- **Gruppen-Rechte** (Gruppen-Info ⓘ): Der **Besitzer** (wer die Gruppe erstellt hat) kann
+  - das **Löschen nach 24 Std ausschalten**, dann bleiben die Nachrichten auf den Handys. Videos/GIFs werden dabei gleich lokal gespeichert. Wer länger als 24 Std offline ist, bekommt Verpasstes nicht nachgeliefert, weil der Server nichts länger hält.
+  - einstellen, **wer schreiben darf** (Alle / Admins / Nur ich) und ob die anderen dann **mit Emojis reagieren** dürfen,
+  - einstellen, **wer Umfragen erstellen darf** (Alle / Admins / Nur ich),
+  - **Admins** ernennen. Admins dürfen Mitglieder hinzufügen, entfernen und ihnen **Timeouts** geben (10 Min bis 7 Tage), aber nicht dem Besitzer oder anderen Admins.
+
+  Weil Gruppen Ende-zu-Ende-verschlüsselt sind, prüft jedes Gerät die Regeln selbst: Nachrichten, Reaktionen und Stimmen von Leuten ohne Recht oder mit Timeout werden verworfen.
+- **Reaktionen**: Nachricht antippen und ein Pixel-Emoji wählen (in Gruppen und Einzelchats).
+- **Umfragen** in Gruppen (📊 im ＋-Menü): 2–10 Antworten, optional Mehrfachauswahl, Live-Ergebnis mit Balken und „Wer hat abgestimmt?“.
 - **Animierte Profilbilder & Profilrahmen** (Einstellungen → „✨ Animiert“ / „💫 Rahmen“): über 50 wehende Pixel-Flaggen (mit Suche) und 14 animierte Pixel-Motive als Profilbild, dazu runde, animierte Rahmen (12 Effekte wie Neon, Feuer, Krone, Galaxie, Glitch, außerdem jede Flagge als Farbring mit wehender Flagge an der Seite). Alles wird als SVG im Browser erzeugt (`public/decor.js`), es fließt kein Datenvolumen. Gespeichert werden nur Kennungen (`pav`, `deco`) am Konto. Eigene **GIFs/animierte WebPs** bis 1 MB gehen auch als Profilbild.
 - **Links** in Nachrichten sind anklickbar und öffnen sich in einem neuen Tab, ohne Weitergabe der App-Adresse. Nur `http(s)`-Links werden erkannt, `javascript:` und Ähnliches nicht.
 - **YouTube-Videos** (auch Shorts und Links mit Startzeit) laufen direkt im Chat über `youtube-nocookie.com`. Der Player lädt erst beim Antippen, vorher geht keine Anfrage an YouTube.

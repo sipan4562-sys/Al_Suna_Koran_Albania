@@ -697,3 +697,35 @@ body.live-open #toast { z-index: 99; }
 .decor-item.active { border-color: var(--accent); box-shadow: 0 0 12px rgba(var(--accent-rgb), .35); }
 .decor-thumb { width: 52px; height: 52px; font-size: 20px; }
 .decor-name { font-size: 11px; line-height: 1.2; text-align: center; }
+
+/* ---------- v19: Gruppen-Rechte, Reaktionen, Umfragen ---------- */
+.composer.locked { display: none; }
+.lock-bar { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px calc(12px + var(--sab, 0px));
+  border-top: 1px solid var(--line, rgba(255,255,255,.08)); background: var(--panel); font-size: 14px; text-align: center; }
+.react-pick { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.react-btn { width: 46px; height: 46px; border-radius: 14px; border: 2px solid transparent; background: var(--panel2); display: grid; place-items: center; cursor: pointer; }
+.react-btn img.pxe { width: 28px; height: 28px; }
+.react-btn.active { border-color: var(--accent); }
+.reactions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.react-chip { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: 999px; border: 1px solid rgba(255,255,255,.14);
+  background: rgba(0,0,0,.25); color: inherit; font: 600 12px var(--mono, monospace); cursor: pointer; }
+.react-chip img.pxe { width: 16px; height: 16px; }
+.react-chip.mine { border-color: var(--accent); background: rgba(var(--accent-rgb), .18); }
+.msg.has-poll { min-width: min(320px, 78vw); }
+.poll-card { display: flex; flex-direction: column; gap: 6px; margin: 2px 0 4px; }
+.poll-q { font-weight: 800; font-size: 15px; margin-bottom: 2px; }
+.poll-opt { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 10px;
+  border-radius: 10px; border: 1px solid rgba(255,255,255,.14); background: rgba(0,0,0,.22); color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.poll-opt.mine { border-color: var(--accent); }
+.poll-bar { position: absolute; left: 0; top: 0; bottom: 0; background: rgba(var(--accent-rgb), .28); transition: width .3s; }
+.msg.out .poll-bar { background: rgba(0,0,0,.18); }
+.poll-label, .poll-count { position: relative; display: flex; align-items: center; gap: 8px; }
+.poll-count { font-family: var(--mono, monospace); font-weight: 700; }
+.poll-check { width: 16px; text-align: center; font-weight: 800; }
+.poll-foot { margin-top: 2px; }
+.link-btn { background: none; border: 0; padding: 0; color: inherit; text-decoration: underline; font: inherit; cursor: pointer; }
+.group-settings .chip-row { margin-bottom: 4px; }
+.poll-foot { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.msg.out .poll-foot, .msg.out .poll-foot .link-btn { color: inherit; opacity: .85; }
+.msg.out .poll-opt { border-color: rgba(0,0,0,.25); background: rgba(255,255,255,.18); }
+.msg.out .poll-opt.mine { border-color: rgba(0,0,0,.6); }
