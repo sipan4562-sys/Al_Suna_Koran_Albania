@@ -2,7 +2,7 @@
 // damit installierte Apps (Handy, PC, iOS) das Update automatisch erkennen.
 import { readFileSync, writeFileSync } from "node:fs";
 
-const v = (process.env.COMMIT_REF || "").slice(0, 7) + "-" + Date.now().toString(36);
+const v = (process.env.COMMIT_REF || process.env.VERCEL_GIT_COMMIT_SHA || "").slice(0, 7) + "-" + Date.now().toString(36);
 const built = new Date().toISOString();
 writeFileSync("public/version.json", JSON.stringify({ v, built }) + "\n");
 for (const f of ["public/app.js", "public/sw.js"]) {

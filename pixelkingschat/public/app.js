@@ -353,7 +353,7 @@ const aesOpenJson = async (k, e, a) => JSON.parse(dec.decode(await aesOpenRaw(k,
 
 /* ================= Senden ================= */
 const newMid = () => b64u(rand(12));
-const MAX_FILE = 2_500_000;
+const MAX_FILE = 2_000_000;
 
 function sysMsg(chatId, text) {
   (S.messages[chatId] = S.messages[chatId] || []).push({ mid: newMid(), dir: "sys", ts: Date.now(), text });
@@ -1377,7 +1377,7 @@ function readAsB64(file) {
 
 async function pickFileToSend(file) {
   if (!currentChat) return;
-  if (file.size > MAX_FILE) return toast(`Datei ist zu groß (${fmtSize(file.size)}). Maximal 2,5 MB.`);
+  if (file.size > MAX_FILE) return toast(`Datei ist zu groß (${fmtSize(file.size)}). Maximal 2 MB.`);
   const body = el("div", "stack");
   body.append(el("h2", null, "Datei senden"));
   body.append(fileCard({ mid: "-", file: { name: file.name, size: file.size } }));
@@ -2143,6 +2143,16 @@ function showInstallHelp() {
   openModal(body);
 }
 
+async function ensureAccount() {
+  try {
+    return await api("me");
+  } catch (e) {
+    if (e.status !== 401) throw e;
+    await api("migrate", { body: { id: S.me.id, token: S.me.token } });
+    return api("me");
+  }
+}
+
 /* ================= Konto übertragen (z. B. Safari → Homebildschirm-App) ================= */
 function exportCode() {
   const data = {
@@ -2215,7 +2225,7 @@ function showImport() {
         S.contacts[c.id] = { ...c, unread: 0 };
         S.messages[c.id] = [];
       }
-      await api("me"); // prüft, ob das Konto gültig ist
+      await ensureAccount(); // prüft das Konto (und übernimmt es ggf. vom alten Server)
       save();
       closeModal();
       toast("✅ Konto übernommen");
@@ -3591,7 +3601,7 @@ function showRestore() {
         S.messages[c.id] = [];
       }
       for (const gid of Object.keys(S.groups)) S.messages[gid] = [];
-      await api("me");
+      await ensureAccount();
       S.backupAt = bk.ts;
       await idbPut("meta", "bk-key", { key, salt: bk.salt, it: bk.it });
       save();

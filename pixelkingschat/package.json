@@ -3,15 +3,22 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Pixelkingschat – anonymer, Ende-zu-Ende-verschlüsselter Chat",
+  "description": "Pixelkingschat \u2013 anonymer, Ende-zu-Ende-verschl\u00fcsselter Chat",
   "dependencies": {
     "@anthropic-ai/sdk": "^1.12.0",
     "@netlify/blobs": "^11.1.9",
+    "@vercel/functions": "^3.11.3",
+    "@vercel/oidc": "^4.0.9",
+    "postgres": "^4.1.1",
     "web-push": "^4.0.0"
   },
   "devDependencies": {
     "@netlify/functions": "^6.1.1",
+    "esbuild": "^0.28.2",
     "jsqr": "1.4.0",
     "qrcode-generator": "2.0.4"
+  },
+  "scripts": {
+    "build:vercel": "node scripts/build-vercel.mjs"
   }
 }
