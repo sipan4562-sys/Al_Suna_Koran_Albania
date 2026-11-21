@@ -27,6 +27,7 @@ Anonymer Chat **ohne Telefonnummer und ohne E-Mail** – live: https://pixelking
 - **Pro Kontakt/Gruppe einstellbar** – Anrufe von einzelnen Kontakten sperren und Stummschalten (8 Std, 1 Woche, immer). Beides wird serverseitig durchgesetzt (keine Push-Benachrichtigung, kein Klingeln).
 - **Online-Status** (grüner Punkt, „zuletzt online“) und **Gesehen-Anzeige mit Pixel-Auge** – beides in den Einstellungen abschaltbar.
 - **Konto sichern** – dauerhafter Speicher, automatische Sicherheitskopie im Gerät und verschlüsseltes Cloud-Backup mit Passwort (PBKDF2 + AES-GCM im Browser). Wiederherstellen mit Code + Passwort auf jedem Gerät.
+- **Besitzer-Bereich** – unter Profil mit dem Besitzer-Code (Umgebungsvariable `OWNER_CODE`, steht nicht im Code) einmalig an ein Konto binden. Danach: alle Meldungen mit Inhalt und automatischer Einschätzung ansehen, verwarnen, Nachrichten löschen, Timeout, sperren/entsperren, Profilbild entfernen, Konten per Code nachschlagen, automatische Prüfung an/aus. Schutz: 5 Fehlversuche pro Konto, 30 insgesamt pro Tag; nur ein Besitzer.
 - **Blockieren** – Nachrichten blockierter Kontakte werden schon auf dem Server verworfen.
 - **Eindeutige Codes** – jeder Code wird genau einmal vergeben, auch nach dem Löschen eines Kontos nie wieder.
 - **Dateien senden** (bis 2,5 MB) – Ende-zu-Ende-verschlüsselt.

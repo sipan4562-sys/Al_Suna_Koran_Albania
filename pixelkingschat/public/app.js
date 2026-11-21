@@ -1177,6 +1177,7 @@ async function refreshMe() {
     const r = await api("me");
     S.me.banned = !!r.banned;
     S.me.timeoutUntil = r.timeoutUntil || 0;
+    S.me.role = r.role || undefined;
     if (r.av !== S.me.av) {
       S.me.av = r.av;
       renderMe();
@@ -1904,6 +1905,7 @@ function showSettings() {
   root.append(gl, el("p", "small muted", "Ausgeschaltet: Wenn dich jemand zu einer Gruppe hinzufügt, bekommst du zuerst eine Einladung im Chat und entscheidest selbst."));
   root.append(el("hr"));
 
+  root.append(ownerSettingsSection(), el("hr"));
   root.append(el("strong", null, "📲 App"));
   if (isStandalone) root.append(el("p", "small muted", "✅ Pixelkingschat läuft als App vom Homebildschirm."));
   else {
@@ -2015,6 +2017,7 @@ async function doRegisterSW() {
     });
     navigator.serviceWorker.addEventListener("message", (e) => {
       if (e.data?.type === "push") poll();
+      if (e.data?.type === "owner") showOwnerPanel();
       if (e.data?.type === "open" && e.data.from) {
         poll();
         openChat(e.data.from);
@@ -4287,12 +4290,268 @@ function prefsSection(holder, id, isContact) {
   return box;
 }
 
+/* ================= Besitzer-Bereich ================= */
+const isOwner = () => S.me?.role === "owner";
+
+function ownerSettingsSection() {
+  const box = el("div", "stack");
+  box.append(el("strong", null, "👑 Besitzer"));
+  if (isOwner()) {
+    box.append(el("p", "small accent", "Du bist der Besitzer von Pixelkingschat."));
+    const open = el("button", "btn primary", "👑 Besitzer-Bereich öffnen");
+    open.onclick = () => showOwnerPanel();
+    box.append(open);
+    return box;
+  }
+  const inp = el("input", "code-input");
+  inp.type = "password";
+  inp.inputMode = "numeric";
+  inp.autocomplete = "off";
+  inp.placeholder = "Besitzer-Code";
+  inp.maxLength = 32;
+  const go = el("button", "btn", "Bestätigen");
+  go.onclick = async () => {
+    if (!inp.value.trim()) return;
+    go.disabled = true;
+    try {
+      await api("owner/claim", { body: { code: inp.value.trim() } });
+      S.me.role = "owner";
+      save();
+      toast("👑 Willkommen, Besitzer!");
+      showOwnerPanel();
+    } catch (e) {
+      toast(e.message);
+      inp.value = "";
+    } finally {
+      go.disabled = false;
+    }
+  };
+  box.append(inp, go);
+  return box;
+}
+
+const OWNER_ACTIONS = [
+  ["dismiss", "✓ Kein Verstoß", ""],
+  ["warn", "⚠️ Verwarnen", ""],
+  ["delete", "🗑 Nachrichten löschen", ""],
+  ["timeout", "⏳ Timeout", ""],
+  ["ban", "⛔ Sperren", "danger"],
+];
+const TYPE_LABEL = { message: "Nachricht", chat: "Chat", avatar: "Profilbild", story: "Story" };
+
+async function showOwnerPanel(tab = "open") {
+  if (!isOwner()) return;
+  const root = el("div", "stack owner-panel");
+  root.append(el("h2", null, "👑 Besitzer-Bereich"));
+  const stats = el("div", "owner-stats", "…");
+  const tabs = el("div", "tabs");
+  const content = el("div", "stack");
+  const defs = [
+    ["open", "Offene Meldungen"],
+    ["all", "Alle Meldungen"],
+    ["user", "Nutzer"],
+    ["settings", "Einstellungen"],
+  ];
+  for (const [k, label] of defs) {
+    const b = el("button", k === tab ? "active" : "", label);
+    b.type = "button";
+    b.onclick = () => showOwnerPanel(k);
+    tabs.append(b);
+  }
+  root.append(stats, tabs, content);
+  openModal(root);
+  $("#modal .modal-card").classList.add("wide");
+  api("owner/stats")
+    .then((st) => {
+      stats.textContent = `👥 ${st.users} Konten · ⚑ ${st.reports} Meldungen · ${st.openReports} offen · Auto-Prüfung ${st.autoModeration ? "an" : "aus"}`;
+    })
+    .catch((e) => (stats.textContent = e.message));
+
+  if (tab === "open" || tab === "all") return renderOwnerReports(content, tab);
+  if (tab === "user") return renderOwnerUser(content);
+  if (tab === "settings") return renderOwnerSettings(content);
+}
+
+async function renderOwnerReports(box, filter) {
+  box.append(el("p", "small muted", "Lade Meldungen…"));
+  let data;
+  try {
+    data = await api(`owner/reports?filter=${filter}`);
+  } catch (e) {
+    box.textContent = e.message;
+    return;
+  }
+  box.textContent = "";
+  if (!data.reports.length) box.append(el("p", "small muted", filter === "open" ? "🎉 Keine offenen Meldungen." : "Noch keine Meldungen."));
+  for (const r of data.reports) {
+    const t = data.people[r.target] || {};
+    const rp = data.people[r.reporter] || {};
+    const card = el("div", "report-card" + (r.isOpen ? " open" : ""));
+    const head = el("div", "report-head");
+    head.append(
+      el("strong", null, `⚑ ${TYPE_LABEL[r.type] || r.type}`),
+      el("span", "small muted", new Date(r.ts).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }))
+    );
+    card.append(head);
+    const who = el("div", "small");
+    who.append(
+      "Gemeldet: ",
+      rich("b", null, `${t.name || "?"} (${r.target})`),
+      t.banned ? " ⛔ gesperrt" : t.timeoutUntil > Date.now() ? " ⏳ Timeout" : "",
+      ` · ${t.strikes || 0} Verstöße`
+    );
+    const by = el("div", "small muted");
+    by.append(`von ${rp.name || "?"} (${r.reporter}) · Grund: ${r.reason || "–"}`);
+    card.append(who, by);
+    const cont = el("div", "report-content");
+    for (const c of r.content || []) {
+      if (c.imageB64) {
+        const img = el("img", "report-img");
+        img.src = "data:image/jpeg;base64," + c.imageB64;
+        cont.append(img);
+      }
+      if (c.text) cont.append(rich("div", "report-text", c.text));
+      if (c.audio && !c.text) cont.append(el("div", "small muted", "🎤 Sprachnachricht (nicht abhörbar)"));
+    }
+    if (!(r.content || []).length) cont.append(el("div", "small muted", "(kein Inhalt gespeichert)"));
+    card.append(cont);
+    if (r.verdict) {
+      const v = r.verdict;
+      card.append(
+        el(
+          "div",
+          "small report-verdict",
+          `🤖 Automatische Einschätzung: ${v.violation ? `Verstoß (${v.category}, ${v.severity})` : "kein Verstoß"} – ${v.reason || ""}` +
+            (r.applied ? ` · ausgeführt: ${[r.applied.deleted && "gelöscht", r.applied.ban && "gesperrt", r.applied.timeoutUntil && "Timeout"].filter(Boolean).join(", ") || "Verwarnung"}` : "")
+        )
+      );
+    } else if (r.status === "review") card.append(el("div", "small report-verdict", "Wartet auf deine Entscheidung."));
+    if (r.ownerAction) card.append(el("div", "small accent", `✓ Von dir erledigt: ${r.ownerAction.action}${r.ownerAction.hours ? ` (${r.ownerAction.hours} Std)` : ""}`));
+    const row = el("div", "owner-actions");
+    for (const [action, label, cls] of OWNER_ACTIONS) {
+      const b = el("button", "btn small-btn " + cls, label);
+      b.onclick = () => ownerAction({ target: r.target, action, reportKey: r.key, done: () => showOwnerPanel(filter) });
+      row.append(b);
+    }
+    if (t.banned) {
+      const ub = el("button", "btn small-btn", "↩ Entsperren");
+      ub.onclick = () => ownerAction({ target: r.target, action: "unban", reportKey: r.key, done: () => showOwnerPanel(filter) });
+      row.append(ub);
+    }
+    card.append(row);
+    box.append(card);
+  }
+}
+
+async function ownerAction({ target, action, reportKey, done }) {
+  let hours;
+  let reason = "";
+  if (action === "timeout") {
+    const h = prompt("Timeout für wie viele Stunden? (z. B. 1, 6, 24, 72, 168)", "24");
+    if (!h) return;
+    hours = Number(h);
+    if (!hours) return toast("Ungültige Zahl");
+  }
+  if (["warn", "delete", "timeout", "ban"].includes(action)) {
+    reason = prompt("Begründung für die Person (optional):", "") || "";
+    if (action === "ban" && !confirm(`Konto ${target} wirklich dauerhaft sperren?`)) return;
+  }
+  try {
+    await api("owner/action", { body: { target, action, hours, reportKey, reason } });
+    toast("✓ Erledigt");
+    done?.();
+  } catch (e) {
+    toast(e.message);
+  }
+}
+
+function renderOwnerUser(box) {
+  const inp = el("input", "code-input");
+  inp.placeholder = "CODE";
+  inp.maxLength = 8;
+  inp.autocapitalize = "characters";
+  const find = el("button", "btn primary", "Suchen");
+  const out = el("div", "stack");
+  find.onclick = async () => {
+    out.textContent = "";
+    try {
+      const u = await api(`owner/user?id=${encodeURIComponent(inp.value.trim().toUpperCase())}`);
+      const card = el("div", "report-card");
+      const head = el("div", "profile-head");
+      const av = el("div", "avatar xl");
+      fillAvatar(av, { id: u.id, av: u.av, name: u.name }, u.name || u.id);
+      head.append(av, rich("h3", null, `${u.name || "–"} (${u.id})`));
+      card.append(head);
+      const facts = [
+        `Erstellt: ${new Date(u.created).toLocaleDateString("de-DE")}`,
+        u.role === "owner" ? "👑 Besitzer" : null,
+        u.deleted ? "🗑 gelöscht" : null,
+        u.banned ? "⛔ gesperrt" : null,
+        u.timeoutUntil > Date.now() ? `⏳ Timeout bis ${new Date(u.timeoutUntil).toLocaleString("de-DE")}` : null,
+        `${u.strikes} Verstöße`,
+      ].filter(Boolean);
+      card.append(el("p", "small", facts.join(" · ")));
+      const row = el("div", "owner-actions");
+      const acts = [
+        ["warn", "⚠️ Verwarnen", ""],
+        ["delete", "🗑 Nachrichten löschen", ""],
+        ["timeout", "⏳ Timeout", ""],
+        ["untimeout", "⏳ Timeout aufheben", ""],
+        ["removeAvatar", "🖼 Profilbild entfernen", ""],
+        [u.banned ? "unban" : "ban", u.banned ? "↩ Entsperren" : "⛔ Sperren", u.banned ? "" : "danger"],
+      ];
+      for (const [action, label, cls] of acts) {
+        const b = el("button", "btn small-btn " + cls, label);
+        b.onclick = () => ownerAction({ target: u.id, action, done: () => find.click() });
+        row.append(b);
+      }
+      card.append(row);
+      out.append(card);
+    } catch (e) {
+      out.append(el("p", "small muted", e.message));
+    }
+  };
+  box.append(el("p", "small muted", "Konto per Code nachschlagen und verwalten."), inp, find, out);
+}
+
+async function renderOwnerSettings(box) {
+  let st = { autoModeration: true };
+  try {
+    st = await api("owner/stats");
+  } catch {}
+  const lab = el("label", "check");
+  const cb = el("input");
+  cb.type = "checkbox";
+  cb.checked = st.autoModeration;
+  cb.onchange = async () => {
+    try {
+      await api("owner/settings", { body: { autoModeration: cb.checked } });
+      toast(cb.checked ? "Automatische Prüfung an" : "Automatische Prüfung aus – du entscheidest jede Meldung selbst");
+    } catch (e) {
+      toast(e.message);
+    }
+  };
+  lab.append(cb, " Automatische Prüfung von Meldungen");
+  box.append(
+    lab,
+    el(
+      "p",
+      "small muted",
+      "Ausgeschaltet entscheidet nur noch du: Neue Meldungen warten unter „Offene Meldungen“ auf dich, und du bekommst eine Benachrichtigung. Eingeschaltet prüft das System sofort vor, und du kannst jede Entscheidung nachträglich ändern."
+    )
+  );
+}
+
 /* ================= Start ================= */
 function handleHash() {
   const mm = /^#meet=([A-Z0-9]{6})$/i.exec(location.hash);
   if (mm) {
     history.replaceState(null, "", location.pathname);
     return { kind: "meet", code: mm[1].toUpperCase() };
+  }
+  if (location.hash === "#owner") {
+    history.replaceState(null, "", location.pathname);
+    return { kind: "owner" };
   }
   const sc = /^#(new|scan)$/.exec(location.hash);
   if (sc) {
@@ -4335,7 +4594,8 @@ async function startApp() {
   if (pendingHash) {
     const { kind, code } = pendingHash;
     pendingHash = null;
-    if (kind === "meet") setTimeout(() => calls.joinMeeting(code), 300);
+    if (kind === "owner") setTimeout(() => showOwnerPanel(), 800);
+    else if (kind === "meet") setTimeout(() => calls.joinMeeting(code), 300);
     else if (kind === "new") showAdd("enter");
     else if (kind === "scan") showAdd("scan");
     else if (kind === "chat" && (S.contacts[code] || S.groups[code])) openChat(code);
@@ -4472,6 +4732,7 @@ function bind() {
   window.addEventListener("hashchange", () => {
     const h = handleHash();
     if (!h || !S.me) return;
+    if (h.kind === "owner") return showOwnerPanel();
     if (h.kind === "meet") return calls.joinMeeting(h.code);
     if (h.kind === "new") return showAdd("enter");
     if (h.kind === "scan") return showAdd("scan");

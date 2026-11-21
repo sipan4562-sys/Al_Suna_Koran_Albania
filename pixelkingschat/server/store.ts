@@ -33,6 +33,7 @@ const TTL: Record<string, number> = {
   "pk-presence": 48 * H,
   "pk-meetmembers": 24 * H,
   "pk-meetings": 25 * H,
+  "pk-ownertry": 24 * H,
 };
 
 let sql: ReturnType<typeof postgres> | null = null;

@@ -71,6 +71,7 @@ type User = {
   notice?: { kind: "warn" | "timeout" | "ban"; ts: number; until?: number; deleted?: boolean; reason?: string };
   deleted?: boolean;
   shadow?: boolean; // von der alten Instanz übernommen, noch nicht angemeldet
+  role?: "owner"; // Besitzer der App
 };
 
 const json = (data: unknown, status = 200) =>
@@ -295,7 +296,7 @@ type Applied = { ban: boolean; timeoutUntil: number; deleted: boolean };
 async function applyVerdict(target: string, v: Verdict, opts: { removeAvatar?: boolean } = {}): Promise<Applied | null> {
   if (!v.violation) return null;
   const u = await getUser(target);
-  if (!u || u.deleted) return null;
+  if (!u || u.deleted || u.role === "owner") return null;
   const now = Date.now();
   u.strikes = (u.strikes || 0) + 1;
   const ban = !!v.ban || v.category === "sexual_minors" || u.strikes >= BAN_STRIKES;
@@ -406,6 +407,31 @@ async function verifyItem(item: ReportItem, from: string, to: string) {
 }
 
 /* ---------------- Router ---------------- */
+/* ---------------- Besitzer ---------------- */
+const configStore = () => getStore({ name: "pk-config", consistency: "strong" });
+const ownerTries = () => getStore({ name: "pk-ownertry", consistency: "strong" });
+type OwnerCfg = { owner?: string; autoModeration?: boolean };
+async function ownerCfg(): Promise<OwnerCfg> {
+  return ((await configStore().get("owner", { type: "json" })) as OwnerCfg | null) || {};
+}
+function clientIp(req: Request) {
+  return (req.headers.get("x-nf-client-connection-ip") || req.headers.get("x-real-ip") || req.headers.get("x-forwarded-for") || "?")
+    .split(",")[0]
+    .trim()
+    .slice(0, 64);
+}
+function safeEqual(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  let d = 0;
+  for (let i = 0; i < a.length; i++) d |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return d === 0;
+}
+async function countTry(key: string) {
+  const n = Number((await ownerTries().get(key)) || 0) + 1;
+  await ownerTries().set(key, String(n));
+  return n;
+}
+
 export type Ctx = { waitUntil(p: Promise<unknown>): void; anthropicFactory?: () => Promise<Anthropic> };
 // Alte Instanz, von der Konten übernommen werden können (Umzug Netlify → Vercel)
 const MIGRATE_FROM = () => env("MIGRATE_FROM") || "";
@@ -539,6 +565,7 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
         timeoutUntil: meUser.timeoutUntil && meUser.timeoutUntil > Date.now() ? meUser.timeoutUntil : 0,
         notice: meUser.notice || null,
         purgeBefore: meUser.purgeBefore || 0,
+        role: meUser.role || null,
         av: meUser.av || 0,
       });
     }
@@ -672,6 +699,167 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
       const code = String(body?.code || "").toUpperCase();
       if (MEET_RE.test(code)) await meetMembers().delete(`${code}/${me}`);
       return json({ ok: true });
+    }
+
+    // ---------- Besitzer-Bereich ----------
+    if (route === "owner/claim" && method === "POST") {
+      const body = await req.json().catch(() => null);
+      const code = String(body?.code || "").trim();
+      const secret = env("OWNER_CODE");
+      if (!secret) return err("Besitzer-Funktion ist nicht eingerichtet.", 503);
+      const cfg = await ownerCfg();
+      if (meUser.role === "owner" && cfg.owner === me) return json({ ok: true, role: "owner" });
+      // Schutz gegen Durchprobieren: 5 Fehlversuche pro Konto, 30 insgesamt pro Tag
+      const mine = Number((await ownerTries().get(me)) || 0);
+      const total = Number((await ownerTries().get("all")) || 0);
+      if (mine >= 5 || total >= 30) return err("Zu viele Versuche. Bitte in 24 Stunden erneut probieren.", 429);
+      if (!safeEqual(code, secret)) {
+        await countTry(me);
+        await countTry("all");
+        return err("Falscher Code.", 403);
+      }
+      if (cfg.owner && cfg.owner !== me) {
+        const prev = await getUser(cfg.owner);
+        if (prev && !prev.deleted) return err("Es gibt bereits einen Besitzer.", 403);
+      }
+      meUser.role = "owner";
+      await putUser(me, meUser);
+      await configStore().setJSON("owner", { ...cfg, owner: me });
+      return json({ ok: true, role: "owner" });
+    }
+    if (route.startsWith("owner/")) {
+      const cfg = await ownerCfg();
+      if (meUser.role !== "owner" || cfg.owner !== me) return err("Nur für den Besitzer.", 403);
+      if (route === "owner/stats" && method === "GET") {
+        const [u, r] = await Promise.all([users().list(), reports().list()]);
+        let open = 0;
+        for (const b of r.blobs.slice(-300)) {
+          const x = (await reports().get(b.key, { type: "json" })) as { open?: boolean; status?: string; ownerAction?: unknown } | null;
+          if (x && (x.open ?? x.status !== "ok") && !x.ownerAction) open++;
+        }
+        return json({ users: u.blobs.length, reports: r.blobs.length, openReports: open, autoModeration: cfg.autoModeration !== false });
+      }
+      if (route === "owner/reports" && method === "GET") {
+        const filter = url.searchParams.get("filter") || "open";
+        const { blobs } = await reports().list();
+        const all: any[] = [];
+        for (const b of blobs) {
+          const x: any = await reports().get(b.key, { type: "json" });
+          if (!x) continue;
+          const isOpen = (x.open ?? x.status !== "ok") && !x.ownerAction;
+          if (filter === "open" && !isOpen) continue;
+          all.push({ key: b.key, ...x, isOpen });
+        }
+        all.sort((a, b) => b.ts - a.ts);
+        const page = all.slice(0, 50);
+        const ids = new Set<string>();
+        for (const x of page) {
+          ids.add(x.target);
+          ids.add(x.reporter);
+        }
+        const people: Record<string, unknown> = {};
+        for (const id of ids) {
+          const u = await getUser(id);
+          if (u) people[id] = { name: u.name || "", banned: !!u.banned, strikes: u.strikes || 0, timeoutUntil: u.timeoutUntil || 0, role: u.role || null };
+        }
+        return json({ reports: page, people, total: all.length });
+      }
+      if (route === "owner/user" && method === "GET") {
+        const id = (url.searchParams.get("id") || "").toUpperCase();
+        if (!ID_RE.test(id)) return err("Ungültiger Code");
+        const u = await getUser(id);
+        if (!u) return err("Code nicht gefunden", 404);
+        return json({
+          id,
+          name: u.name || "",
+          created: u.created,
+          banned: !!u.banned,
+          deleted: !!u.deleted,
+          strikes: u.strikes || 0,
+          timeoutUntil: u.timeoutUntil || 0,
+          av: u.av || 0,
+          role: u.role || null,
+          callsOff: !!u.callsOff,
+        });
+      }
+      if (route === "owner/settings" && method === "POST") {
+        const body = await req.json().catch(() => null);
+        if (typeof body?.autoModeration === "boolean") cfg.autoModeration = body.autoModeration;
+        await configStore().setJSON("owner", cfg);
+        return json({ ok: true, autoModeration: cfg.autoModeration !== false });
+      }
+      if (route === "owner/action" && method === "POST") {
+        const body = await req.json().catch(() => null);
+        const target = String(body?.target || "").toUpperCase();
+        const action = String(body?.action || "");
+        const reason = String(body?.reason || "").replace(/[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g, "").trim().slice(0, 200);
+        const u = ID_RE.test(target) ? await getUser(target) : null;
+        if (action !== "dismiss" && (!u || u.deleted)) return err("Konto nicht gefunden", 404);
+        if (u && target === me && action !== "dismiss") return err("Das bist du selbst.");
+        const now = Date.now();
+        const notice = (kind: "warn" | "timeout" | "ban", extra: Record<string, unknown> = {}) => ({
+          kind,
+          ts: now,
+          reason: reason || "Deine Inhalte verstoßen gegen die Regeln von Pixelkingschat.",
+          ...extra,
+        });
+        if (u) {
+          switch (action) {
+            case "warn":
+              u.strikes = (u.strikes || 0) + 1;
+              u.notice = notice("warn");
+              break;
+            case "delete":
+              u.purgeBefore = now;
+              await purgeUserContent(target);
+              u.notice = notice("warn", { deleted: true });
+              break;
+            case "timeout": {
+              const h = Math.max(1, Math.min(24 * 30, Number(body.hours) || 24));
+              u.timeoutUntil = now + h * HOUR;
+              u.strikes = (u.strikes || 0) + 1;
+              u.notice = notice("timeout", { until: u.timeoutUntil });
+              break;
+            }
+            case "untimeout":
+              u.timeoutUntil = 0;
+              break;
+            case "ban":
+              u.banned = true;
+              u.purgeBefore = now;
+              await purgeUserContent(target);
+              await avatars().delete(target);
+              u.av = 0;
+              u.notice = notice("ban", { deleted: true });
+              break;
+            case "unban":
+              u.banned = false;
+              u.strikes = 0;
+              u.timeoutUntil = 0;
+              delete u.notice;
+              break;
+            case "removeAvatar":
+              await avatars().delete(target);
+              u.av = 0;
+              break;
+            case "dismiss":
+              break;
+            default:
+              return err("Unbekannte Aktion");
+          }
+          if (action !== "dismiss") await putUser(target, u);
+        }
+        if (typeof body.reportKey === "string") {
+          const r: any = await reports().get(body.reportKey, { type: "json" });
+          if (r) {
+            r.ownerAction = { action, ts: now, hours: body.hours || undefined };
+            r.open = false;
+            await reports().setJSON(body.reportKey, r);
+          }
+        }
+        return json({ ok: true });
+      }
+      return err("Nicht gefunden", 404);
     }
 
     // Online-Status von Kontakten
@@ -1136,7 +1324,8 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
       // Nur Sprachnachrichten ohne Text/Bild → manuelle Prüfung
       const checkable = parts.filter((p) => p.text || p.imageB64);
       let verdict: Verdict | null = null;
-      if (checkable.length) {
+      const ocfg = await ownerCfg();
+      if (checkable.length && ocfg.autoModeration !== false && tUser.role !== "owner") {
         // bis zu zwei Versuche – z. B. wenn eine frische Server-Instanz noch nicht bereit ist
         for (let attempt = 0; attempt < 2 && !verdict; attempt++) {
           if (attempt) await new Promise((r) => setTimeout(r, 1500));
@@ -1159,7 +1348,17 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
         status,
         verdict,
         applied,
+        // Inhalt für die Prüfung durch den Besitzer (vom Meldenden freigegeben)
+        content: parts.slice(0, 20).map((p) => ({ text: p.text?.slice(0, 4000), imageB64: p.imageB64, audio: p.audio })),
+        open: status !== "ok",
       });
+      if (ocfg.owner && ocfg.owner !== me)
+        context.waitUntil(
+          notify(ocfg.owner, me, "", undefined, {
+            sys: "⚑ Neue Meldung",
+            body: status === "violation" ? "Verstoß erkannt – bitte prüfen" : status === "review" ? "Wartet auf deine Prüfung" : "Kein Verstoß erkannt",
+          }).catch(() => {})
+        );
       return json({ status, message: resultText(status, applied), applied: applied ? { deleted: applied.deleted, ban: applied.ban } : null });
     }
 

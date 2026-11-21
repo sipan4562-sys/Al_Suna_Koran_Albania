@@ -106,6 +106,16 @@ self.addEventListener("push", (event) => {
       // iOS verlangt zu jeder Push-Nachricht eine sichtbare Benachrichtigung.
       const iOS = /iPhone|iPad|iPod/.test(self.navigator.userAgent);
       if (visible && !iOS) return;
+      if (data.sys) {
+        await self.registration.showNotification(String(data.sys).slice(0, 60), {
+          body: String(data.body || "").slice(0, 120),
+          icon: "/icon-192.png",
+          badge: "/icon-192.png",
+          tag: "pk-sys",
+          data: { owner: true },
+        });
+        return;
+      }
       if (data.call) {
         await self.registration.showNotification(`${data.video ? "🎥" : "📞"} ${name}`, {
           body: data.video ? "Videoanruf – tippen zum Annehmen" : "ruft dich an – tippen zum Annehmen",
@@ -134,13 +144,14 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const from = event.notification.data?.from;
-  const url = from ? `/#chat=${from}` : "/";
+  const owner = !!event.notification.data?.owner;
+  const url = owner ? "/#owner" : from ? `/#chat=${from}` : "/";
   event.waitUntil(
     (async () => {
       const wins = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const w of wins) {
         if ("focus" in w) {
-          w.postMessage({ type: "open", from });
+          w.postMessage(owner ? { type: "owner" } : { type: "open", from });
           return w.focus();
         }
       }
