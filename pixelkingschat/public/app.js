@@ -1537,7 +1537,7 @@ function showReport({ type, target, mids = [], after, skey, key, lid, imageB64 }
     chat: "Die letzten empfangenen Nachrichten dieses Kontakts werden zur Prüfung übermittelt. Deine eigenen Nachrichten bleiben privat.",
     avatar: "Das Profilbild wird zur Prüfung übermittelt.",
     story: "Die Story wird zur Prüfung übermittelt.",
-    live: "Ein Standbild des Lives und der Titel werden zur Prüfung übermittelt.",
+    live: "Das Live und sein Thema werden zur Prüfung übermittelt. Als Besitzer kann man zuhören und es sofort beenden.",
   };
   body.append(el("p", "small muted", expl[type]));
   body.append(el("strong", null, "Was ist das Problem?"));
@@ -2479,7 +2479,7 @@ function showNewMenu() {
     ["👥", "Neue Gruppe", "Mit mehreren Kontakten chatten", showNewGroup],
     ["📸", "Story posten", "Für 24 Stunden für deine Kontakte", newStory],
     ["📹", "Meeting", "Starten oder mit Code beitreten", showMeetingMenu],
-    ["🔴", "Live gehen", "Livestream für Kontakte oder öffentlich", () => liveMod.showGoLive()],
+    ["🎙", "Audio-Live", "Live sprechen – für Kontakte oder öffentlich", () => liveMod.showGoLive()],
   ];
   for (const [icon, title, sub, fn] of opts) {
     const b = el("button", "menu-item");
@@ -4228,6 +4228,7 @@ function sendMeetInvite(chatId, code, title) {
 }
 function setupCalls() {
   calls = initCalls({
+    onLiveSignal: (from, p) => liveMod?.onSignal(from, p),
     api,
     S: () => S,
     el,
@@ -4269,9 +4270,7 @@ function setupLive() {
     toast,
     b64u,
     rand,
-    msgKeyBytes,
-    aesSeal,
-    aesOpenRaw,
+    calls: () => calls,
     fillAvatar,
     displayName,
     storyContacts,

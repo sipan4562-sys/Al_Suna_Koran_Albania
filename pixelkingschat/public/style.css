@@ -660,3 +660,24 @@ body.live-open { overflow: hidden; }
   font: 800 9px/1 var(--mono); letter-spacing: .06em; padding: 2px 4px; border-radius: 3px; box-shadow: 0 0 0 2px var(--bg); }
 body.live-open #modal { z-index: 95; }
 body.live-open #toast { z-index: 99; }
+
+/* ---------- v17: Audio-Lives ---------- */
+.live-view.audio { background: radial-gradient(circle at 50% 40%, #0f2a2e 0%, #05070a 70%); }
+.live-stage { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 90px 20px 120px; text-align: center; }
+.live-av { width: 132px; height: 132px; font-size: 52px; border-radius: 34px; transition: box-shadow .15s, transform .15s; box-shadow: 0 0 0 4px rgba(239,68,68,.6); }
+.live-view.speaking .live-av { box-shadow: 0 0 0 5px #ef4444, 0 0 40px rgba(239,68,68,.7); transform: scale(1.05); }
+.live-host-name { font-size: 22px; font-weight: 800; }
+.live-stage .live-title { font-weight: 600; opacity: .9; max-width: 520px; }
+.live-wave { display: flex; gap: 5px; align-items: center; height: 34px; }
+.live-wave span { width: 6px; height: 8px; background: var(--accent); border-radius: 2px; opacity: .5; }
+.live-view.speaking .live-wave span { opacity: 1; animation: livewave .6s ease-in-out infinite; }
+.live-view.speaking .live-wave span:nth-child(2) { animation-delay: .1s; }
+.live-view.speaking .live-wave span:nth-child(3) { animation-delay: .2s; }
+.live-view.speaking .live-wave span:nth-child(4) { animation-delay: .3s; }
+.live-view.speaking .live-wave span:nth-child(5) { animation-delay: .4s; }
+@keyframes livewave { 50% { height: 30px; } }
+.live-state { font-size: 14px; opacity: .85; min-height: 1.2em; max-width: 420px; }
+.live-view.ended .live-wave { display: none; }
+.live-view .live-who { justify-content: space-between; }
+.live-view .live-unmute { position: static; transform: none; }
+.live-view .live-top, .live-view .live-bar { z-index: 2; }

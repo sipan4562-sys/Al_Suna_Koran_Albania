@@ -119,7 +119,7 @@ self.addEventListener("push", (event) => {
       }
       if (typeof data.live === "string") {
         await self.registration.showNotification(`🔴 ${name}`, {
-          body: "ist jetzt live – tippen zum Zuschauen",
+          body: "ist jetzt live 🎙 – tippen zum Zuhören",
           icon: "/icon-192.png",
           badge: "/icon-192.png",
           tag: `live-${from}`,

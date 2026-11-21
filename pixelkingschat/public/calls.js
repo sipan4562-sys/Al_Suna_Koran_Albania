@@ -50,9 +50,26 @@ export function initCalls(ctx) {
     };
     tick();
   }
+  // Andere Module (Audio-Live) können die Signal-Abfrage offen halten
+  const holds = new Map();
   function stopSignalPolling() {
+    if (holds.size) {
+      sigFast = [...holds.values()].some(Boolean);
+      return;
+    }
     clearTimeout(sigTimer);
     sigTimer = null;
+  }
+  function holdSignals(key, on, fast = false) {
+    if (on) {
+      holds.set(key, fast);
+      startSignalPolling(fast || (!!call && sigFast));
+      if (fast) sigFast = true;
+    } else {
+      holds.delete(key);
+      if (!call && !incoming) stopSignalPolling();
+      else if (!holds.size) sigFast = !!call && !call.connectedAt;
+    }
   }
 
   /* ---------- Klingelton ---------- */
@@ -208,6 +225,8 @@ export function initCalls(ctx) {
     } else if (p.k === "answer" && call?.room === p.room) {
       const peer = call.peers.get(from);
       if (peer && peer.pc.signalingState === "have-local-offer") await peer.pc.setRemoteDescription({ type: "answer", sdp: p.sdp });
+    } else if (/^l[a-z]+$/.test(p.k)) {
+      await ctx.onLiveSignal?.(from, p);
     } else if (p.k === "hangup") {
       if (incoming && incoming.from === from && incoming.room === p.room) {
         logCall(from, "missed");
@@ -615,5 +634,5 @@ export function initCalls(ctx) {
   }
 
   window.addEventListener("pagehide", () => call && hangup());
-  return { startCall, handleCallCtl, joinMeeting, createMeeting, inCall: () => !!call };
+  return { startCall, handleCallCtl, joinMeeting, createMeeting, inCall: () => !!call, signal, holdSignals, getIce, gathered, hasRelay: () => hasRelay };
 }
