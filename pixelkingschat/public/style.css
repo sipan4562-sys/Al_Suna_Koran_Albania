@@ -474,3 +474,8 @@ img.pxe.big { width: 2.6em; height: 2.6em; vertical-align: middle; }
 
 /* ---------- v6: Moderation ---------- */
 .composer.blocked textarea { opacity: .5; }
+
+/* ---------- Fix: Story-Leiste & Kopfbereich auf dem Handy nicht zusammendrücken ---------- */
+#sidebar > *:not(.chat-list):not(.fab) { flex-shrink: 0; }
+.story-bar { min-height: 92px; align-items: flex-start; padding-top: 4px; }
+.empty { padding-bottom: 110px; }
