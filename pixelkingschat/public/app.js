@@ -1106,7 +1106,6 @@ function openChat(id) {
   $("#onceBtn").classList.toggle("hidden", isGroup(id));
   renderChatHead();
   applyWallpaper(id);
-  $("#videoBtn").classList.toggle("hidden", isGroup(id));
   $("#callBtn").title = isGroup(id) ? "Gruppenanruf (Meeting)" : "Anrufen";
   renderMessages.force = true;
   renderMessages();
@@ -4048,7 +4047,7 @@ let calls = null;
 function showMeetingMenu() {
   const body = el("div", "stack");
   body.append(el("h2", null, "📹 Meeting"));
-  body.append(el("p", "small muted", "Video-Meeting mit bis zu 8 Personen. Jeder mit dem Code kann beitreten."));
+  body.append(el("p", "small muted", "Sprach-Meeting mit bis zu 8 Personen. Jeder mit dem Code kann beitreten."));
   const title = el("input");
   title.placeholder = "Name des Meetings (optional)";
   title.maxLength = 40;
@@ -4127,9 +4126,8 @@ function setupCalls() {
   $("#callBtn").onclick = () => {
     if (!currentChat) return;
     if (isGroup(currentChat)) calls.createMeeting(S.groups[currentChat]?.name || "", currentChat);
-    else calls.startCall(currentChat, false);
+    else calls.startCall(currentChat);
   };
-  $("#videoBtn").onclick = () => currentChat && !isGroup(currentChat) && calls.startCall(currentChat, true);
 }
 
 /* ================= Automatische Updates (Handy, PC, iOS) ================= */

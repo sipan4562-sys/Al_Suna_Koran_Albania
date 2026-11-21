@@ -603,3 +603,10 @@ html.desktop .msg-text { user-select: text; }
 .report-verdict { color: var(--muted); }
 .owner-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .owner-actions .btn { flex: 0 0 auto; }
+
+/* ---------- v13: nur Sprachanrufe ---------- */
+.call-tile video { display: none; }
+.call-tile .avatar { transition: box-shadow .15s, transform .15s; }
+.call-tile.speaking .avatar { box-shadow: 0 0 0 4px var(--accent), 0 0 24px rgba(var(--accent-rgb), .7); transform: scale(1.04); }
+.call-tile.speaking { background: #13252a; }
+.call-view.me-speaking .call-bar .call-btn:first-child { box-shadow: 0 0 0 3px var(--accent); }

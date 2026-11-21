@@ -117,8 +117,8 @@ self.addEventListener("push", (event) => {
         return;
       }
       if (data.call) {
-        await self.registration.showNotification(`${data.video ? "🎥" : "📞"} ${name}`, {
-          body: data.video ? "Videoanruf – tippen zum Annehmen" : "ruft dich an – tippen zum Annehmen",
+        await self.registration.showNotification(`📞 ${name}`, {
+          body: "ruft dich an – tippen zum Annehmen",
           icon: "/icon-192.png",
           badge: "/icon-192.png",
           tag: `call-${from}`,

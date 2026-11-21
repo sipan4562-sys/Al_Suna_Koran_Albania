@@ -91,17 +91,14 @@ export function initCalls(ctx) {
   }
 
   /* ---------- Medien ---------- */
-  async function getLocal(video) {
+  // Nur Sprachanrufe (spart Datenvolumen und Leistung)
+  async function getLocal() {
     try {
       return await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true },
-        video: video ? { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } } : false,
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        video: false,
       });
     } catch {
-      if (video) {
-        toast("Kamera nicht verfügbar – Anruf nur mit Ton.");
-        return getLocal(false);
-      }
       throw new Error("🎤 Bitte erlaube den Zugriff aufs Mikrofon.");
     }
   }
@@ -112,8 +109,6 @@ export function initCalls(ctx) {
     const peer = { id, pc, stream: new MediaStream(), tile: null };
     const local = call.local;
     local.getAudioTracks().forEach((t) => pc.addTrack(t, local));
-    const vt = local.getVideoTracks()[0];
-    peer.videoSender = vt ? pc.addTrack(vt, local) : pc.addTransceiver("video", { direction: "sendrecv" }).sender;
     pc.ontrack = (e) => {
       if (!peer.stream.getTracks().includes(e.track)) peer.stream.addTrack(e.track);
       renderTiles();
@@ -197,7 +192,8 @@ export function initCalls(ctx) {
   }
 
   /* ---------- Direkter Anruf ---------- */
-  async function startCall(to, video) {
+  async function startCall(to) {
+    const video = false;
     if (call) return toast("Du bist schon in einem Anruf.");
     if (ctx.sendBlocked()) return;
     if (!window.RTCPeerConnection) return toast("Dein Browser unterstützt keine Anrufe.");
@@ -243,7 +239,7 @@ export function initCalls(ctx) {
       logCall(from, "missed");
       return true;
     }
-    incoming = { from, room: p.room, video: !!p.video, ts: m.ts };
+    incoming = { from, room: p.room, video: false, ts: m.ts };
     showIncoming();
     startSignalPolling(true);
     incoming.timer = setTimeout(() => {
@@ -305,7 +301,8 @@ export function initCalls(ctx) {
 
   /* ---------- Meetings ---------- */
   let beatTimer = null;
-  async function joinMeeting(code, { video = true, title = "" } = {}) {
+  async function joinMeeting(code, { title = "" } = {}) {
+    const video = false;
     if (call) return toast("Du bist schon in einem Anruf.");
     if (!window.RTCPeerConnection) return toast("Dein Browser unterstützt keine Anrufe.");
     code = String(code || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -357,7 +354,7 @@ export function initCalls(ctx) {
     try {
       const { code } = await api("meet/create", { body: { title } });
       if (inviteGroup) ctx.sendMeetInvite(inviteGroup, code, title);
-      await joinMeeting(code, { video: true, title });
+      await joinMeeting(code, { title });
     } catch (e) {
       toast(e.message);
     }
@@ -373,11 +370,7 @@ export function initCalls(ctx) {
     const sub = el("div", "call-sub");
     head.append(title, sub);
     const grid = el("div", "call-grid");
-    const self = el("video", "call-self");
-    self.muted = true;
-    self.playsInline = true;
-    self.autoplay = true;
-    self.srcObject = call.local;
+    const self = el("div", "hidden");
     const bar = el("div", "call-bar");
     const mic = el("button", "call-btn", "🎤");
     mic.title = "Stummschalten";
@@ -388,16 +381,20 @@ export function initCalls(ctx) {
       mic.classList.toggle("off", !t.enabled);
       mic.textContent = t.enabled ? "🎤" : "🔇";
     };
-    const cam = el("button", "call-btn", "📷");
-    cam.title = "Kamera an/aus";
-    cam.onclick = toggleCamera;
-    const flip = el("button", "call-btn", "🔄");
-    flip.title = "Kamera wechseln";
-    flip.onclick = flipCamera;
+    const spk = el("button", "call-btn", "🔊");
+    spk.title = "Lautsprecher";
+    spk.onclick = () => {
+      // auf vielen Handys: zwischen Hörer und Lautsprecher wechseln, sofern der Browser es erlaubt
+      const muted = !view._muteOut;
+      view._muteOut = muted;
+      for (const p of call.peers.values()) if (p.tileVideo) p.tileVideo.muted = muted;
+      spk.textContent = muted ? "🔈" : "🔊";
+      spk.classList.toggle("off", muted);
+    };
     const hang = el("button", "call-btn red", "📞");
     hang.title = "Auflegen";
     hang.onclick = () => hangup();
-    bar.append(mic, cam, flip);
+    bar.append(mic, spk);
     if (call.kind === "meet") {
       const share = el("button", "call-btn", "🔗");
       share.title = "Code teilen";
@@ -407,8 +404,7 @@ export function initCalls(ctx) {
     bar.append(hang);
     view.append(head, grid, self, bar);
     document.body.append(view);
-    view._refs = { title, sub, grid, self, cam };
-    updateCamButton();
+    view._refs = { title, sub, grid, self };
     renderTiles();
     clearInterval(durTimer);
     durTimer = setInterval(renderHead, 1000);
@@ -478,57 +474,37 @@ export function initCalls(ctx) {
       grid.append(wait);
     }
   }
-  // Kachel zeigt Video nur, wenn wirklich Bild ankommt – sonst das Profilbild
+  // Sprech-Anzeige: Profilbild leuchtet, wenn jemand spricht
+  let meter = null;
+  function level(stream, key) {
+    try {
+      meter ??= new (window.AudioContext || window.webkitAudioContext)();
+      const cache = (level.cache ??= new Map());
+      let a = cache.get(key);
+      if (!a || a.stream !== stream) {
+        const an = meter.createAnalyser();
+        an.fftSize = 256;
+        meter.createMediaStreamSource(stream).connect(an);
+        a = { an, buf: new Uint8Array(an.fftSize), stream };
+        cache.set(key, a);
+      }
+      a.an.getByteTimeDomainData(a.buf);
+      let sum = 0;
+      for (const v of a.buf) sum += (v - 128) * (v - 128);
+      return Math.sqrt(sum / a.buf.length);
+    } catch {
+      return 0;
+    }
+  }
   setInterval(() => {
-    if (!call) return;
+    if (!call || !view) return;
     for (const p of call.peers.values()) {
-      const has = p.tileVideo && p.tileVideo.videoWidth > 0 && p.stream.getVideoTracks().some((t) => !t.muted && t.readyState === "live");
-      p.tile?.classList.toggle("has-video", !!has);
+      if (!p.tile || !p.stream.getAudioTracks().length) continue;
+      p.tile.classList.toggle("speaking", level(p.stream, p.id) > 6);
     }
-    view?._refs.self.classList.toggle("hidden", !call.local.getVideoTracks().some((t) => t.enabled && t.readyState === "live"));
-  }, 700);
-
-  function updateCamButton() {
-    if (!view) return;
-    const on = call.local.getVideoTracks().some((t) => t.enabled && t.readyState === "live");
-    view._refs.cam.classList.toggle("off", !on);
-    view._refs.cam.textContent = on ? "📷" : "🚫";
-  }
-  async function toggleCamera() {
-    const vt = call.local.getVideoTracks()[0];
-    if (vt && vt.readyState === "live") {
-      vt.enabled = !vt.enabled;
-      updateCamButton();
-      return;
-    }
-    try {
-      const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 } } });
-      const t = s.getVideoTracks()[0];
-      call.local.addTrack(t);
-      for (const p of call.peers.values()) await p.videoSender?.replaceTrack(t);
-      view._refs.self.srcObject = call.local;
-      updateCamButton();
-    } catch {
-      toast("Kamera nicht verfügbar.");
-    }
-  }
-  let facing = "user";
-  async function flipCamera() {
-    const old = call.local.getVideoTracks()[0];
-    if (!old) return toggleCamera();
-    facing = facing === "user" ? "environment" : "user";
-    try {
-      const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: 640 } } });
-      const t = s.getVideoTracks()[0];
-      for (const p of call.peers.values()) await p.videoSender?.replaceTrack(t);
-      call.local.removeTrack(old);
-      old.stop();
-      call.local.addTrack(t);
-      view._refs.self.srcObject = call.local;
-    } catch {
-      toast("Kamera kann nicht gewechselt werden.");
-    }
-  }
+    const t = call.local.getAudioTracks()[0];
+    view.classList.toggle("me-speaking", !!t?.enabled && level(call.local, "me") > 6);
+  }, 250);
 
   /* ---------- Auflegen ---------- */
   function hangup() {
@@ -550,6 +526,7 @@ export function initCalls(ctx) {
     clearInterval(beatTimer);
     clearInterval(durTimer);
     stopRinging();
+    level.cache?.clear();
     for (const p of c.peers.values())
       try {
         p.pc.close();
