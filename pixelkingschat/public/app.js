@@ -358,17 +358,20 @@ function sysMsg(chatId, text) {
   (S.messages[chatId] = S.messages[chatId] || []).push({ mid: newMid(), dir: "sys", ts: Date.now(), text });
 }
 
-async function sendMessage({ text = "", imgB64 = null, file = null, aud = null, once = false }) {
+async function sendMessage({ text = "", imgB64 = null, file = null, aud = null, vid = null, gif = null, once = false }) {
+  if (vid || gif) once = false;
   const to = currentChat;
   if (!to) return;
   if (sendBlocked()) return;
-  if (isGroup(to)) return sendGroupMessage({ text, imgB64, file, aud });
+  if (isGroup(to)) return sendGroupMessage({ text, imgB64, file, aud, vid, gif });
   const mid = newMid();
   const ts = Date.now();
   const local = { mid, dir: "out", ts, once, status: "pending" };
   if (imgB64) local.img = true;
   if (file) local.file = { name: file.name, type: file.type, size: file.size };
   if (aud) local.aud = { type: aud.type, dur: aud.dur, w: aud.w };
+  if (vid) local.vid = vid;
+  if (gif) local.gif = gif;
   if (!once) {
     local.text = text;
     if (imgB64) await idbPut("media", mid, imgB64);
@@ -385,6 +388,8 @@ async function sendMessage({ text = "", imgB64 = null, file = null, aud = null, 
     if (imgB64) payload.img = imgB64;
     if (file) payload.file = file;
     if (aud) payload.aud = aud;
+    if (vid) payload.vid = vid;
+    if (gif) payload.gif = gif;
     const { iv, ct } = await encryptFor(to, mid, payload);
     await api("send", { body: { to, mid, iv, ct } });
     local.status = "sent";
@@ -397,7 +402,7 @@ async function sendMessage({ text = "", imgB64 = null, file = null, aud = null, 
   renderMessages();
 }
 
-async function sendGroupMessage({ text, imgB64, file, aud }) {
+async function sendGroupMessage({ text, imgB64, file, aud, vid, gif }) {
   const gid = currentChat;
   const g = S.groups[gid];
   if (!g || g.removed) return toast("Du bist nicht mehr in dieser Gruppe.");
@@ -416,6 +421,8 @@ async function sendGroupMessage({ text, imgB64, file, aud }) {
     local.aud = { type: aud.type, dur: aud.dur, w: aud.w };
     await idbPut("media", mid, aud.d);
   }
+  if (vid) local.vid = vid;
+  if (gif) local.gif = gif;
   S.messages[gid].push(local);
   g.last = ts;
   save();
@@ -436,6 +443,8 @@ async function sendGroupMessage({ text, imgB64, file, aud }) {
       if (imgB64) body.img = imgB64;
       if (file) body.file = file;
       if (aud) body.aud = aud;
+      if (vid) body.vid = vid;
+      if (gif) body.gif = gif;
       const b = await aesSeal(K, body, `${gid}|${mid}`);
       const envs = [];
       for (const id of targets) envs.push({ to: id, ...(await encryptFor(id, mid, { k: "g", gid, bk: b64u(K) })) });
@@ -708,6 +717,18 @@ async function poll() {
           };
           await idbPut("media", m.mid, q.aud.d);
         }
+        const cleanRef = (r) =>
+          r && /^[A-Za-z0-9_-]{16}$/.test(r.id) && Number.isInteger(r.b) && Number.isInteger(r.n) && r.n > 0 && r.n <= 10 && typeof r.k === "string" && typeof r.iv === "string"
+            ? { id: r.id, b: r.b, n: r.n, k: r.k, iv: r.iv, type: String(r.type || "").slice(0, 60), size: Number(r.size) || 0 }
+            : null;
+        const cleanPoster = (x) => (typeof x === "string" && x.length < 200000 && /^[A-Za-z0-9+/=]+$/.test(x) ? x : undefined);
+        if (q.vid && cleanRef(q.vid.ref)) {
+          msg.vid = { ref: cleanRef(q.vid.ref), dur: Math.min(600, Number(q.vid.dur) || 0), w: Number(q.vid.w) || 0, h: Number(q.vid.h) || 0, poster: cleanPoster(q.vid.poster) };
+        }
+        if (q.gif) {
+          if (typeof q.gif.p === "string" && PIXEL_GIFS.includes(q.gif.p)) msg.gif = { p: q.gif.p };
+          else if (cleanRef(q.gif.ref)) msg.gif = { ref: cleanRef(q.gif.ref), w: Number(q.gif.w) || 0, h: Number(q.gif.h) || 0, poster: cleanPoster(q.gif.poster) };
+        }
         // Rohdaten 24 h aufbewahren, damit die Nachricht überprüfbar gemeldet werden kann
         await idbPut("raw", m.mid, { iv: m.iv, ct: m.ct, ts: m.ts, body: m.body || null });
         list.push(msg);
@@ -753,7 +774,7 @@ async function purgeExpired() {
   for (const [k, v] of Object.entries(S.myStories)) if (now - v.ts > TTL) delete S.myStories[k];
   if (changed) save();
   for (const store of ["media", "raw"]) {
-    for (const k of await idbKeys(store)) if (!keep.has(k)) await dropMedia(k);
+    for (const k of await idbKeys(store)) if (!keep.has(String(k).replace(/^[vg]:/, ""))) await dropMedia(k);
   }
   renderList();
   if (currentChat) renderMessages();
@@ -807,6 +828,8 @@ function previewOf(m, isGrp) {
   const who = m.dir === "out" ? "Du: " : isGrp ? memberName(m.from) + ": " : "";
   if (m.once) return m.dir === "in" ? (m.opened ? "👁 Geöffnet" : "👁 Einmal-Nachricht") : "👁 Einmal-Nachricht gesendet";
   if (m.aud) return who + "🎤 Sprachnachricht (" + fmtDur(m.aud.dur) + ")";
+  if (m.vid) return who + "🎬 Video (" + fmtDur(m.vid.dur) + ")";
+  if (m.gif) return who + "GIF";
   if (m.file) return who + "📎 " + m.file.name;
   if (m.img) return who + "🖼 " + (m.text || "Bild");
   return who + m.text;
@@ -983,6 +1006,14 @@ function renderMessages() {
           showImage(m);
         };
         d.append(img);
+      }
+      if (m.vid) {
+        d.classList.add("has-video");
+        d.append(videoCard(m));
+      }
+      if (m.gif) {
+        d.classList.add("has-gif");
+        d.append(gifNode(m));
       }
       if (m.aud) {
         d.classList.add("has-voice");
@@ -1797,7 +1828,17 @@ function showSettings() {
     save();
   };
   rl.append(rcb, " Gesehen-Auge senden (Lesebestätigung)");
-  root.append(ol, rl, el("p", "small muted", "Ausgeschaltet sehen andere nicht, wann du online warst bzw. ob du ihre Nachrichten gesehen hast."), el("hr"));
+  const pl = el("label", "check");
+  const pcb = el("input");
+  pcb.type = "checkbox";
+  pcb.checked = !!S.settings.publicStories;
+  pcb.onchange = () => {
+    S.settings.publicStories = pcb.checked;
+    save();
+    toast(pcb.checked ? "🌍 Neue Stories sind öffentlich – alle können sie unter „Entdecken“ sehen." : "👥 Neue Stories sehen nur deine Kontakte.");
+  };
+  pl.append(pcb, " Stories öffentlich (alle App-Nutzer können sie sehen)");
+  root.append(ol, rl, pl, el("p", "small muted", "Ausgeschaltet sehen andere nicht, wann du online warst bzw. ob du ihre Nachrichten gesehen hast. Öffentliche Stories erscheinen für alle unter „🌍 Entdecken“ und werden vorher geprüft."), el("hr"));
   root.append(el("strong", null, "☁️ Backup"));
   root.append(
     el("p", "small muted", S.backupAt ? `✓ Gesichert – letztes Backup ${new Date(S.backupAt).toLocaleString("de-DE")}` : "Noch kein Backup. Wenn dein Handy die Website-Daten löscht, wären Code und Kontakte weg.")
@@ -2174,7 +2215,10 @@ function buildEmojiPanel() {
   const grid = el("div", "emoji-grid");
   const show = (i) => {
     grid.textContent = "";
-    for (const [j, t] of [...tabs.children].entries()) t.classList.toggle("active", i === j);
+    grid.classList.remove("gif-grid");
+    const emojiTabs = [...tabs.children].filter((t) => !t.classList.contains("gif-tab"));
+    for (const t of tabs.children) t.classList.remove("active");
+    emojiTabs[i]?.classList.add("active");
     for (const e of EMOJI_SETS[i][2].split(" ")) {
       const b = el("button", "emoji-cell");
       b.type = "button";
@@ -2198,6 +2242,14 @@ function buildEmojiPanel() {
     t.onclick = () => show(i);
     tabs.append(t);
   });
+  const gt = el("button", "emoji-tab gif-tab", "GIF");
+  gt.type = "button";
+  gt.title = "GIFs";
+  gt.onclick = () => {
+    for (const t of tabs.children) t.classList.toggle("active", t === gt);
+    renderGifTab(grid);
+  };
+  tabs.prepend(gt);
   panel.append(tabs, grid);
   show(0);
 }
@@ -2226,9 +2278,20 @@ function bindComposerExtras() {
     closePopovers();
     if (act === "img") $("#imgInput").click();
     if (act === "file") $("#fileInput").click();
+    if (act === "video") $("#videoInput").click();
     if (act === "once") toggleOnce();
   };
   document.addEventListener("click", () => closePopovers());
+  $("#videoInput").onchange = (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (f) pickVideoToSend(f);
+  };
+  $("#gifInput").onchange = (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (f) sendGifBlob(f);
+  };
   $("#fileInput").onchange = (e) => {
     const f = e.target.files?.[0];
     e.target.value = "";
@@ -2419,7 +2482,7 @@ async function pollStories() {
     for (const list of Object.values(by)) list.sort((a, b) => a.ts - b.ts);
     S.stories = by;
     const mine = await api("story/mine");
-    myStoryList = mine.stories.filter((x) => S.myStories[x.skey]).sort((a, b) => a.ts - b.ts);
+    myStoryList = mine.stories.filter((x) => S.myStories[x.skey] || x.pub).sort((a, b) => a.ts - b.ts);
     save();
     renderStoryBar();
   } catch {}
@@ -2451,6 +2514,16 @@ function renderStoryBar() {
     },
     !myStoryList.length
   );
+  item(
+    "Entdecken",
+    (a) => {
+      a.textContent = "";
+      a.style.background = "var(--panel2)";
+      renderRich(a, "🌍");
+    },
+    "discover",
+    showDiscover
+  );
   const owners = Object.keys(S.stories).filter((o) => S.contacts[o] && S.stories[o].length);
   const unseen = (o) => S.stories[o].some((st) => !S.storySeen[`${o}/${st.skey}`]);
   owners.sort((a, b) => unseen(b) - unseen(a) || S.stories[b].at(-1).ts - S.stories[a].at(-1).ts);
@@ -2459,11 +2532,36 @@ function renderStoryBar() {
   }
 }
 
+function audienceToggle() {
+  const wrap = el("div", "chip-row audience");
+  const mk = (pub, label) => {
+    const c = el("button", "chip" + (!!S.settings.publicStories === pub ? " active" : ""), label);
+    c.type = "button";
+    c.onclick = () => {
+      S.settings.publicStories = pub;
+      save();
+      for (const x of wrap.children) x.classList.toggle("active", x === c);
+      hint.textContent = pub
+        ? "🌍 Öffentlich: Alle Pixelkingschat-Nutzer können diese Story unter „Entdecken“ sehen. Sie wird vorher geprüft."
+        : "👥 Nur deine Kontakte – Ende-zu-Ende-verschlüsselt.";
+    };
+    return c;
+  };
+  const hint = el("p", "small muted");
+  hint.textContent = S.settings.publicStories
+    ? "🌍 Öffentlich: Alle Pixelkingschat-Nutzer können diese Story unter „Entdecken“ sehen. Sie wird vorher geprüft."
+    : "👥 Nur deine Kontakte – Ende-zu-Ende-verschlüsselt.";
+  wrap.append(mk(false, "👥 Kontakte"), mk(true, "🌍 Öffentlich"));
+  const box = el("div", "stack");
+  box.append(el("strong", null, "Wer darf die Story sehen?"), wrap, hint);
+  return box;
+}
+
 function newStory() {
   const body = el("div", "stack");
   body.append(el("h2", null, "📸 Neue Story"));
-  body.append(el("p", "small muted", "Deine Kontakte sehen die Story 24 Stunden lang – Ende-zu-Ende-verschlüsselt."));
-  const photo = el("button", "btn primary big", "📷 Foto auswählen");
+  body.append(audienceToggle());
+  const photo = el("button", "btn primary big", "📷 Foto oder 🎬 Video auswählen");
   photo.onclick = () => $("#storyInput").click();
   body.append(photo, el("hr"), el("strong", null, "…oder eine Text-Story"));
   const colors = ["#19e6d4", "#7c3aed", "#ec4899", "#f97316", "#16a34a", "#1d4ed8", "#111827"];
@@ -2493,12 +2591,14 @@ function newStory() {
     if (!ta.value.trim()) return toast("Schreib etwas für deine Story.");
     post.disabled = true;
     await postStory({ t: ta.value.trim(), bg });
+    post.disabled = false;
   };
   body.append(prevBox, ta, sw, post);
   openModal(body);
 }
 
 async function storyFromPhoto(file) {
+  if (file.type.startsWith("video/")) return storyFromVideo(file);
   let b64;
   try {
     b64 = await compressImage(file, { maxDim: 1280, maxB64: 1_200_000 });
@@ -2516,31 +2616,70 @@ async function storyFromPhoto(file) {
   post.onclick = async () => {
     post.disabled = true;
     await postStory({ img: b64, t: cap.value.trim() });
+    post.disabled = false;
   };
-  body.append(img, cap, post);
+  body.append(img, cap, audienceToggle(), post);
+  openModal(body);
+}
+
+async function storyFromVideo(file) {
+  if (sendBlocked()) return;
+  let vid;
+  try {
+    vid = await prepareVideoRef(file, "🎬 Story-Video wird vorbereitet…");
+  } catch (e) {
+    closeModal();
+    return toast(e.message || "Video konnte nicht gelesen werden.");
+  }
+  const body = el("div", "stack");
+  body.append(el("h2", null, "🎬 Story"));
+  const img = el("img", "full-img");
+  img.src = "data:image/jpeg;base64," + vid.poster;
+  const cap = el("input");
+  cap.placeholder = "Text dazu (optional)";
+  cap.maxLength = 200;
+  const post = el("button", "btn primary big", "Story posten");
+  post.onclick = async () => {
+    post.disabled = true;
+    await postStory({ vid, t: cap.value.trim() });
+    post.disabled = false;
+  };
+  body.append(img, el("p", "small muted", `Video · ${fmtDur(vid.dur)}`), cap, audienceToggle(), post);
   openModal(body);
 }
 
 async function postStory(content) {
   if (sendBlocked()) return;
   const ids = storyContacts();
+  const isPublic = !!S.settings.publicStories;
   try {
     const sid = b64u(rand(9));
-    const key = rand(32);
-    const encd = await aesSeal(key, content, `story|${S.me.id}|${sid}`);
-    const keys = {};
-    for (const id of ids) {
-      keys[id] = await aesSeal(new Uint8Array(await msgKeyBytes(id, "story|" + sid)), key, `${S.me.id}>${id}|story|${sid}`);
+    if (isPublic) {
+      toast("Story wird geprüft…", 2500);
+      const { skey, ts } = await api("story", { body: { sid, public: true, content } });
+      S.myStories[skey] = { pub: true, ts };
+      storyCache.set(`${S.me.id}/${skey}`, content);
+      save();
+      closeModal();
+      toast("🌍 Öffentliche Story gepostet ✓ – alle können sie unter „Entdecken“ sehen");
+    } else {
+      const key = rand(32);
+      const encd = await aesSeal(key, content, `story|${S.me.id}|${sid}`);
+      const keys = {};
+      for (const id of ids) {
+        keys[id] = await aesSeal(new Uint8Array(await msgKeyBytes(id, "story|" + sid)), key, `${S.me.id}>${id}|story|${sid}`);
+      }
+      const { skey, ts } = await api("story", { body: { sid, ...encd, keys } });
+      S.myStories[skey] = { k: b64u(key), ts };
+      storyCache.set(`${S.me.id}/${skey}`, content);
+      save();
+      closeModal();
+      toast(ids.length ? `Story gepostet ✓ – ${ids.length} Kontakt${ids.length === 1 ? "" : "e"} können sie sehen` : "Story gepostet ✓ (noch keine Kontakte)");
     }
-    const { skey, ts } = await api("story", { body: { sid, ...encd, keys } });
-    S.myStories[skey] = { k: b64u(key), ts };
-    storyCache.set(`${S.me.id}/${skey}`, content);
-    save();
-    closeModal();
-    toast(ids.length ? `Story gepostet ✓ – ${ids.length} Kontakt${ids.length === 1 ? "" : "e"} können sie sehen` : "Story gepostet ✓ (noch keine Kontakte)");
     await pollStories();
   } catch (e) {
-    toast("Story konnte nicht gepostet werden: " + e.message);
+    if (e.status === 403) refreshMe();
+    toast(e.status === 422 ? e.message : "Story konnte nicht gepostet werden: " + e.message);
   }
 }
 
@@ -2549,11 +2688,16 @@ async function loadStory(owner, st) {
   if (storyCache.has(ck)) return storyCache.get(ck);
   const sid = st.skey.split("-").slice(1).join("-");
   const res = await api(`story/get?owner=${owner}&skey=${encodeURIComponent(st.skey)}`);
-  let key;
-  if (owner === S.me.id) key = unb64u(S.myStories[st.skey].k);
-  else key = await aesOpenRaw(new Uint8Array(await msgKeyBytes(owner, "story|" + sid)), res.wk, `${owner}>${S.me.id}|story|${sid}`);
-  const content = await aesOpenJson(key, res, `story|${owner}|${sid}`);
-  content._k = b64u(key);
+  let content;
+  if (res.pub) {
+    content = { ...(res.content || {}), _pub: true };
+  } else {
+    let key;
+    if (owner === S.me.id) key = unb64u(S.myStories[st.skey].k);
+    else key = await aesOpenRaw(new Uint8Array(await msgKeyBytes(owner, "story|" + sid)), res.wk, `${owner}>${S.me.id}|story|${sid}`);
+    content = await aesOpenJson(key, res, `story|${owner}|${sid}`);
+    content._k = b64u(key);
+  }
   storyCache.set(ck, content);
   return content;
 }
@@ -2565,18 +2709,22 @@ function timeAgo(ts) {
   return `vor ${Math.floor(m / 60)} Std`;
 }
 
-function viewStories(owner) {
-  const list = owner === S.me.id ? myStoryList : S.stories[owner] || [];
+// opts: { list, name, av } für öffentliche Stories von Nicht-Kontakten
+function viewStories(owner, opts = {}) {
+  const list = opts.list || (owner === S.me.id ? myStoryList : S.stories[owner] || []);
   if (!list.length) return;
+  const known = S.contacts[owner];
+  const ownerName = owner === S.me.id ? "Deine Story" : known ? displayName(known) : opts.name || owner;
   let idx = owner === S.me.id ? 0 : Math.max(0, list.findIndex((st) => !S.storySeen[`${owner}/${st.skey}`]));
   let timer = null;
+  let videoEl = null;
   const ov = el("div", "story-view");
   const bars = el("div", "story-bars");
   list.forEach(() => bars.append(el("div", "story-bar-seg")));
   const head = el("div", "story-head");
   const av = el("div", "avatar sm");
   if (owner === S.me.id) fillAvatar(av, { id: owner, av: S.me.av }, S.me.name || owner);
-  else fillAvatar(av, S.contacts[owner]);
+  else fillAvatar(av, known || { id: owner, av: opts.av || 0, name: opts.name }, ownerName);
   const who = el("div", "story-who");
   const close = el("button", "icon-btn story-close", "✕");
   head.append(av, who, close);
@@ -2585,8 +2733,13 @@ function viewStories(owner) {
   ov.append(bars, head, stage, foot);
   document.body.append(ov);
 
+  const stopVideo = () => {
+    if (videoEl) videoEl.pause();
+    videoEl = null;
+  };
   const end = () => {
     clearTimeout(timer);
+    stopVideo();
     ov.remove();
     renderStoryBar();
   };
@@ -2598,26 +2751,60 @@ function viewStories(owner) {
     show();
   };
   stage.onclick = (e) => {
+    if (e.target.closest("button")) return;
     const r = stage.getBoundingClientRect();
     go(e.clientX - r.left < r.width / 3 ? -1 : 1);
   };
-  async function show() {
-    clearTimeout(timer);
-    const st = list[idx];
+  const runBar = (ms) => {
     [...bars.children].forEach((b, i) => {
       b.classList.toggle("done", i < idx);
       b.classList.remove("active");
+      b.style.setProperty("--dur", ms + "ms");
       if (i === idx) void b.offsetWidth, b.classList.add("active");
     });
+  };
+  async function show() {
+    clearTimeout(timer);
+    stopVideo();
+    const st = list[idx];
+    runBar(6000);
+    [...bars.children][idx].classList.remove("active");
     who.textContent = "";
-    who.append(rich("strong", null, owner === S.me.id ? "Deine Story" : displayName(S.contacts[owner])), el("span", "small", " · " + timeAgo(st.ts)));
+    who.append(rich("strong", null, ownerName), el("span", "small", " · " + timeAgo(st.ts) + (st.pub ? " · 🌍" : "")));
     stage.textContent = "";
     foot.textContent = "";
     stage.append(el("div", "story-loading", "…"));
     try {
       const c = await loadStory(owner, st);
       stage.textContent = "";
-      if (c.img) {
+      let ms = 6000;
+      if (c.vid?.ref) {
+        const v = el("video", "story-img");
+        v.playsInline = true;
+        v.poster = c.vid.poster ? "data:image/jpeg;base64," + c.vid.poster : "";
+        stage.append(v);
+        const load = el("div", "story-loading story-over", "Video wird geladen…");
+        stage.append(load);
+        const blob = await downloadMedia(c.vid.ref, (f) => (load.textContent = `Video wird geladen… ${Math.round(f * 100)} %`));
+        load.remove();
+        v.src = URL.createObjectURL(blob);
+        videoEl = v;
+        ms = Math.max(3000, Math.min(MAX_VIDEO_SEC, c.vid.dur || 10) * 1000 + 400);
+        try {
+          await v.play();
+        } catch {
+          v.muted = true;
+          await v.play().catch(() => {});
+          const unmute = el("button", "btn small-btn story-unmute", "🔇 Ton an");
+          unmute.onclick = (e) => {
+            e.stopPropagation();
+            v.muted = false;
+            unmute.remove();
+          };
+          stage.append(unmute);
+        }
+        if (c.t) stage.append(rich("div", "story-caption", c.t));
+      } else if (c.img) {
         const img = el("img", "story-img");
         img.src = "data:image/jpeg;base64," + c.img;
         stage.append(img);
@@ -2628,6 +2815,7 @@ function viewStories(owner) {
         t.style.background = c.bg || "var(--accent)";
         stage.append(t);
       }
+      runBar(ms);
       if (owner !== S.me.id && !S.storySeen[`${owner}/${st.skey}`]) {
         S.storySeen[`${owner}/${st.skey}`] = Date.now();
         save();
@@ -2658,6 +2846,20 @@ function viewStories(owner) {
         };
         foot.append(views, add, del);
       } else {
+        if (!known) {
+          const addc = el("button", "btn small-btn", "＋ Als Kontakt");
+          addc.onclick = async (e) => {
+            e.stopPropagation();
+            try {
+              await addContactByCode(owner, { open: false });
+              toast("Kontakt hinzugefügt ✓");
+              addc.remove();
+            } catch (err) {
+              toast(err.message);
+            }
+          };
+          foot.append(addc);
+        }
         const rep = el("button", "btn small-btn danger", "⚑ Melden");
         rep.onclick = (e) => {
           e.stopPropagation();
@@ -2666,7 +2868,7 @@ function viewStories(owner) {
         };
         foot.append(rep);
       }
-      timer = setTimeout(() => go(1), 6000);
+      timer = setTimeout(() => go(1), ms);
     } catch {
       stage.textContent = "";
       stage.append(el("div", "story-loading", "Story nicht mehr verfügbar."));
@@ -2904,6 +3106,7 @@ function voicePlayer(m) {
   const btn = el("button", "voice-play", "▶");
   btn.type = "button";
   btn.setAttribute("aria-label", "Abspielen");
+  const mid = el("div", "voice-mid");
   const bars = el("div", "voice-bars");
   const w = m.aud.w?.length ? m.aud.w : Array.from({ length: 32 }, (_, i) => 4 + ((i * 7) % 11));
   for (const h of w) {
@@ -2911,8 +3114,23 @@ function voicePlayer(m) {
     s.style.height = 3 + h * 1.1 + "px";
     bars.append(s);
   }
-  const time = el("span", "voice-time", m.aud.dur ? fmtDur(m.aud.dur) : "▶︎");
-  box.append(btn, bars, time);
+  const ctrl = el("div", "voice-ctrl");
+  const back = el("button", "voice-skip", "⏪ 10");
+  back.type = "button";
+  back.title = "10 Sekunden zurück";
+  const fwd = el("button", "voice-skip", "10 ⏩");
+  fwd.type = "button";
+  fwd.title = "10 Sekunden vor";
+  const speed = el("button", "voice-speed", "1×");
+  speed.type = "button";
+  speed.title = "Geschwindigkeit";
+  const time = el("span", "voice-time", m.aud.dur ? fmtDur(m.aud.dur) : "0:00");
+  ctrl.append(back, time, fwd, speed);
+  mid.append(bars, ctrl);
+  box.append(btn, mid);
+  let rate = 1;
+  let pendingFrac = 0;
+  const total = () => (voiceUi === ui && voiceAudio && isFinite(voiceAudio.duration) && voiceAudio.duration > 0 ? voiceAudio.duration : m.aud.dur || 1);
   const paint = (frac) => {
     const n = bars.children.length;
     [...bars.children].forEach((b, i) => b.classList.toggle("played", i / n < frac));
@@ -2921,17 +3139,83 @@ function voicePlayer(m) {
     reset() {
       btn.textContent = "▶";
       paint(0);
-      time.textContent = m.aud.dur ? fmtDur(m.aud.dur) : "▶︎";
+      pendingFrac = 0;
+      time.textContent = m.aud.dur ? fmtDur(m.aud.dur) : "0:00";
     },
   };
-  const seek = (e) => {
-    if (voiceUi !== ui || !voiceAudio?.duration || !isFinite(voiceAudio.duration)) return;
-    const r = bars.getBoundingClientRect();
-    voiceAudio.currentTime = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * voiceAudio.duration;
+  async function ensureAudio() {
+    if (voiceUi === ui && voiceAudio) return voiceAudio;
+    stopVoice();
+    let url = voiceUrls.get(m.mid);
+    if (!url) {
+      const b64 = await idbGet("media", m.mid);
+      if (!b64) {
+        toast("Sprachnachricht ist nicht mehr verfügbar.");
+        return null;
+      }
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      url = URL.createObjectURL(new Blob([bytes], { type: m.aud.type || "audio/webm" }));
+      voiceUrls.set(m.mid, url);
+    }
+    const a = new Audio(url);
+    a.playbackRate = rate;
+    voiceAudio = a;
+    voiceUi = ui;
+    a.ontimeupdate = () => {
+      paint(a.currentTime / total());
+      time.textContent = fmtDur(a.currentTime);
+    };
+    a.onended = () => {
+      ui.reset();
+      voiceAudio = null;
+      voiceUi = null;
+    };
+    if (pendingFrac) {
+      await new Promise((res) => {
+        if (a.readyState >= 1) res();
+        else a.onloadedmetadata = res;
+        setTimeout(res, 800);
+      });
+      a.currentTime = pendingFrac * total();
+    }
+    return a;
+  }
+  const jump = async (delta) => {
+    const a = await ensureAudio();
+    if (!a) return;
+    a.currentTime = Math.max(0, Math.min(total() - 0.05, a.currentTime + delta));
+    paint(a.currentTime / total());
+    time.textContent = fmtDur(a.currentTime);
   };
-  bars.onclick = (e) => {
+  box.onclick = (e) => {
+    if (e.target.closest("button") || e.target.closest(".voice-bars")) e.stopPropagation();
+  };
+  bars.onclick = async (e) => {
     e.stopPropagation();
-    seek(e);
+    const r = bars.getBoundingClientRect();
+    const frac = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    paint(frac);
+    if (voiceUi === ui && voiceAudio) voiceAudio.currentTime = frac * total();
+    else {
+      pendingFrac = frac;
+      time.textContent = fmtDur(frac * (m.aud.dur || 0));
+    }
+  };
+  back.onclick = (e) => {
+    e.stopPropagation();
+    jump(-10);
+  };
+  fwd.onclick = (e) => {
+    e.stopPropagation();
+    jump(10);
+  };
+  speed.onclick = (e) => {
+    e.stopPropagation();
+    rate = rate === 1 ? 1.5 : rate === 1.5 ? 2 : 1;
+    speed.textContent = `${rate}×`.replace(".", ",");
+    if (voiceUi === ui && voiceAudio) voiceAudio.playbackRate = rate;
   };
   btn.onclick = async (e) => {
     e.stopPropagation();
@@ -2945,30 +3229,8 @@ function voicePlayer(m) {
       }
       return;
     }
-    stopVoice();
-    let url = voiceUrls.get(m.mid);
-    if (!url) {
-      const b64 = await idbGet("media", m.mid);
-      if (!b64) return toast("Sprachnachricht ist nicht mehr verfügbar.");
-      const bin = atob(b64);
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      url = URL.createObjectURL(new Blob([bytes], { type: m.aud.type || "audio/webm" }));
-      voiceUrls.set(m.mid, url);
-    }
-    const a = new Audio(url);
-    voiceAudio = a;
-    voiceUi = ui;
-    a.ontimeupdate = () => {
-      const total = isFinite(a.duration) && a.duration > 0 ? a.duration : m.aud.dur || 1;
-      paint(a.currentTime / total);
-      time.textContent = fmtDur(a.currentTime);
-    };
-    a.onended = () => {
-      ui.reset();
-      voiceAudio = null;
-      voiceUi = null;
-    };
+    const a = await ensureAudio();
+    if (!a) return;
     try {
       await a.play();
       btn.textContent = "❚❚";
@@ -3312,6 +3574,410 @@ async function recoverFromMirror() {
   }
 }
 
+/* ================= Große Medien: Videos & GIFs (verschlüsselt, in Stücken) ================= */
+const MEDIA_CHUNK = 3_500_000;
+const MAX_MEDIA = 30_000_000;
+const MAX_VIDEO_SEC = 60;
+const PIXEL_GIFS = ["gg", "lol", "hi", "omg", "herz", "krone", "feuer", "nein", "ja", "daumen", "lachen", "weinen", "brb", "xd", "sterne", "party"];
+
+async function uploadMedia(blob, onProgress) {
+  if (blob.size > MAX_MEDIA) throw new Error("Datei ist zu groß (max. 30 MB).");
+  const key = rand(32);
+  const iv = rand(12);
+  const id = b64u(rand(12));
+  const b = Math.floor(Date.now() / 3600000);
+  const plain = new Uint8Array(await blob.arrayBuffer());
+  const ct = new Uint8Array(
+    await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: enc.encode("pk-media|" + id) }, await aesKey(key), plain)
+  );
+  const n = Math.ceil(ct.length / MEDIA_CHUNK);
+  for (let i = 0; i < n; i++) {
+    const part = ct.subarray(i * MEDIA_CHUNK, Math.min(ct.length, (i + 1) * MEDIA_CHUNK));
+    let ok = false;
+    for (let attempt = 0; attempt < 3 && !ok; attempt++) {
+      const r = await fetch(`/api/media?id=${id}&i=${i}&b=${b}`, {
+        method: "PUT",
+        headers: { authorization: `PK ${S.me.id}:${S.me.token}`, "content-type": "application/octet-stream" },
+        body: part,
+      });
+      if (r.status === 403) {
+        const d = await r.json().catch(() => ({}));
+        throw Object.assign(new Error(d.error || "Gesperrt"), { status: 403 });
+      }
+      ok = r.ok;
+    }
+    if (!ok) throw new Error("Hochladen fehlgeschlagen – bitte nochmal versuchen.");
+    onProgress?.((i + 1) / n);
+  }
+  return { id, b, n, k: b64u(key), iv: b64u(iv), type: blob.type || "application/octet-stream", size: blob.size };
+}
+
+const mediaBlobCache = new Map();
+async function downloadMedia(ref, onProgress) {
+  if (mediaBlobCache.has(ref.id)) return mediaBlobCache.get(ref.id);
+  const parts = [];
+  for (let i = 0; i < ref.n; i++) {
+    const r = await fetch(`/api/media?id=${ref.id}&i=${i}&b=${ref.b}`, { headers: { authorization: `PK ${S.me.id}:${S.me.token}` } });
+    if (!r.ok) throw new Error("Nicht mehr verfügbar.");
+    parts.push(new Uint8Array(await r.arrayBuffer()));
+    onProgress?.((i + 1) / ref.n);
+  }
+  const total = parts.reduce((a, p) => a + p.length, 0);
+  const ct = new Uint8Array(total);
+  let off = 0;
+  for (const p of parts) {
+    ct.set(p, off);
+    off += p.length;
+  }
+  const pt = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: unb64u(ref.iv), additionalData: enc.encode("pk-media|" + ref.id) },
+    await aesKey(unb64u(ref.k)),
+    ct
+  );
+  const blob = new Blob([pt], { type: ref.type });
+  mediaBlobCache.set(ref.id, blob);
+  return blob;
+}
+// Medien einer Nachricht: einmal laden, dann im Gerät (IndexedDB) behalten
+async function messageMediaUrl(m, kind, onProgress) {
+  const key = `${kind}:${m.mid}`;
+  if (urlCache.has(key)) return urlCache.get(key);
+  let blob = await idbGet("media", key);
+  if (!blob) {
+    const ref = (kind === "v" ? m.vid : m.gif)?.ref;
+    if (!ref) return null;
+    blob = await downloadMedia(ref, onProgress);
+    await idbPut("media", key, blob);
+  }
+  const url = URL.createObjectURL(blob);
+  urlCache.set(key, url);
+  return url;
+}
+
+function videoInfo(file) {
+  return new Promise((resolve, reject) => {
+    const v = document.createElement("video");
+    v.preload = "metadata";
+    v.muted = true;
+    v.playsInline = true;
+    v.src = URL.createObjectURL(file);
+    v.onloadedmetadata = () => resolve(v);
+    v.onerror = () => reject(new Error("Dieses Video kann nicht gelesen werden."));
+  });
+}
+async function posterOf(v, at = 0.2) {
+  await new Promise((res) => {
+    v.onseeked = res;
+    v.currentTime = Math.min(at, (v.duration || 1) / 2);
+    setTimeout(res, 1500);
+  });
+  const w = v.videoWidth || 320;
+  const h = v.videoHeight || 240;
+  const sc = Math.min(1, 320 / Math.max(w, h));
+  const c = document.createElement("canvas");
+  c.width = Math.round(w * sc);
+  c.height = Math.round(h * sc);
+  c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+  const d = c.toDataURL("image/jpeg", 0.6);
+  return { poster: d.slice(d.indexOf(",") + 1), w, h };
+}
+function pickVideoType() {
+  if (!window.MediaRecorder) return null;
+  for (const t of ["video/mp4;codecs=avc1,mp4a", "video/mp4", "video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm"]) {
+    try {
+      if (MediaRecorder.isTypeSupported(t)) return t;
+    } catch {}
+  }
+  return null;
+}
+// Video verkleinern: im Browser neu aufnehmen (max. 720p, ~1,2 Mbit/s)
+async function transcodeVideo(file, v, onProgress) {
+  const type = pickVideoType();
+  const canvas = document.createElement("canvas");
+  if (!type || !canvas.captureStream) return null;
+  const sc = Math.min(1, 720 / Math.max(v.videoWidth, v.videoHeight));
+  canvas.width = Math.round((v.videoWidth * sc) / 2) * 2;
+  canvas.height = Math.round((v.videoHeight * sc) / 2) * 2;
+  const ctx = canvas.getContext("2d");
+  const stream = canvas.captureStream(30);
+  let actx = null;
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    actx = new Ctx();
+    const src = actx.createMediaElementSource(v);
+    const dest = actx.createMediaStreamDestination();
+    src.connect(dest);
+    dest.stream.getAudioTracks().forEach((t) => stream.addTrack(t));
+  } catch {}
+  v.muted = !actx;
+  v.currentTime = 0;
+  const rec = new MediaRecorder(stream, { mimeType: type, videoBitsPerSecond: 1_200_000, audioBitsPerSecond: 64000 });
+  const chunks = [];
+  rec.ondataavailable = (e) => e.data?.size && chunks.push(e.data);
+  const done = new Promise((res) => (rec.onstop = res));
+  let raf;
+  const draw = () => {
+    ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+    onProgress?.(Math.min(0.99, v.currentTime / v.duration));
+    if (!v.ended) raf = requestAnimationFrame(draw);
+  };
+  rec.start(500);
+  await v.play();
+  draw();
+  await new Promise((res) => (v.onended = res));
+  cancelAnimationFrame(raf);
+  rec.stop();
+  await done;
+  actx?.close().catch(() => {});
+  stream.getTracks().forEach((t) => t.stop());
+  const out = new Blob(chunks, { type: type.split(";")[0] });
+  return out.size > 1000 ? out : null;
+}
+
+function progressModal(title) {
+  const body = el("div", "stack");
+  body.append(el("h2", null, title));
+  const bar = el("div", "progress");
+  const fill = el("div", "progress-fill");
+  bar.append(fill);
+  const label = el("p", "small muted", "0 %");
+  body.append(bar, label);
+  openModal(body);
+  return (f, text) => {
+    fill.style.width = Math.round(f * 100) + "%";
+    label.textContent = text || Math.round(f * 100) + " %";
+  };
+}
+
+// Video auswählen → (verkleinern) → verschlüsselt hochladen → senden bzw. für Story zurückgeben
+async function prepareVideoRef(file, title = "🎬 Video wird vorbereitet…") {
+  const v = await videoInfo(file);
+  if (v.duration > MAX_VIDEO_SEC + 1) throw new Error(`Videos dürfen höchstens ${MAX_VIDEO_SEC} Sekunden lang sein.`);
+  const set = progressModal(title);
+  const { poster, w, h } = await posterOf(v);
+  let blob = null;
+  if (file.size > 8_000_000 || !/^video\/(mp4|webm)$/.test(file.type)) {
+    set(0, "Video wird verkleinert… 0 %");
+    try {
+      blob = await transcodeVideo(file, v, (f) => set(f * 0.7, `Video wird verkleinert… ${Math.round(f * 100)} %`));
+    } catch {
+      blob = null;
+    }
+  }
+  if (!blob) blob = file;
+  if (blob.size > MAX_MEDIA) throw new Error("Das Video ist zu groß. Bitte ein kürzeres Video wählen.");
+  const ref = await uploadMedia(blob, (f) => set(0.7 + f * 0.3, `Wird verschlüsselt hochgeladen… ${Math.round(f * 100)} %`));
+  URL.revokeObjectURL(v.src);
+  return { ref, dur: Math.round(v.duration), w, h, poster };
+}
+
+async function pickVideoToSend(file) {
+  if (!currentChat || sendBlocked()) return;
+  try {
+    const vid = await prepareVideoRef(file);
+    closeModal();
+    if (onceMode) toggleOnce();
+    sendMessage({ vid });
+  } catch (e) {
+    closeModal();
+    toast(e.message || "Video konnte nicht gesendet werden.");
+  }
+}
+
+async function gifStill(blob) {
+  try {
+    const bmp = await createImageBitmap(blob);
+    const sc = Math.min(1, 320 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(bmp.width * sc);
+    c.height = Math.round(bmp.height * sc);
+    c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
+    const d = c.toDataURL("image/jpeg", 0.7);
+    return { poster: d.slice(d.indexOf(",") + 1), w: bmp.width, h: bmp.height };
+  } catch {
+    return { poster: undefined, w: 200, h: 200 };
+  }
+}
+async function sendGifBlob(blob) {
+  if (!currentChat || sendBlocked()) return;
+  if (blob.size > 8_000_000) return toast("GIF ist zu groß (max. 8 MB).");
+  try {
+    const set = progressModal("GIF wird gesendet…");
+    const { poster, w, h } = await gifStill(blob);
+    const ref = await uploadMedia(blob, (f) => set(f));
+    closeModal();
+    sendMessage({ gif: { ref, w, h, poster } });
+  } catch (e) {
+    closeModal();
+    toast(e.message || "GIF konnte nicht gesendet werden.");
+  }
+}
+function sendPixelGif(name) {
+  if (!currentChat || sendBlocked()) return;
+  closePopovers();
+  sendMessage({ gif: { p: name } });
+}
+
+// Darstellung im Chat
+function videoCard(m) {
+  const box = el("div", "video-card");
+  if (m.vid.poster) {
+    const img = el("img");
+    img.src = "data:image/jpeg;base64," + m.vid.poster;
+    img.alt = "Video";
+    box.append(img);
+  }
+  box.append(el("span", "video-play", "▶"), el("span", "video-dur", fmtDur(m.vid.dur)));
+  box.onclick = async (e) => {
+    e.stopPropagation();
+    const body = el("div", "stack");
+    const status = el("p", "small muted", "Video wird geladen…");
+    body.append(status);
+    openModal(body);
+    try {
+      const url = await messageMediaUrl(m, "v", (f) => (status.textContent = `Video wird geladen… ${Math.round(f * 100)} %`));
+      if (!url) throw new Error();
+      const vid = el("video", "full-video");
+      vid.src = url;
+      vid.controls = true;
+      vid.playsInline = true;
+      vid.autoplay = true;
+      status.replaceWith(vid);
+      if (m.text) body.append(rich("p", null, m.text));
+      if (m.dir === "in") {
+        const rep = el("button", "btn danger", "⚑ Video melden");
+        rep.onclick = () => showReport({ type: "message", target: m.from || currentChat, mids: [m.mid] });
+        body.append(rep);
+      }
+    } catch {
+      status.textContent = "Video ist nicht mehr verfügbar.";
+    }
+  };
+  if (m.vid.w && m.vid.h) box.style.aspectRatio = `${m.vid.w} / ${m.vid.h}`;
+  return box;
+}
+function gifNode(m) {
+  const img = el("img", "msg-gif");
+  img.alt = "GIF";
+  if (m.gif.p) img.src = `/gifs/${m.gif.p}.gif`;
+  else {
+    if (m.gif.poster) img.src = "data:image/jpeg;base64," + m.gif.poster;
+    messageMediaUrl(m, "g").then((u) => u && (img.src = u)).catch(() => {});
+  }
+  if (m.gif.w && m.gif.h) img.style.aspectRatio = `${m.gif.w} / ${m.gif.h}`;
+  return img;
+}
+
+/* ---------- GIF-Auswahl (wie bei Discord) ---------- */
+let gifSearchEnabled = null;
+async function renderGifTab(grid) {
+  grid.textContent = "";
+  grid.classList.add("gif-grid");
+  const top = el("div", "gif-top");
+  const search = el("input", "gif-search");
+  search.placeholder = "GIFs suchen…";
+  const own = el("button", "btn small-btn", "📁 Eigenes GIF");
+  own.type = "button";
+  own.onclick = () => $("#gifInput").click();
+  top.append(search, own);
+  const results = el("div", "gif-results");
+  grid.append(top, results);
+  const showPixel = () => {
+    results.textContent = "";
+    results.append(el("div", "gif-section", "👾 Pixel-GIFs"));
+    for (const name of PIXEL_GIFS) {
+      const b = el("button", "gif-cell");
+      b.type = "button";
+      const img = el("img");
+      img.src = `/gifs/${name}.gif`;
+      img.alt = name;
+      img.loading = "lazy";
+      b.append(img);
+      b.onclick = () => sendPixelGif(name);
+      results.append(b);
+    }
+  };
+  const showSearch = async (q) => {
+    if (gifSearchEnabled === false) return;
+    try {
+      const r = await api(`gifs?q=${encodeURIComponent(q)}`);
+      gifSearchEnabled = r.enabled;
+      if (!r.enabled) {
+        search.placeholder = "Suche bald verfügbar – Pixel-GIFs & eigene GIFs gehen schon";
+        search.disabled = true;
+        return;
+      }
+      if (q) results.textContent = "";
+      results.append(el("div", "gif-section", q ? `🔎 ${q}` : "🔥 Angesagt"));
+      for (const g of r.results) {
+        const b = el("button", "gif-cell");
+        b.type = "button";
+        const img = el("img");
+        img.src = g.preview;
+        img.loading = "lazy";
+        img.alt = "GIF";
+        img.referrerPolicy = "no-referrer";
+        b.append(img);
+        b.onclick = async () => {
+          closePopovers();
+          try {
+            const res = await fetch(`/api/gif?id=${g.id}`, { headers: { authorization: `PK ${S.me.id}:${S.me.token}` } });
+            if (!res.ok) throw new Error();
+            await sendGifBlob(await res.blob());
+          } catch {
+            toast("GIF konnte nicht geladen werden.");
+          }
+        };
+        results.append(b);
+      }
+    } catch {}
+  };
+  showPixel();
+  showSearch("");
+  let t;
+  search.oninput = () => {
+    clearTimeout(t);
+    t = setTimeout(() => {
+      if (!search.value.trim()) {
+        showPixel();
+        showSearch("");
+      } else showSearch(search.value.trim());
+    }, 400);
+  };
+}
+
+/* ================= Öffentliche Stories entdecken ================= */
+async function showDiscover() {
+  const body = el("div", "stack");
+  body.append(el("h2", null, "🌍 Entdecken"));
+  body.append(el("p", "small muted", "Öffentliche Stories aus der ganzen Pixelkingschat-Community (24 Stunden)."));
+  const grid = el("div", "discover-grid");
+  grid.append(el("p", "small muted", "Wird geladen…"));
+  body.append(grid);
+  openModal(body);
+  try {
+    const { owners } = await api("pubstories");
+    grid.textContent = "";
+    if (!owners.length) grid.append(el("p", "small muted", "Gerade gibt es keine öffentlichen Stories. Poste doch die erste! 👑"));
+    for (const o of owners) {
+      if (o.owner === S.me.id) continue;
+      const b = el("button", "discover-item");
+      const ring = el("div", "story-ring " + (o.items.some((st) => !S.storySeen[`${o.owner}/${st.skey}`]) ? "unseen" : "seen"));
+      const a = el("div", "avatar");
+      fillAvatar(a, { id: o.owner, av: o.av, name: o.name }, o.name || o.owner);
+      ring.append(a);
+      b.append(ring, rich("span", "story-label", o.name || o.owner), el("span", "small muted", timeAgo(o.items.at(-1).ts)));
+      b.onclick = () => {
+        closeModal();
+        viewStories(o.owner, { list: o.items.map((x) => ({ ...x, pub: true })), name: o.name, av: o.av });
+      };
+      grid.append(b);
+    }
+  } catch {
+    grid.textContent = "Konnte nicht geladen werden.";
+  }
+}
+
 /* ================= Start ================= */
 function handleHash() {
   const sc = /^#(new|scan)$/.exec(location.hash);
@@ -3429,7 +4095,7 @@ function bind() {
   $("#imgInput").onchange = (e) => {
     const f = e.target.files?.[0];
     e.target.value = "";
-    if (f) pickImageToSend(f);
+    if (f) f.type === "image/gif" ? sendGifBlob(f) : pickImageToSend(f);
   };
   $("#avatarInput").onchange = (e) => {
     const f = e.target.files?.[0];

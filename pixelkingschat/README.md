@@ -12,6 +12,10 @@ Anonymer Chat **ohne Telefonnummer und ohne E-Mail** – live: https://pixelking
 - **Push-Benachrichtigungen** – auch auf dem Homebildschirm (iPhone ab iOS 16.4: „Teilen → Zum Home-Bildschirm“). Die Benachrichtigung verrät nur den Absender, nie den Inhalt.
 - **Melden** von einzelnen Nachrichten, ganzen Chats und Profilbildern. Gemeldete Inhalte werden automatisch geprüft; bei Verstößen gibt es Verwarnungen bzw. eine Sperre (schwere Verstöße sofort, sonst nach 3 Verwarnungen). Meldungen sind fälschungssicher: Der Server speichert beim Senden nur einen Hash jeder Nachricht, und beim Melden wird nur der Schlüssel genau dieser Nachricht herausgegeben.
 - **Automatische Maßnahmen** – bei jeder Meldung entscheidet die Prüfung selbst (unter Berücksichtigung früherer Verstöße): Verwarnung, Nachrichten aus allen Chats entfernen, Timeout (1 Std bis 7 Tage) oder dauerhafte Sperre. Betroffene sehen einen Hinweis und ein Banner; gesperrte Konten werden bei allen Kontakten markiert. Technisch: Claude (claude-opus-5-5) über das Netlify AI Gateway, in der App wird das nicht erwähnt.
+- **Videos** im Chat, in Gruppen und in Stories (bis 60 Sek.) – große Videos werden im Browser verkleinert, verschlüsselt in Stücken hochgeladen (`/api/media`).
+- **GIFs wie bei Discord** – GIF-Tab im Emoji-Menü mit 16 eigenen animierten Pixel-GIFs (`public/gifs/`), eigene GIFs vom Gerät und GIPHY-Suche (aktiv, sobald die Umgebungsvariable `GIPHY_API_KEY` gesetzt ist).
+- **Sprachnachrichten spulen** – ⏪/⏩ 10 Sek., auf die Wellenform tippen, Geschwindigkeit 1×/1,5×/2×.
+- **Öffentliche Stories** – in den Einstellungen oder pro Story wählbar; erscheinen für alle unter „🌍 Entdecken“ und werden vor dem Veröffentlichen automatisch geprüft.
 - **Online-Status** (grüner Punkt, „zuletzt online“) und **Gesehen-Anzeige mit Pixel-Auge** – beides in den Einstellungen abschaltbar.
 - **Konto sichern** – dauerhafter Speicher, automatische Sicherheitskopie im Gerät und verschlüsseltes Cloud-Backup mit Passwort (PBKDF2 + AES-GCM im Browser). Wiederherstellen mit Code + Passwort auf jedem Gerät.
 - **Blockieren** – Nachrichten blockierter Kontakte werden schon auf dem Server verworfen.

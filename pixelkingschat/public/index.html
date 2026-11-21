@@ -119,8 +119,11 @@
         </div>
         <input type="file" id="imgInput" accept="image/*" class="hidden">
         <input type="file" id="fileInput" class="hidden">
+        <input type="file" id="videoInput" accept="video/*" class="hidden">
+        <input type="file" id="gifInput" accept="image/gif" class="hidden">
         <div id="attachMenu" class="popover attach-menu hidden">
           <button type="button" data-act="img">🖼 <span>Foto / Bild</span></button>
+          <button type="button" data-act="video">🎬 <span>Video (bis 60 Sek.)</span></button>
           <button type="button" data-act="file">📎 <span>Datei (bis 2,5 MB)</span></button>
           <button type="button" data-act="once" id="onceBtn" aria-pressed="false">👁 <span>Einmal-Nachricht: aus</span></button>
         </div>
@@ -140,7 +143,7 @@
   <div id="toast" class="toast hidden"></div>
 
   <input type="file" id="avatarInput" accept="image/*" class="hidden">
-  <input type="file" id="storyInput" accept="image/*" class="hidden">
+  <input type="file" id="storyInput" accept="image/*,video/*" class="hidden">
   <input type="file" id="wallpaperInput" accept="image/*" class="hidden">
   <script src="vendor/qrcode.js"></script>
   <script src="vendor/jsQR.js"></script>

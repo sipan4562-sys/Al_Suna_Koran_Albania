@@ -44,6 +44,16 @@ export default async () => {
         if (!ts || now - ts > TTL_MS) await st.delete(b.key);
       }
   }
+  // Mediendateien (Stunden-Bucket) und Index öffentlicher Stories
+  const ms = getStore({ name: "pk-media", consistency: "strong" });
+  for await (const page of ms.list({ paginate: true }))
+    for (const b of page.blobs) if (Number(b.key.split("/")[0]) < minBucket) await ms.delete(b.key);
+  const pi = getStore({ name: "pk-pubidx", consistency: "strong" });
+  for await (const page of pi.list({ paginate: true }))
+    for (const b of page.blobs) {
+      const ts = Number(b.key.split("-")[0]);
+      if (!ts || now - ts > TTL_MS) await pi.delete(b.key);
+    }
   console.log(`cleanup: ${deleted} Nachrichten, ${fDeleted} Fingerabdrücke gelöscht`);
 };
 
