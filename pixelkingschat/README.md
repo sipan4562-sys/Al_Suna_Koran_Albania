@@ -1,6 +1,10 @@
 # 👑 Pixelkingschat
 
-Anonymer Chat **ohne Telefonnummer und ohne E-Mail** – live: https://pixelkingschat.netlify.app
+Anonymer Chat **ohne Telefonnummer und ohne E-Mail** – live: https://pixelkingschat.vercel.app (vorher: https://pixelkingschat.netlify.app)
+
+## Hosting
+- **Vercel** (aktuell): statische Dateien aus `public/`, Server als gebündelte Funktion `api/main.mjs` (Quelle: `server/`, bauen mit `npm run build:vercel`), Speicher in **Supabase/Postgres** (`POSTGRES_URL`), Region fra1. Inhaltsprüfung über das Vercel AI Gateway (benötigt eine im Vercel-Team hinterlegte Kreditkarte für die kostenlosen Credits). `MIGRATE_FROM=https://pixelkingschat.netlify.app` erlaubt den Umzug alter Konten.
+- **Netlify** (weiterhin lauffähig): `netlify/functions/api.mts` nutzt denselben Kern mit Netlify Blobs.
 
 ## Funktionen
 - **Kontakt per Code oder QR-Code** – jeder bekommt einen zufälligen 8-stelligen Code. Einladungslink `/#add=CODE` öffnet direkt den Chat.

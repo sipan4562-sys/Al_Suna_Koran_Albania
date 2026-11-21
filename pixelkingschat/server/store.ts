@@ -39,7 +39,17 @@ let sql: ReturnType<typeof postgres> | null = null;
 let ready: Promise<void> | null = null;
 function db() {
   if (!sql) {
-    sql = postgres(DB_URL()!, { prepare: false, max: 3, idle_timeout: 20, connect_timeout: 15, ssl: "require", onnotice: () => {} });
+    // Serverless: kurze Leerlaufzeit, keine Typ-Abfrage beim Verbinden, eher mehr parallele Verbindungen
+    sql = postgres(DB_URL()!, {
+      prepare: false,
+      max: 8,
+      idle_timeout: 4,
+      max_lifetime: 120,
+      connect_timeout: 8,
+      fetch_types: false,
+      ssl: "require",
+      onnotice: () => {},
+    });
   }
   ready ??= (async () => {
     await sql!`create table if not exists pk_kv (
@@ -61,6 +71,37 @@ function db() {
   return ready.then(() => sql!);
 }
 
+function resetDb() {
+  const old = sql;
+  sql = null;
+  ready = null;
+  old?.end({ timeout: 0 }).catch(() => {});
+}
+async function q<T>(fn: (s: ReturnType<typeof postgres>) => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const s = await Promise.race([
+        db(),
+        new Promise<never>((_, rej) => (timer = setTimeout(() => rej(new Error("db connect timeout")), 9000))),
+      ]);
+      clearTimeout(timer);
+      return await Promise.race([
+        fn(s),
+        new Promise<never>((_, rej) => (timer = setTimeout(() => rej(new Error("db query timeout")), 9000))),
+      ]);
+    } catch (e: any) {
+      clearTimeout(timer);
+      const transient = /timeout|ECONNRESET|EPIPE|CONNECTION_|terminat|closed/i.test(String(e?.message || e?.code || e));
+      if (attempt >= 1 || !transient) throw e;
+      console.warn("db: neue Verbindung nach", String(e?.message || e));
+      resetDb();
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+}
+
 let opCount = 0;
 async function maybeSweep(s: ReturnType<typeof postgres>) {
   if (++opCount % 200 !== 0) return;
@@ -68,8 +109,7 @@ async function maybeSweep(s: ReturnType<typeof postgres>) {
 }
 export async function sweepExpired() {
   if (!usingPostgres()) return 0;
-  const s = await db();
-  const r = await s`delete from pk_kv where expires_at is not null and expires_at < now()`;
+  const r = await q((s) => s`delete from pk_kv where expires_at is not null and expires_at < now()`);
   return r.count;
 }
 
@@ -78,8 +118,7 @@ const likeEscape = (p: string) => p.replace(/[\\%_]/g, (m) => "\\" + m);
 function pgStore(name: string): Store {
   const ttl = TTL[name];
   const exp = () => (ttl ? new Date(Date.now() + ttl) : null);
-  const write = async (key: string, val: Buffer | null, json: unknown, opts: SetOpts = {}) => {
-    const s = await db();
+  const write = (key: string, val: Buffer | null, json: unknown, opts: SetOpts = {}) => q(async (s) => {
     maybeSweep(s);
     const meta = opts.metadata ? s.json(opts.metadata as any) : null;
     const j = json === undefined ? null : s.json(json as any);
@@ -99,12 +138,11 @@ function pgStore(name: string): Store {
       on conflict (store, key) do update set val = excluded.val, json = excluded.json, meta = excluded.meta,
         expires_at = excluded.expires_at, updated_at = now()`;
     return { modified: true };
-  };
+  });
   return {
     async get(key, opts = {}) {
-      const s = await db();
-      const rows = await s`select val, json from pk_kv where store = ${name} and key = ${key}
-        and (expires_at is null or expires_at > now())`;
+      const rows = await q((s) => s`select val, json from pk_kv where store = ${name} and key = ${key}
+        and (expires_at is null or expires_at > now())`);
       if (!rows.length) return null;
       const { val, json } = rows[0] as { val: Buffer | null; json: unknown };
       const type = opts.type || "text";
@@ -123,16 +161,14 @@ function pgStore(name: string): Store {
       return write(key, null, value, opts);
     },
     async delete(key) {
-      const s = await db();
-      await s`delete from pk_kv where store = ${name} and key = ${key}`;
+      await q((s) => s`delete from pk_kv where store = ${name} and key = ${key}`);
     },
     list(opts: { prefix?: string; paginate?: boolean } = {}): any {
       const run = async () => {
-        const s = await db();
-        const rows = opts.prefix
-          ? await s`select key from pk_kv where store = ${name} and key like ${likeEscape(opts.prefix) + "%"}
+        const rows: any[] = await q((s) => opts.prefix
+          ? s`select key from pk_kv where store = ${name} and key like ${likeEscape(opts.prefix) + "%"}
               and (expires_at is null or expires_at > now()) order by key`
-          : await s`select key from pk_kv where store = ${name} and (expires_at is null or expires_at > now()) order by key`;
+          : s`select key from pk_kv where store = ${name} and (expires_at is null or expires_at > now()) order by key`);
         return { blobs: rows.map((r: any) => ({ key: r.key as string, etag: "" })), directories: [] as string[] };
       };
       if (opts.paginate) {

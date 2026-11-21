@@ -46296,20 +46296,20 @@ var require_bn = __commonJS({
         var littleEndian = endian === "le";
         var res = new ArrayType(reqLength);
         var b, i;
-        var q = this.clone();
+        var q2 = this.clone();
         if (!littleEndian) {
           for (i = 0; i < reqLength - byteLength; i++) {
             res[i] = 0;
           }
-          for (i = 0; !q.isZero(); i++) {
-            b = q.andln(255);
-            q.iushrn(8);
+          for (i = 0; !q2.isZero(); i++) {
+            b = q2.andln(255);
+            q2.iushrn(8);
             res[reqLength - i - 1] = b;
           }
         } else {
-          for (i = 0; !q.isZero(); i++) {
-            b = q.andln(255);
-            q.iushrn(8);
+          for (i = 0; !q2.isZero(); i++) {
+            b = q2.andln(255);
+            q2.iushrn(8);
             res[i] = b;
           }
           for (; i < reqLength; i++) {
@@ -47479,9 +47479,9 @@ var require_bn = __commonJS({
           if (w[i] !== 0) break;
         }
         if (++i < w.length) {
-          for (var q = res.sqr(); i < w.length; i++, q = q.sqr()) {
+          for (var q2 = res.sqr(); i < w.length; i++, q2 = q2.sqr()) {
             if (w[i] === 0) continue;
-            res = res.mul(q);
+            res = res.mul(q2);
           }
         }
         return res;
@@ -47585,10 +47585,10 @@ var require_bn = __commonJS({
         assert2(typeof bit === "number" && bit >= 0);
         var r = bit % 26;
         var s = (bit - r) / 26;
-        var q = 1 << r;
+        var q2 = 1 << r;
         if (this.length <= s) return false;
         var w = this.words[s];
-        return !!(w & q);
+        return !!(w & q2);
       };
       BN.prototype.imaskn = function imaskn(bits) {
         assert2(typeof bits === "number" && bits >= 0);
@@ -47722,20 +47722,20 @@ var require_bn = __commonJS({
           bhi = b.words[b.length - 1] | 0;
         }
         var m = a.length - b.length;
-        var q;
+        var q2;
         if (mode !== "mod") {
-          q = new BN(null);
-          q.length = m + 1;
-          q.words = new Array(q.length);
-          for (var i = 0; i < q.length; i++) {
-            q.words[i] = 0;
+          q2 = new BN(null);
+          q2.length = m + 1;
+          q2.words = new Array(q2.length);
+          for (var i = 0; i < q2.length; i++) {
+            q2.words[i] = 0;
           }
         }
         var diff = a.clone()._ishlnsubmul(b, 1, m);
         if (diff.negative === 0) {
           a = diff;
-          if (q) {
-            q.words[m] = 1;
+          if (q2) {
+            q2.words[m] = 1;
           }
         }
         for (var j = m - 1; j >= 0; j--) {
@@ -47750,19 +47750,19 @@ var require_bn = __commonJS({
               a.negative ^= 1;
             }
           }
-          if (q) {
-            q.words[j] = qj;
+          if (q2) {
+            q2.words[j] = qj;
           }
         }
-        if (q) {
-          q.strip();
+        if (q2) {
+          q2.strip();
         }
         a.strip();
         if (mode !== "div" && shift !== 0) {
           a.iushrn(shift);
         }
         return {
-          div: q || null,
+          div: q2 || null,
           mod: a
         };
       };
@@ -48045,13 +48045,13 @@ var require_bn = __commonJS({
         assert2(typeof bit === "number");
         var r = bit % 26;
         var s = (bit - r) / 26;
-        var q = 1 << r;
+        var q2 = 1 << r;
         if (this.length <= s) {
           this._expand(s + 1);
-          this.words[s] |= q;
+          this.words[s] |= q2;
           return this;
         }
-        var carry = q;
+        var carry = q2;
         for (var i = s; carry !== 0 && i < this.length; i++) {
           var w = this.words[i] | 0;
           w += carry;
@@ -48468,13 +48468,13 @@ var require_bn = __commonJS({
           var pow = this.m.add(new BN(1)).iushrn(2);
           return this.pow(a, pow);
         }
-        var q = this.m.subn(1);
+        var q2 = this.m.subn(1);
         var s = 0;
-        while (!q.isZero() && q.andln(1) === 0) {
+        while (!q2.isZero() && q2.andln(1) === 0) {
           s++;
-          q.iushrn(1);
+          q2.iushrn(1);
         }
-        assert2(!q.isZero());
+        assert2(!q2.isZero());
         var one2 = new BN(1).toRed(this);
         var nOne = one2.redNeg();
         var lpow = this.m.subn(1).iushrn(1);
@@ -48483,9 +48483,9 @@ var require_bn = __commonJS({
         while (this.pow(z, lpow).cmp(nOne) !== 0) {
           z.redIAdd(nOne);
         }
-        var c2 = this.pow(z, q);
-        var r = this.pow(a, q.addn(1).iushrn(1));
-        var t = this.pow(a, q);
+        var c2 = this.pow(z, q2);
+        var r = this.pow(a, q2.addn(1).iushrn(1));
+        var t = this.pow(a, q2);
         var m = s;
         while (t.cmp(one2) !== 0) {
           var tmp = t;
@@ -52428,19 +52428,19 @@ function withOrigin(error2, origin) {
 function firstLine(error2) {
   return typeof error2.stack === "string" ? error2.stack.split("\n")[0] : (error2.name || "Error") + (error2.message ? ": " + error2.message : "");
 }
-function queryError(error2, q, debug3) {
+function queryError(error2, q2, debug3) {
   if (!error2 || typeof error2 !== "object")
     error2 = new Error(error2);
-  if (!q || "query" in error2)
+  if (!q2 || "query" in error2)
     return error2;
-  const built = q.built;
+  const built = q2.built;
   Object.defineProperties(error2, {
-    query: { value: built ? built.text : q.strings[0], enumerable: !!debug3, configurable: true, writable: true },
+    query: { value: built ? built.text : q2.strings[0], enumerable: !!debug3, configurable: true, writable: true },
     parameters: { value: built ? built.values : [], enumerable: !!debug3, configurable: true, writable: true },
-    args: { value: q.args, enumerable: !!debug3, configurable: true, writable: true },
+    args: { value: q2.args, enumerable: !!debug3, configurable: true, writable: true },
     types: { value: built ? built.oids : [], enumerable: !!debug3, configurable: true, writable: true }
   });
-  return withOrigin(error2, q.origin);
+  return withOrigin(error2, q2.origin);
 }
 
 // node_modules/postgres/src/types.js
@@ -52946,10 +52946,10 @@ function build(query2, options) {
   const types2 = oids.join();
   return { strings: query2.strings, dynamic: o.dynamic, types: types2, text: text3, values: values2, oids };
 }
-function stringify2(q, o) {
-  let string2 = q.strings[0];
-  for (let i = 1; i < q.strings.length; i++)
-    string2 += part(string2, q.args[i - 1], o, q.strings[i]) + q.strings[i];
+function stringify2(q2, o) {
+  let string2 = q2.strings[0];
+  for (let i = 1; i < q2.strings.length; i++)
+    string2 += part(string2, q2.args[i - 1], o, q2.strings[i]) + q2.strings[i];
   return string2;
 }
 function part(before, x, o, after2 = "") {
@@ -52973,8 +52973,8 @@ function spaced(a, b) {
 function isFragment(x) {
   return !!x && x[isQuery] === true;
 }
-function fragment(q, o) {
-  return q.tagged ? stringify2(q, o) : q.strings[0];
+function fragment(q2, o) {
+  return q2.tagged ? stringify2(q2, o) : q2.strings[0];
 }
 function value(x, o) {
   let v = x instanceof Parameter ? x.value : x;
@@ -53488,24 +53488,24 @@ var Query = class _Query extends Promise {
     return super.finally(fn);
   }
 };
-function untime(q) {
-  q.handler.options.timers.clearTimeout(q.timer);
-  q.timer = null;
+function untime(q2) {
+  q2.handler.options.timers.clearTimeout(q2.timer);
+  q2.timer = null;
 }
 function timedOut(x) {
   return x.code === "57014" || x.code === "CONNECTION_DESTROYED" && !!x.cause && x.cause.code === "CANCEL_UNANSWERED";
 }
-function late(q, error2) {
-  const x = Errors.generic("QUERY_TIMEOUT", "The query did not finish within query_timeout (" + q.handler.options.query_timeout + " seconds)");
+function late(q2, error2) {
+  const x = Errors.generic("QUERY_TIMEOUT", "The query did not finish within query_timeout (" + q2.handler.options.query_timeout + " seconds)");
   x.cause = error2.code === "CONNECTION_DESTROYED" ? error2.cause : error2;
-  return queryError(x, q, q.handler.debug);
+  return queryError(x, q2, q2.handler.debug);
 }
-function context3(q) {
-  const options = q.handler.options || {};
+function context3(q2) {
+  const options = q2.handler.options || {};
   let text3 = null;
-  if (q.strings.length) {
+  if (q2.strings.length) {
     try {
-      text3 = q.text;
+      text3 = q2.text;
     } catch (error2) {
       text3 = null;
     }
@@ -53527,9 +53527,9 @@ function context3(q) {
     complete: null
   };
 }
-function traced(q, error2, result) {
-  const x = q.trace;
-  q.trace = null;
+function traced(q2, error2, result) {
+  const x = q2.trace;
+  q2.trace = null;
   x.complete = now();
   if (result && typeof result === "object" && "command" in result) {
     x.command = result.command;
@@ -55760,32 +55760,32 @@ function Pool(options, types2) {
     }
   };
   return pool;
-  function query2(q, lease2) {
-    options.query_timeout && !q.timer && !q.settled && !q.cursorFn && !q.streaming && deadline(q);
+  function query2(q2, lease2) {
+    options.query_timeout && !q2.timer && !q2.settled && !q2.cursorFn && !q2.streaming && deadline(q2);
     if (ending2 && !lease2)
-      return q.reject(queryError(Errors.connection("CONNECTION_ENDED", options, options.host[0], options.port[0]), q, options.debug));
-    if (q.parts)
-      return batch(q, lease2);
+      return q2.reject(queryError(Errors.connection("CONNECTION_ENDED", options, options.host[0], options.port[0]), q2, options.debug));
+    if (q2.parts)
+      return batch(q2, lease2);
     let built;
     try {
-      built = q.build();
+      built = q2.build();
     } catch (error2) {
-      return unbuilt(q, error2, lease2);
+      return unbuilt(q2, error2, lease2);
     }
     const free = !lease2 && options.max !== 1;
-    if (q.options.simple && !built.values.length) {
+    if (q2.options.simple && !built.values.length) {
       const known = (free || options.scheduler) && statements.known(built.text);
-      q.alone = free && alone(known);
-      options.scheduler && (q.cost = known);
-      return place({ q, simple: built.text, exclusive: !!q.streaming || q.alone }, lease2);
+      q2.alone = free && alone(known);
+      options.scheduler && (q2.cost = known);
+      return place({ q: q2, simple: built.text, exclusive: !!q2.streaming || q2.alone }, lease2);
     }
-    if (q.onlyDescribe)
-      return describeOnly(q, built, lease2);
-    const statement2 = statements.get(built, options.prepare && q.options.prepare !== false);
-    q.alone = free && alone(statement2.live ? statement2 : statements.known(built.text));
-    q.wire = { statement: statement2, built };
-    options.scheduler && (q.cost = statement2.cost);
-    place({ q, statement: statement2, typed: !typesLoaded && unknown2(built.oids), exclusive: !!q.cursorFn || !!q.streaming || q.alone }, lease2);
+    if (q2.onlyDescribe)
+      return describeOnly(q2, built, lease2);
+    const statement2 = statements.get(built, options.prepare && q2.options.prepare !== false);
+    q2.alone = free && alone(statement2.live ? statement2 : statements.known(built.text));
+    q2.wire = { statement: statement2, built };
+    options.scheduler && (q2.cost = statement2.cost);
+    place({ q: q2, statement: statement2, typed: !typesLoaded && unknown2(built.oids), exclusive: !!q2.cursorFn || !!q2.streaming || q2.alone }, lease2);
   }
   function unknown2(oids) {
     for (let i = 0; i < oids.length; i++) {
@@ -55794,45 +55794,45 @@ function Pool(options, types2) {
     }
     return false;
   }
-  function deadline(q) {
-    q.timer = setTimeout2(() => {
-      q.timer = null;
-      q.settled || (q.timedOut = true, cancel3(q).catch(noop6));
+  function deadline(q2) {
+    q2.timer = setTimeout2(() => {
+      q2.timer = null;
+      q2.settled || (q2.timedOut = true, cancel3(q2).catch(noop6));
     }, options.query_timeout * 1e3);
   }
-  function batch(q, lease2) {
-    const parts2 = q.parts;
+  function batch(q2, lease2) {
+    const parts2 = q2.parts;
     if (!parts2.length)
-      return q.resolve([]);
+      return q2.resolve([]);
     for (let i = 0; i < parts2.length; i++) {
       try {
         parts2[i].build();
       } catch (error2) {
         error2 && typeof error2 === "object" && (error2.index = i);
-        return unbuilt(q, error2, lease2);
+        return unbuilt(q2, error2, lease2);
       }
     }
     parts2.forEach((x) => {
       const built = x.built;
       x.wire = { statement: statements.get(built, options.prepare && x.options.prepare !== false), built };
     });
-    const run3 = (c2) => (q.connection = c2, c2.batch(q, parts2), q.onwrite && q.onwrite());
-    place({ q, run: run3, typed: !typesLoaded && parts2.some((x) => unknown2(x.built.oids)) }, lease2);
+    const run3 = (c2) => (q2.connection = c2, c2.batch(q2, parts2), q2.onwrite && q2.onwrite());
+    place({ q: q2, run: run3, typed: !typesLoaded && parts2.some((x) => unknown2(x.built.oids)) }, lease2);
   }
-  function describeOnly(q, built, lease2) {
-    const statement2 = { name: "", text: built.text, oids: built.oids, columns: null }, run3 = (c2) => (q.connection = c2, c2.describe(statement2, built.oids, q).then(
-      ({ params, columns: columns2 }) => q.resolve({ string: built.text, types: params, name: "", columns: columns2 }),
-      (error2) => q.reject(queryError(error2, q, options.debug))
-    ), q.onwrite && q.onwrite());
-    lease2 ? run3(lease2.connection) : place({ run: run3, q, reject: (error2) => q.reject(queryError(error2, q, options.debug)) });
+  function describeOnly(q2, built, lease2) {
+    const statement2 = { name: "", text: built.text, oids: built.oids, columns: null }, run3 = (c2) => (q2.connection = c2, c2.describe(statement2, built.oids, q2).then(
+      ({ params, columns: columns2 }) => q2.resolve({ string: built.text, types: params, name: "", columns: columns2 }),
+      (error2) => q2.reject(queryError(error2, q2, options.debug))
+    ), q2.onwrite && q2.onwrite());
+    lease2 ? run3(lease2.connection) : place({ run: run3, q: q2, reject: (error2) => q2.reject(queryError(error2, q2, options.debug)) });
   }
-  function unbuilt(q, error2, lease2) {
-    error2 = queryError(error2, q, options.debug);
+  function unbuilt(q2, error2, lease2) {
+    error2 = queryError(error2, q2, options.debug);
     if (!lease2 || lease2.released || lease2.connection.closed)
-      return q.reject(error2);
-    q.connection = lease2.connection;
-    lease2.connection.local(q, error2);
-    q.onwrite && q.onwrite();
+      return q2.reject(error2);
+    q2.connection = lease2.connection;
+    lease2.connection.local(q2, error2);
+    q2.onwrite && q2.onwrite();
   }
   function place(job, lease2) {
     used = true;
@@ -56085,19 +56085,19 @@ function Pool(options, types2) {
   }
   function runner(c2) {
     return (text3) => new Promise((resolve2, reject2) => {
-      const q = new Query([text3], [], Object.assign(() => {
+      const q2 = new Query([text3], [], Object.assign(() => {
       }, { options }), { simple: true });
-      q.executed = true;
-      q.then(resolve2, reject2);
-      bound(c2, q);
-      c2.simple(q, text3);
+      q2.executed = true;
+      q2.then(resolve2, reject2);
+      bound(c2, q2);
+      c2.simple(q2, text3);
     });
   }
-  function bound(c2, q) {
+  function bound(c2, q2) {
     if (!options.query_timeout)
       return;
-    const timer = setTimeout2(() => q.settled || c2.cancel(q).catch(noop6), options.query_timeout * 1e3);
-    q.then(() => clearTimeout2(timer), () => clearTimeout2(timer));
+    const timer = setTimeout2(() => q2.settled || c2.cancel(q2).catch(noop6), options.query_timeout * 1e3);
+    q2.then(() => clearTimeout2(timer), () => clearTimeout2(timer));
   }
   function retype() {
     if (!typesError)
@@ -56115,13 +56115,13 @@ function Pool(options, types2) {
     c2.loading = types2.named;
     c2.typing = null;
     types2.load((text3) => new Promise((resolve2, reject2) => {
-      const q = new Query([text3], [], Object.assign(() => {
+      const q2 = new Query([text3], [], Object.assign(() => {
       }, { options }), { simple: true });
-      q.executed = true;
-      q.then(resolve2, reject2);
-      types2.named || (c2.typing = q);
-      bound(c2, q);
-      c2.simple(q, text3);
+      q2.executed = true;
+      q2.then(resolve2, reject2);
+      types2.named || (c2.typing = q2);
+      bound(c2, q2);
+      c2.simple(q2, text3);
     })).then(
       () => typesLoaded = true,
       (error2) => error2 instanceof PostgresError ? typesLoaded = true : error2 && error2.code === "TYPE_NOT_FOUND" && (typesError = error2, typesFailed = now2())
@@ -56267,15 +56267,15 @@ function Pool(options, types2) {
       get released() {
         return released;
       },
-      send(q) {
+      send(q2) {
         if (c2.closed)
-          return q.reject(queryError(c2.closed, q, options.debug));
+          return q2.reject(queryError(c2.closed, q2, options.debug));
         if (released)
-          return q.reject(queryError(ended(x), q, options.debug));
+          return q2.reject(queryError(ended(x), q2, options.debug));
         chain = chain.then(() => new Promise((resolve2) => {
-          q.onwrite = resolve2;
-          q.then(resolve2, resolve2);
-          query2(q, x);
+          q2.onwrite = resolve2;
+          q2.then(resolve2, resolve2);
+          query2(q2, x);
         }));
       },
       release() {
@@ -56302,14 +56302,14 @@ function Pool(options, types2) {
   function ended(lease2) {
     return Errors.generic("UNSAFE_TRANSACTION", "The " + lease2.kind + " has ended");
   }
-  function cancel3(q) {
-    if (waiting.remove((x) => x.q === q && (started(x), true))) {
-      q.reject(queryError(Errors.generic("57014", "canceling statement due to user request"), q, options.debug));
+  function cancel3(q2) {
+    if (waiting.remove((x) => x.q === q2 && (started(x), true))) {
+      q2.reject(queryError(Errors.generic("57014", "canceling statement due to user request"), q2, options.debug));
       return Promise.resolve();
     }
-    if (q.connection)
-      return q.connection.cancel(q);
-    q.cancelled = true;
+    if (q2.connection)
+      return q2.connection.cancel(q2);
+    q2.cancelled = true;
     return Promise.resolve();
   }
   function end({ timeout = null } = {}) {
@@ -56911,8 +56911,8 @@ function Postgres(a, b) {
   });
   Symbol.asyncDispose && (sql2[Symbol.asyncDispose] = () => end());
   return sql2;
-  function handler(q) {
-    pool.query(q);
+  function handler(q2) {
+    pool.query(q2);
   }
   function Sql(handler2) {
     handler2.debug = options.debug;
@@ -56958,10 +56958,10 @@ function Postgres(a, b) {
         if (x.cursorFn || x.cursorRows || x.streaming || x.forEachFn || x.onlyDescribe)
           throw Errors.generic("BATCH_UNSUPPORTED", "Item " + i + " of the batch is a cursor, stream, forEach or describe");
       });
-      const q = new Query([], [], handler2, {});
-      q.parts = queries;
-      queries.forEach((x) => (x.executed = true, x.cancel = () => q.cancel()));
-      return q;
+      const q2 = new Query([], [], handler2, {});
+      q2.parts = queries;
+      queries.forEach((x) => (x.executed = true, x.cancel = () => q2.cancel()));
+      return q2;
     }
     async function notify2(channel, payload) {
       return await sql3`select pg_notify(${channel}, ${"" + payload})`;
@@ -56988,7 +56988,7 @@ function Postgres(a, b) {
     throw Errors.generic("ARRAY_REMOVED", "sql.array() is removed in v4, pass the array as it is");
   }
   async function reserve() {
-    const lease = await pool.lease("reserve"), reserved = Sql(Object.assign((q) => lease.send(q), { cancel: pool.cancel }));
+    const lease = await pool.lease("reserve"), reserved = Sql(Object.assign((q2) => lease.send(q2), { cancel: pool.cancel }));
     reserved.release = () => lease.release();
     Symbol.dispose && (reserved[Symbol.dispose] = reserved.release);
     Symbol.asyncDispose && (reserved[Symbol.asyncDispose] = async () => reserved.release());
@@ -57038,13 +57038,13 @@ function Postgres(a, b) {
       let uncaught, result, rolled = null, after2 = null, ending2 = false;
       if (above())
         throw rolledBack();
-      const stopped = () => !!rolled || above(), over = () => ending2 || outer(), scoped = Sql(Object.assign((q) => {
+      const stopped = () => !!rolled || above(), over = () => ending2 || outer(), scoped = Sql(Object.assign((q2) => {
         if (stopped())
-          return q.reject(after2 || (after2 = rolledBack()));
+          return q2.reject(after2 || (after2 = rolledBack()));
         if (over())
-          return q.reject(Errors.generic("UNSAFE_TRANSACTION", "The transaction has ended"));
-        q.catch((e) => uncaught || (uncaught = e));
-        lease.send(q);
+          return q2.reject(Errors.generic("UNSAFE_TRANSACTION", "The transaction has ended"));
+        q2.catch((e) => uncaught || (uncaught = e));
+        lease.send(q2);
       }, { cancel: pool.cancel }));
       scoped.savepoint = savepoint;
       scoped.begin = nested;
@@ -57111,8 +57111,8 @@ function Postgres(a, b) {
     return '"' + x.replace(/"/g, '""') + '"';
   }
   function control(lease, text3) {
-    const q = new Query([text3], [], Object.assign((q2) => lease.send(q2), { options, cancel: pool.cancel }), { simple: true });
-    return q.execute();
+    const q2 = new Query([text3], [], Object.assign((q3) => lease.send(q3), { options, cancel: pool.cancel }), { simple: true });
+    return q2.execute();
   }
   async function end(options2) {
     await Promise.all([
@@ -57441,8 +57441,17 @@ var sql = null;
 var ready = null;
 function db() {
   if (!sql) {
-    sql = src_default(DB_URL(), { prepare: false, max: 3, idle_timeout: 20, connect_timeout: 15, ssl: "require", onnotice: () => {
-    } });
+    sql = src_default(DB_URL(), {
+      prepare: false,
+      max: 8,
+      idle_timeout: 4,
+      max_lifetime: 120,
+      connect_timeout: 8,
+      fetch_types: false,
+      ssl: "require",
+      onnotice: () => {
+      }
+    });
   }
   ready ??= (async () => {
     await sql`create table if not exists pk_kv (
@@ -57463,6 +57472,37 @@ function db() {
   });
   return ready.then(() => sql);
 }
+function resetDb() {
+  const old = sql;
+  sql = null;
+  ready = null;
+  old?.end({ timeout: 0 }).catch(() => {
+  });
+}
+async function q(fn) {
+  for (let attempt2 = 0; ; attempt2++) {
+    let timer;
+    try {
+      const s = await Promise.race([
+        db(),
+        new Promise((_, rej) => timer = setTimeout(() => rej(new Error("db connect timeout")), 9e3))
+      ]);
+      clearTimeout(timer);
+      return await Promise.race([
+        fn(s),
+        new Promise((_, rej) => timer = setTimeout(() => rej(new Error("db query timeout")), 9e3))
+      ]);
+    } catch (e) {
+      clearTimeout(timer);
+      const transient = /timeout|ECONNRESET|EPIPE|CONNECTION_|terminat|closed/i.test(String(e?.message || e?.code || e));
+      if (attempt2 >= 1 || !transient) throw e;
+      console.warn("db: neue Verbindung nach", String(e?.message || e));
+      resetDb();
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+}
 var opCount = 0;
 async function maybeSweep(s) {
   if (++opCount % 200 !== 0) return;
@@ -57471,16 +57511,14 @@ async function maybeSweep(s) {
 }
 async function sweepExpired() {
   if (!usingPostgres()) return 0;
-  const s = await db();
-  const r = await s`delete from pk_kv where expires_at is not null and expires_at < now()`;
+  const r = await q((s) => s`delete from pk_kv where expires_at is not null and expires_at < now()`);
   return r.count;
 }
 var likeEscape = (p2) => p2.replace(/[\\%_]/g, (m) => "\\" + m);
 function pgStore(name) {
   const ttl = TTL[name];
   const exp = () => ttl ? new Date(Date.now() + ttl) : null;
-  const write = async (key2, val, json3, opts = {}) => {
-    const s = await db();
+  const write = (key2, val, json3, opts = {}) => q(async (s) => {
     maybeSweep(s);
     const meta = opts.metadata ? s.json(opts.metadata) : null;
     const j = json3 === void 0 ? null : s.json(json3);
@@ -57500,12 +57538,11 @@ function pgStore(name) {
       on conflict (store, key) do update set val = excluded.val, json = excluded.json, meta = excluded.meta,
         expires_at = excluded.expires_at, updated_at = now()`;
     return { modified: true };
-  };
+  });
   return {
     async get(key2, opts = {}) {
-      const s = await db();
-      const rows = await s`select val, json from pk_kv where store = ${name} and key = ${key2}
-        and (expires_at is null or expires_at > now())`;
+      const rows = await q((s) => s`select val, json from pk_kv where store = ${name} and key = ${key2}
+        and (expires_at is null or expires_at > now())`);
       if (!rows.length) return null;
       const { val, json: json3 } = rows[0];
       const type = opts.type || "text";
@@ -57524,14 +57561,12 @@ function pgStore(name) {
       return write(key2, null, value2, opts);
     },
     async delete(key2) {
-      const s = await db();
-      await s`delete from pk_kv where store = ${name} and key = ${key2}`;
+      await q((s) => s`delete from pk_kv where store = ${name} and key = ${key2}`);
     },
     list(opts = {}) {
       const run2 = async () => {
-        const s = await db();
-        const rows = opts.prefix ? await s`select key from pk_kv where store = ${name} and key like ${likeEscape(opts.prefix) + "%"}
-              and (expires_at is null or expires_at > now()) order by key` : await s`select key from pk_kv where store = ${name} and (expires_at is null or expires_at > now()) order by key`;
+        const rows = await q((s) => opts.prefix ? s`select key from pk_kv where store = ${name} and key like ${likeEscape(opts.prefix) + "%"}
+              and (expires_at is null or expires_at > now()) order by key` : s`select key from pk_kv where store = ${name} and (expires_at is null or expires_at > now()) order by key`);
         return { blobs: rows.map((r) => ({ key: r.key, etag: "" })), directories: [] };
       };
       if (opts.paginate) {
@@ -59387,8 +59422,8 @@ async function handle(req, context5, routeOverride) {
     if (route === "gifs" && method === "GET") {
       const key2 = env("GIPHY_API_KEY");
       if (!key2) return json2({ enabled: false, results: [] });
-      const q = (url.searchParams.get("q") || "").slice(0, 60);
-      const api = q ? `https://api.giphy.com/v1/gifs/search?api_key=${key2}&q=${encodeURIComponent(q)}&limit=24&rating=pg-13&lang=de` : `https://api.giphy.com/v1/gifs/trending?api_key=${key2}&limit=24&rating=pg-13`;
+      const q2 = (url.searchParams.get("q") || "").slice(0, 60);
+      const api = q2 ? `https://api.giphy.com/v1/gifs/search?api_key=${key2}&q=${encodeURIComponent(q2)}&limit=24&rating=pg-13&lang=de` : `https://api.giphy.com/v1/gifs/trending?api_key=${key2}&limit=24&rating=pg-13`;
       const r = await fetch(api);
       if (!r.ok) return json2({ enabled: true, results: [] });
       const data = await r.json();
