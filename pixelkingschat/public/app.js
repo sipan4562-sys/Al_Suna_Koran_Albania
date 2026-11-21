@@ -852,10 +852,10 @@ function renderList() {
   const items = [];
   for (const c of Object.values(S.contacts)) {
     if (c.peer && !(S.messages[c.id] || []).length) continue;
-    items.push({ id: c.id, online: isOnline(c.id), last: c.last || 0, unread: c.unread, name: (c.acctBanned ? "⛔ " : c.blocked ? "🚫 " : "") + displayName(c), fill: (n) => fillAvatar(n, c) });
+    items.push({ id: c.id, muted: isMutedLocal(c), online: isOnline(c.id), last: c.last || 0, unread: c.unread, name: (c.acctBanned ? "⛔ " : c.blocked ? "🚫 " : "") + displayName(c), fill: (n) => fillAvatar(n, c) });
   }
   for (const g of Object.values(S.groups)) {
-    items.push({ id: g.id, last: g.last || 0, unread: g.unread, name: g.name, grp: true, fill: (n) => fillGroupAvatar(n, g) });
+    items.push({ id: g.id, muted: isMutedLocal(g), last: g.last || 0, unread: g.unread, name: g.name, grp: true, fill: (n) => fillGroupAvatar(n, g) });
   }
   items.sort((a, b) => b.last - a.last);
   $("#emptyList").classList.toggle("hidden", items.length > 0);
@@ -870,7 +870,8 @@ function renderList() {
     r1.append(rich("span", "name", it.name), el("span", "time", last ? fmtTime(last.ts) : ""));
     const r2 = el("div", "row");
     r2.append(rich("span", "preview", previewOf(last, it.grp)));
-    if (it.unread) r2.append(el("span", "badge", String(it.unread)));
+    if (it.muted) r1.querySelector(".name").append(el("span", "muted-icon", " 🔕"));
+    if (it.unread) r2.append(el("span", "badge" + (it.muted ? " badge-muted" : ""), String(it.unread)));
     meta.append(r1, r2);
     b.append(av, meta);
     if (it.online) b.append(el("span", "online-dot"));
@@ -1702,6 +1703,7 @@ async function showContactInfo() {
   );
   root.append(el("div", "fingerprint", (await fingerprint(S.me.pub, c.pub)).join("  ")), el("hr"));
 
+  root.append(prefsSection(c, c.id, true), el("hr"));
   const block = el("button", "btn", c.blocked ? "Blockierung aufheben" : "🚫 Kontakt blockieren");
   block.onclick = async () => {
     await setBlocked(c.id, !c.blocked);
@@ -2495,6 +2497,7 @@ function showGroupInfo() {
     root.append(add);
   }
   root.append(el("hr"));
+  root.append(prefsSection(g, g.id, false), el("hr"));
   const wp = el("button", "btn", "🖼 Hintergrund für diese Gruppe");
   wp.onclick = () => showWallpaperPicker(g.id);
   const clear = el("button", "btn", "Chatverlauf leeren");
@@ -4210,6 +4213,68 @@ function adaptToDevice() {
   matchMedia("(max-width: 760px)").addEventListener?.("change", () => {
     if (!currentChat) $("#app").classList.remove("chat-open");
   });
+}
+
+/* ================= Pro Kontakt: Stummschalten & Anrufe ================= */
+function isMutedLocal(h) {
+  return h && (h.muteUntil === -1 || (h.muteUntil && h.muteUntil > Date.now()));
+}
+async function setPref(holder, id, patch) {
+  Object.assign(holder, patch);
+  save();
+  renderList();
+  try {
+    await api("prefs", { method: "POST", body: { id, ...patch } });
+  } catch (e) {
+    toast(e.message);
+  }
+}
+function prefsSection(holder, id, isContact) {
+  const box = el("div", "stack");
+  box.append(el("strong", null, "🔕 Stummschalten"));
+  const row = el("div", "chip-row");
+  const opts = [
+    [0, "Aus"],
+    [8 * 3600000, "8 Std"],
+    [7 * 24 * 3600000, "1 Woche"],
+    [-1, "Immer"],
+  ];
+  const label = el("p", "small muted");
+  const describe = () => {
+    label.textContent = !isMutedLocal(holder)
+      ? "Du bekommst Benachrichtigungen."
+      : holder.muteUntil === -1
+      ? "Stumm – keine Benachrichtigungen. Nachrichten kommen trotzdem an."
+      : `Stumm bis ${new Date(holder.muteUntil).toLocaleString("de-DE", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })} Uhr.`;
+  };
+  for (const [ms, text] of opts) {
+    const active = ms === 0 ? !isMutedLocal(holder) : ms === -1 ? holder.muteUntil === -1 : false;
+    const chip = el("button", "chip" + (active ? " active" : ""), text);
+    chip.type = "button";
+    chip.onclick = async () => {
+      const until = ms === 0 ? 0 : ms === -1 ? -1 : Date.now() + ms;
+      for (const x of row.children) x.classList.toggle("active", x === chip);
+      await setPref(holder, id, { muteUntil: until });
+      describe();
+      toast(until ? "🔕 Stummgeschaltet" : "🔔 Benachrichtigungen wieder an");
+    };
+    row.append(chip);
+  }
+  describe();
+  box.append(row, label);
+  if (isContact) {
+    const cl = el("label", "check");
+    const cb = el("input");
+    cb.type = "checkbox";
+    cb.checked = !holder.noCalls;
+    cb.onchange = async () => {
+      await setPref(holder, id, { noCalls: !cb.checked });
+      toast(cb.checked ? `📞 ${displayName(holder)} kann dich wieder anrufen.` : `📵 ${displayName(holder)} kann dich nicht mehr anrufen.`);
+    };
+    cl.append(cb, ` 📞 Anrufe von ${displayName(holder)} erlauben`);
+    box.append(cl);
+  }
+  return box;
 }
 
 /* ================= Start ================= */

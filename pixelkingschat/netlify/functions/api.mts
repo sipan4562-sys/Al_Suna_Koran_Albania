@@ -44,6 +44,13 @@ const MEDIA_CHUNK = 3_600_000; // Bytes pro Stück (unter dem Function-Limit)
 const MEDIA_MAX_CHUNKS = 10;
 const MEDIA_ID_RE = /^[A-Za-z0-9_-]{16}$/;
 const signals = () => getStore({ name: "pk-signal", consistency: "strong" });
+// Einstellungen pro Kontakt/Gruppe: { noCalls, muteUntil } (muteUntil: -1 = immer)
+const prefs = () => getStore({ name: "pk-prefs", consistency: "strong" });
+type Pref = { noCalls?: boolean; muteUntil?: number };
+async function getPref(owner: string, about: string) {
+  return ((await prefs().get(`${owner}/${about}`, { type: "json" })) as Pref | null) || {};
+}
+const isMuted = (p: Pref) => p.muteUntil === -1 || (!!p.muteUntil && p.muteUntil > Date.now());
 const meetings = () => getStore({ name: "pk-meetings", consistency: "strong" });
 const meetMembers = () => getStore({ name: "pk-meetmembers", consistency: "strong" });
 const MEET_RE = /^[A-HJ-NP-Z2-9]{6}$/;
@@ -127,6 +134,7 @@ async function vapid(): Promise<string> {
 }
 
 async function notify(to: string, from: string, name: string, gid?: string, extra?: Record<string, unknown>) {
+  if (!extra?.call && isMuted(await getPref(to, gid || from))) return;
   await vapid();
   const store = pushStore();
   const { blobs } = await store.list({ prefix: `${to}/` });
@@ -471,6 +479,17 @@ export default async (req: Request, context: Context) => {
       await putUser(me, meUser);
       return json({ ok: true, callsOff: !!meUser.callsOff });
     }
+    if (route === "prefs" && method === "POST") {
+      const body = await req.json().catch(() => null);
+      const about = String(body?.id || "");
+      if (!ID_RE.test(about) && !GID_RE.test(about)) return err("Ungültig");
+      const cur = await getPref(me, about);
+      if (typeof body.noCalls === "boolean") cur.noCalls = body.noCalls;
+      if (typeof body.muteUntil === "number") cur.muteUntil = body.muteUntil === -1 ? -1 : Math.max(0, Math.min(body.muteUntil, Date.now() + 400 * TTL_MS));
+      if (!cur.noCalls && !isMuted(cur)) await prefs().delete(`${me}/${about}`);
+      else await prefs().setJSON(`${me}/${about}`, cur);
+      return json({ ok: true, ...cur });
+    }
     if (route === "turn" && method === "GET") {
       const iceServers: unknown[] = [{ urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"] }];
       const cfKey = Netlify.env.get("CF_TURN_KEY_ID");
@@ -504,6 +523,7 @@ export default async (req: Request, context: Context) => {
       if (!t || t.deleted) return err("Dieses Konto existiert nicht mehr.", 404);
       if (t.banned) return err("Dieses Konto ist gesperrt.", 403);
       if (t.callsOff) return json({ ok: false, reason: "off" });
+      if ((await getPref(body.to, me)).noCalls) return json({ ok: false, reason: "off" });
       if (await blocks().get(`${body.to}/${me}`)) return json({ ok: false, reason: "off" });
       context.waitUntil(notify(body.to, me, meUser.name || "", undefined, { call: body.callId, video: !!body.video }).catch(() => {}));
       return json({ ok: true });

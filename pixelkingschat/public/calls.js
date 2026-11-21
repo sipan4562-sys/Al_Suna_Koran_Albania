@@ -234,7 +234,7 @@ export function initCalls(ctx) {
       logCall(from, "missed");
       return true;
     }
-    if (S().settings.callsOff) {
+    if (S().settings.callsOff || S().contacts[from]?.noCalls) {
       signal(from, { k: "decline", room: p.room, reason: "off" }).catch(() => {});
       return false;
     }

@@ -586,3 +586,7 @@ html.no-rtc #callBtn, html.no-rtc #videoBtn { display: none !important; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; } }
 @media (min-width: 1400px) { #sidebar { width: 380px; } .msg { max-width: min(70%, 640px); } }
 html.desktop .msg-text { user-select: text; }
+
+/* ---------- v11: Stummschalten ---------- */
+.muted-icon img.pxe { width: 1em; height: 1em; opacity: .7; }
+.badge.badge-muted { background: var(--muted); }
