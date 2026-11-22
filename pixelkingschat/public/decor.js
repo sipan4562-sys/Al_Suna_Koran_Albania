@@ -369,7 +369,6 @@ flag("eu", "Europa", () => {
   }
   return g;
 });
-flag("rb", "Regenbogen", () => hs(grid(), ["#e40303", "#ff8c00", "#ffed00", "#008026", "#24408e", "#732982"]));
 flag("pp", "Progress Pride", () => {
   const g = hs(grid(), ["#e40303", "#ff8c00", "#ffed00", "#008026", "#24408e", "#732982"]);
   // Pfeil am Fahnenmast: Schwarz, Braun, Hellblau, Rosa, Weiß (von außen nach innen)
@@ -395,7 +394,6 @@ function flagGrid(id) {
 }
 // Hauptfarben einer Flagge (für die Ringe)
 const RING_COLORS = {
-  rb: ["#e40303", "#ff8c00", "#ffed00", "#008026", "#24408e", "#732982"],
   pp: ["#e40303", "#ff8c00", "#ffed00", "#008026", "#24408e", "#732982", "#000000", "#784f17", "#5bcefa", "#f5a9b8", "#ffffff"],
 };
 function flagColors(id) {
