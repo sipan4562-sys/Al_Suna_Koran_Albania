@@ -534,6 +534,9 @@ const groupPayload = (g) => ({
   members: Object.fromEntries(Object.entries(g.members).map(([id, m]) => [id, { st: m.st }])),
   roles: g.roles || {},
   cfg: gcfg(g),
+  pic: g.pic || "",
+  pav: g.pav || "",
+  deco: g.deco || "",
   timeouts: Object.fromEntries(Object.entries(g.timeouts || {}).filter(([, t]) => t > Date.now())),
 });
 function cleanGroupExtras(p, members) {
@@ -549,7 +552,10 @@ function cleanGroupExtras(p, members) {
   const timeouts = {};
   const max = Date.now() + 31 * 24 * 3600_000;
   for (const [id, t] of Object.entries(p.timeouts || {})) if (members[id] && Number.isFinite(t) && t > Date.now()) timeouts[id] = Math.min(t, max);
-  return { roles, cfg, timeouts };
+  const pic = typeof p.pic === "string" && p.pic.length <= 90000 && /^\/9j\/[A-Za-z0-9+/=]+$/.test(p.pic) ? p.pic : "";
+  const pav = isDecorId(p.pav) ? p.pav : "";
+  const deco = isDecorId(p.deco) ? p.deco : "";
+  return { roles, cfg, timeouts, pic, pav, deco };
 }
 async function pushGroupUpdate(g, extra = []) {
   const payload = { k: "gu", ...groupPayload(g) };
@@ -575,6 +581,63 @@ async function setGroupCfg(gid, patch) {
   updateComposerLock();
   renderMessages();
 }
+async function setGroupPic(gid, patch) {
+  const g = S.groups[gid];
+  if (!g || g.removed || !isGAdmin(g, S.me.id)) return;
+  Object.assign(g, patch);
+  sysMsg(gid, "deco" in patch && Object.keys(patch).length === 1 ? "Du hast den Rahmen des Gruppenbilds geändert." : "Du hast das Gruppenbild geändert.");
+  save();
+  pushGroupUpdate(g);
+  renderList();
+  renderChatHead();
+  renderMessages();
+}
+function groupPicTarget(g) {
+  return {
+    card: { id: g.id, pav: g.pav, deco: g.deco, pic: g.pic, name: g.name },
+    letter: g.name,
+    fill: (n, c) => fillGroupAvatar(n, { ...g, ...c }),
+    save: (patch) => setGroupPic(g.id, patch),
+    back: showGroupInfo,
+  };
+}
+function groupPicButtons(g) {
+  const row = el("div", "btn-row");
+  const photo = el("button", "btn", "📷 Gruppenbild");
+  photo.onclick = () => {
+    const inp = el("input");
+    inp.type = "file";
+    inp.accept = "image/*";
+    inp.onchange = async () => {
+      const f = inp.files?.[0];
+      if (!f) return;
+      try {
+        const b64 = await compressImage(f, { maxDim: 256, maxB64: 60_000, square: true });
+        await setGroupPic(g.id, { pic: b64, pav: "" });
+        toast("Gruppenbild gespeichert ✓");
+        showGroupInfo();
+      } catch (e) {
+        toast(e.message || "Bild konnte nicht gelesen werden.");
+      }
+    };
+    inp.click();
+  };
+  const anim = el("button", "btn", "✨ Animiert");
+  anim.onclick = () => showDecorPicker("pav", groupPicTarget(g));
+  const frame = el("button", "btn", "💫 Rahmen");
+  frame.onclick = () => showDecorPicker("deco", groupPicTarget(g));
+  row.append(photo, anim, frame);
+  if (g.pic || g.pav || g.deco) {
+    const rm = el("button", "btn", "Entfernen");
+    rm.onclick = async () => {
+      await setGroupPic(g.id, { pic: "", pav: "", deco: "" });
+      showGroupInfo();
+    };
+    row.append(rm);
+  }
+  return row;
+}
+
 async function setGroupRole(gid, id, admin) {
   const g = S.groups[gid];
   if (!g || !isGOwner(g, S.me.id) || id === S.me.id) return;
@@ -669,6 +732,9 @@ async function joinGroup(info, inviter) {
     roles: info.roles,
     cfg: info.cfg,
     timeouts: info.timeouts,
+    pic: info.pic,
+    pav: info.pav,
+    deco: info.deco,
     created: Date.now(),
     last: Date.now(),
     unread: 1,
@@ -769,6 +835,14 @@ async function handleGroupCtl(from, p, m) {
     if (fromOwner && info.name !== g.name) {
       sysMsg(g.id, `${who} hat die Gruppe in „${info.name}“ umbenannt.`);
       g.name = info.name;
+    }
+    // Gruppenbild dürfen Besitzer und Admins ändern
+    if ((g.pic || "") !== info.pic || (g.pav || "") !== info.pav || (g.deco || "") !== info.deco) {
+      if ((g.pic || "") !== info.pic || (g.pav || "") !== info.pav) sysMsg(g.id, `${who} hat das Gruppenbild geändert.`);
+      else sysMsg(g.id, `${who} hat den Rahmen des Gruppenbilds geändert.`);
+      g.pic = info.pic;
+      g.pav = info.pav;
+      g.deco = info.deco;
     }
     if (!fromOwner) for (const id of Object.keys(g.members)) if (isGAdmin(g, id) && !info.members[id]) info.members[id] = g.members[id];
     const before = new Set(Object.keys(g.members));
@@ -1005,9 +1079,26 @@ function fillGroupAvatar(node, g) {
   node.textContent = "";
   node.classList.add("group-av");
   node.style.background = avatarColor(g.id);
-  const first = Array.from(g.name || "G")[0];
-  if (isEmoji(first)) renderRich(node, first);
-  else node.textContent = first.toUpperCase();
+  const preset = g.pav && avatarUrl(g.pav);
+  if (preset || g.pic) {
+    const img = el("img", preset ? "pav" : "");
+    img.alt = "";
+    img.src = preset || "data:image/jpeg;base64," + g.pic;
+    node.append(img);
+  } else {
+    const first = Array.from(g.name || "G")[0];
+    if (isEmoji(first)) renderRich(node, first);
+    else node.textContent = first.toUpperCase();
+  }
+  const ring = g.deco && frameUrl(g.deco);
+  node.classList.toggle("decorated", !!ring);
+  if (ring) {
+    const r = el("img", "deco-ring");
+    r.alt = "";
+    r.src = ring;
+    r.draggable = false;
+    node.append(r);
+  }
   node.append(el("span", "group-badge", "👥"));
 }
 const rich = (tag, cls, text) => renderRich(el(tag, cls), text);
@@ -2179,8 +2270,9 @@ async function showContactInfo() {
   const c = S.contacts[currentChat];
   const root = el("div", "stack");
   const head = el("div", "profile-head");
-  const av = el("div", "avatar xl");
+  const av = el("div", "avatar xl tappable");
   fillAvatar(av, c);
+  av.onclick = () => showAvatarBig({ card: c, name: displayName(c), back: showContactInfo });
   head.append(av, el("h2", null, displayName(c)));
   head.append(el("p", "small muted", `Code: ${c.id}${c.name ? ` · nennt sich „${c.name}“` : ""}`));
   root.append(head);
@@ -2253,8 +2345,9 @@ function showSettings() {
   const root = el("div", "stack");
   root.append(el("h2", null, "Profil & Einstellungen"));
   const head = el("div", "profile-head");
-  const av = el("div", "avatar xl");
+  const av = el("div", "avatar xl tappable");
   fillAvatar(av, meCard(), S.me.name || S.me.id);
+  av.onclick = () => showAvatarBig({ card: meCard(), name: S.me.name || "Du", back: showSettings });
   head.append(av);
   const row = el("div", "btn-row");
   const pick = el("button", "btn", "📷 Bild oder GIF");
@@ -2496,7 +2589,15 @@ async function setDecor(patch) {
   renderList();
   renderStoryBar();
 }
-function showDecorPicker(kind) {
+// target: { card, letter, fill(node, card), save(patch), back() } – Standard: eigenes Profil
+function showDecorPicker(kind, target) {
+  const T = target || {
+    card: meCard(),
+    letter: S.me.name || S.me.id,
+    fill: (n, c, l) => fillAvatar(n, c, l),
+    save: (patch) => setDecor(patch),
+    back: showSettings,
+  };
   const isAv = kind === "pav";
   const body = el("div", "stack decor-picker");
   body.append(el("h2", null, isAv ? "✨ Animiertes Profilbild" : "💫 Profilrahmen"));
@@ -2508,8 +2609,8 @@ function showDecorPicker(kind) {
     )
   );
   const preview = el("div", "avatar xl decor-preview");
-  const cur = { pav: S.me.pav || "", deco: S.me.deco || "" };
-  const draw = () => fillAvatar(preview, { ...meCard(), ...cur }, S.me.name || S.me.id);
+  const cur = { pav: T.card.pav || "", deco: T.card.deco || "" };
+  const draw = () => T.fill(preview, { ...T.card, ...cur }, T.letter);
   draw();
   const tabs = el("div", "chip-row");
   const search = el("input");
@@ -2527,8 +2628,8 @@ function showDecorPicker(kind) {
       const b = el("button", "decor-item" + (cur[kind] === it.id ? " active" : ""));
       b.type = "button";
       const a = el("div", "avatar decor-thumb");
-      if (isAv) fillAvatar(a, { id: S.me.id, pav: it.id }, "");
-      else fillAvatar(a, { ...meCard(), pav: cur.pav, deco: it.id }, S.me.name || S.me.id);
+      if (isAv) fillAvatar(a, { id: T.card.id, pav: it.id }, "");
+      else T.fill(a, { ...T.card, pav: cur.pav, deco: it.id }, T.letter);
       b.append(a, el("span", "decor-name", it.name));
       b.onclick = () => {
         cur[kind] = it.id;
@@ -2553,9 +2654,9 @@ function showDecorPicker(kind) {
   save1.onclick = async () => {
     save1.disabled = true;
     try {
-      await setDecor({ [kind]: cur[kind] });
+      await T.save({ [kind]: cur[kind] });
       toast(isAv ? (cur.pav ? "✨ Animiertes Profilbild gespeichert" : "Profilbild zurückgesetzt") : cur.deco ? "💫 Rahmen gespeichert" : "Rahmen entfernt");
-      showSettings();
+      T.back();
     } catch (e) {
       toast(e.message);
       save1.disabled = false;
@@ -3035,9 +3136,11 @@ function showGroupInfo() {
   const admin = isGAdmin(g, S.me.id) && !g.removed;
   const root = el("div", "stack");
   const head = el("div", "profile-head");
-  const av = el("div", "avatar xl");
+  const av = el("div", "avatar xl tappable");
   fillGroupAvatar(av, g);
+  av.onclick = () => showAvatarBig({ group: g, back: showGroupInfo });
   head.append(av, rich("h2", null, g.name));
+  if (admin) head.append(groupPicButtons(g));
   head.append(el("p", "small muted", owner ? "Gruppe · 👑 Du bist der Besitzer" : `Gruppe · 👑 Besitzer: ${memberName(g.admin)}${admin ? " · du bist ⭐ Admin" : ""}`));
   root.append(head);
   root.append(groupSettingsSection(g, owner));
@@ -3062,6 +3165,8 @@ function showGroupInfo() {
     const a = el("div", "avatar sm");
     if (id === S.me.id) fillAvatar(a, meCard(), S.me.name || id);
     else fillAvatar(a, S.contacts[id] || { id, av: 0 });
+    a.classList.add("tappable");
+    a.onclick = () => showAvatarBig({ card: id === S.me.id ? meCard() : S.contacts[id] || { id, av: 0 }, name: memberName(id), back: showGroupInfo });
     const label = el("div", "member-name");
     label.append(rich("span", null, memberName(id)));
     const tags = [];
@@ -4978,6 +5083,29 @@ function adaptToDevice() {
 }
 
 /* ================= Gruppen: Einstellungen & Mitglieder verwalten ================= */
+/* ================= Profilbild in groß ================= */
+const decorName = (id) => [...FLAGS, ...EFFECT_AVATARS].find((x) => x.id === id)?.name || "";
+const frameName = (id) => [...EFFECT_FRAMES, ...FLAGS].find((x) => x.id === id)?.name || "";
+function showAvatarBig({ card, group, name, back }) {
+  const body = el("div", "stack avatar-big-view");
+  const big = el("div", "avatar huge");
+  if (group) fillGroupAvatar(big, group);
+  else fillAvatar(big, card, name);
+  const c = group || card;
+  body.append(big, rich("h2", null, group ? group.name : name || displayName(card)));
+  const facts = [];
+  if (c.pav && avatarUrl(c.pav)) facts.push(`✨ ${decorName(c.pav)}${c.pav.startsWith("f-") ? " (Flagge)" : ""}`);
+  else if (group ? group.pic : card.av) facts.push("📷 Eigenes Bild");
+  if (c.deco && frameUrl(c.deco)) facts.push(`💫 Rahmen: ${frameName(c.deco)}`);
+  if (facts.length) body.append(el("p", "small muted", facts.join(" · ")));
+  if (back) {
+    const b = el("button", "btn", "← Zurück");
+    b.onclick = back;
+    body.append(b);
+  }
+  openModal(body);
+}
+
 function groupSettingsSection(g, owner) {
   const c = gcfg(g);
   const box = el("div", "stack group-settings");
@@ -5492,6 +5620,16 @@ function bind() {
   $("#menuBtn").onclick = showSettings;
   $("#backBtn").onclick = closeChat;
   $("#chatInfoBtn").onclick = showContactInfo;
+  $("#chatAvatar").classList.add("tappable");
+  $("#chatAvatar").onclick = (e) => {
+    e.stopPropagation();
+    if (!currentChat) return;
+    if (isGroup(currentChat)) showAvatarBig({ group: S.groups[currentChat] });
+    else {
+      const c = S.contacts[currentChat];
+      if (c) showAvatarBig({ card: c, name: displayName(c) });
+    }
+  };
   $("#modalClose").onclick = () => closeModal();
   $("#modal").onclick = (e) => {
     if (e.target.id === "modal") closeModal();

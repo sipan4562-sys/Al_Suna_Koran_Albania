@@ -26,6 +26,8 @@ Anonymer Chat **ohne Telefonnummer und ohne E-Mail** – live: https://pixelking
   - **Eigene Musik:** Upload bis 3 MB, nur bei Kontakte-Stories, mit Pflichtangabe von Titel und Künstler und der Bestätigung, die Rechte zu haben. Die Datei wird verschlüsselt über `/api/media` hochgeladen.
   - Mit Musik läuft ein Story-Video ohne Originalton.
 - **Automatische Untertitel** für Story-Videos (`public/subs.js`): Whisper (`onnx-community/whisper-base`, transformers.js 3.7.1) läuft komplett auf dem Gerät. Das Modell (~80 MB) wird einmalig von Hugging Face geladen und im Browser gecacht, nicht über Vercel. 11 Sprachen, die Zeilen lassen sich vor dem Posten korrigieren. Die CSP erlaubt dafür `cdn.jsdelivr.net`, `huggingface.co`, `*.hf.co` und `'wasm-unsafe-eval'`. Untertitel öffentlicher Stories werden mitgeprüft.
+- **Gruppenbilder**: Besitzer und Admins setzen in der Gruppen-Info ein Foto, ein animiertes Motiv oder eine Flagge und einen Rahmen. Das Bild wird mit dem Gruppenzustand Ende-zu-Ende-verschlüsselt an alle Mitglieder verteilt (JPEG ≤ 60 KB).
+- **Profilbild in groß**: Ein Tipp auf ein Profilbild (Chat-Kopf, Kontakt-/Gruppen-Info, Mitgliederliste, eigenes Profil) zeigt die Animation samt Rahmen groß und nennt Motiv und Rahmen.
 - **Gruppen-Rechte** (Gruppen-Info ⓘ): Der **Besitzer** (wer die Gruppe erstellt hat) kann
   - das **Löschen nach 24 Std ausschalten**, dann bleiben die Nachrichten auf den Handys. Videos/GIFs werden dabei gleich lokal gespeichert. Wer länger als 24 Std offline ist, bekommt Verpasstes nicht nachgeliefert, weil der Server nichts länger hält.
   - einstellen, **wer schreiben darf** (Alle / Admins / Nur ich) und ob die anderen dann **mit Emojis reagieren** dürfen,
