@@ -2667,8 +2667,8 @@ var require_signals = __commonJS({
     var _realtime = require_realtime();
     var getSignals = function() {
       const realtimeSignals = (0, _realtime.getRealtimeSignals)();
-      const signals = [..._core.SIGNALS, ...realtimeSignals].map(normalizeSignal);
-      return signals;
+      const signals2 = [..._core.SIGNALS, ...realtimeSignals].map(normalizeSignal);
+      return signals2;
     };
     exports.getSignals = getSignals;
     var normalizeSignal = function({
@@ -2699,8 +2699,8 @@ var require_main = __commonJS({
     var _signals = require_signals();
     var _realtime = require_realtime();
     var getSignalsByName = function() {
-      const signals = (0, _signals.getSignals)();
-      return signals.reduce(getSignalByName, {});
+      const signals2 = (0, _signals.getSignals)();
+      return signals2.reduce(getSignalByName, {});
     };
     var getSignalByName = function(signalByNameMemo, { name, number: number2, description, supported, action, forced, standard }) {
       return {
@@ -2711,13 +2711,13 @@ var require_main = __commonJS({
     var signalsByName = getSignalsByName();
     exports.signalsByName = signalsByName;
     var getSignalsByNumber = function() {
-      const signals = (0, _signals.getSignals)();
+      const signals2 = (0, _signals.getSignals)();
       const length = _realtime.SIGRTMAX + 1;
-      const signalsA = Array.from({ length }, (value2, number2) => getSignalByNumber(number2, signals));
+      const signalsA = Array.from({ length }, (value2, number2) => getSignalByNumber(number2, signals2));
       return Object.assign({}, ...signalsA);
     };
-    var getSignalByNumber = function(number2, signals) {
-      const signal = findSignalByNumber(number2, signals);
+    var getSignalByNumber = function(number2, signals2) {
+      const signal = findSignalByNumber(number2, signals2);
       if (signal === void 0) {
         return {};
       }
@@ -2734,12 +2734,12 @@ var require_main = __commonJS({
         }
       };
     };
-    var findSignalByNumber = function(number2, signals) {
-      const signal = signals.find(({ name }) => _os.constants.signals[name] === number2);
+    var findSignalByNumber = function(number2, signals2) {
+      const signal = signals2.find(({ name }) => _os.constants.signals[name] === number2);
       if (signal !== void 0) {
         return signal;
       }
-      return signals.find((signalA) => signalA.number === number2);
+      return signals2.find((signalA) => signalA.number === number2);
     };
     var signalsByNumber = getSignalsByNumber();
     exports.signalsByNumber = signalsByNumber;
@@ -2917,7 +2917,7 @@ var require_signal_exit = __commonJS({
       };
     } else {
       assert2 = __require("assert");
-      signals = require_signals2();
+      signals2 = require_signals2();
       isWin = /^win/i.test(process2.platform);
       EE = __require("events");
       if (typeof EE !== "function") {
@@ -2961,7 +2961,7 @@ var require_signal_exit = __commonJS({
           return;
         }
         loaded = false;
-        signals.forEach(function(sig) {
+        signals2.forEach(function(sig) {
           try {
             process2.removeListener(sig, sigListeners[sig]);
           } catch (er) {
@@ -2980,7 +2980,7 @@ var require_signal_exit = __commonJS({
         emitter.emit(event, code, signal);
       };
       sigListeners = {};
-      signals.forEach(function(sig) {
+      signals2.forEach(function(sig) {
         sigListeners[sig] = function listener() {
           if (!processOk(global.process)) {
             return;
@@ -2998,7 +2998,7 @@ var require_signal_exit = __commonJS({
         };
       });
       module.exports.signals = function() {
-        return signals;
+        return signals2;
       };
       loaded = false;
       load = function load2() {
@@ -3007,7 +3007,7 @@ var require_signal_exit = __commonJS({
         }
         loaded = true;
         emitter.count += 1;
-        signals = signals.filter(function(sig) {
+        signals2 = signals2.filter(function(sig) {
           try {
             process2.on(sig, sigListeners[sig]);
             return true;
@@ -3046,7 +3046,7 @@ var require_signal_exit = __commonJS({
       };
     }
     var assert2;
-    var signals;
+    var signals2;
     var isWin;
     var EE;
     var emitter;
@@ -57433,7 +57433,8 @@ var TTL = {
   "pk-storyviews": 25 * H2,
   "pk-pubidx": 25 * H2,
   "pk-presence": 48 * H2,
-  "pk-ownertry": 24 * H2
+  "pk-ownertry": 24 * H2,
+  "pk-signal": 15 * 6e4
 };
 var sql = null;
 var ready = null;
@@ -58605,6 +58606,7 @@ var pubIndex = () => getStore2({ name: "pk-pubidx", consistency: "strong" });
 var MEDIA_CHUNK = 36e5;
 var MEDIA_MAX_CHUNKS = 10;
 var MEDIA_ID_RE = /^[A-Za-z0-9_-]{16}$/;
+var signals = () => getStore2({ name: "pk-signal", consistency: "strong" });
 var prefs = () => getStore2({ name: "pk-prefs", consistency: "strong" });
 async function getPref(owner, about) {
   return await prefs().get(`${owner}/${about}`, { type: "json" }) || {};
@@ -58618,6 +58620,7 @@ var json2 = (data, status = 200) => new Response(JSON.stringify(data), {
 var err = (msg, status = 400) => json2({ error: msg }, status);
 var b64uToBytes = (s) => Buffer.from(s, "base64url");
 var hourBucket = (ts) => Math.floor(ts / HOUR);
+var b64uRand = (n) => Buffer.from(crypto.getRandomValues(new Uint8Array(n))).toString("base64url");
 function randomId(len = 8) {
   const bytes2 = crypto.getRandomValues(new Uint8Array(len));
   let s = "";
@@ -58666,7 +58669,7 @@ async function vapid() {
   return vapidPub;
 }
 async function notify(to, from, name, gid, extra) {
-  if (isMuted(await getPref(to, gid || from))) return;
+  if (!extra?.call && isMuted(await getPref(to, gid || from))) return;
   await vapid();
   const store = pushStore();
   const { blobs } = await store.list({ prefix: `${to}/` });
@@ -59058,13 +59061,86 @@ async function handle(req, context5, routeOverride) {
       }
       return json2({ ok: true });
     }
+    if (route === "settings" && method === "PUT") {
+      const body = await req.json().catch(() => null);
+      if (typeof body?.callsOff === "boolean") meUser.callsOff = body.callsOff;
+      await putUser(me, meUser);
+      return json2({ ok: true, callsOff: !!meUser.callsOff });
+    }
+    if (route === "turn" && method === "GET") {
+      const iceServers = [
+        { urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302", "stun:global.stun.twilio.com:3478"] }
+      ];
+      const cfKey = env("CF_TURN_KEY_ID");
+      const cfTok = env("CF_TURN_API_TOKEN");
+      if (cfKey && cfTok) {
+        try {
+          const r = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${cfKey}/credentials/generate-ice-servers`, {
+            method: "POST",
+            headers: { authorization: `Bearer ${cfTok}`, "content-type": "application/json" },
+            body: JSON.stringify({ ttl: 86400 })
+          });
+          const d2 = r.ok ? await r.json() : null;
+          if (!r.ok) console.warn("turn: cloudflare", r.status);
+          const list = d2?.iceServers ? Array.isArray(d2.iceServers) ? d2.iceServers : [d2.iceServers] : [];
+          for (const srv of list) {
+            const urls = (Array.isArray(srv.urls) ? srv.urls : [srv.urls]).filter((u) => !/:53(\?|$)/.test(u));
+            if (urls.length) iceServers.push({ ...srv, urls });
+          }
+        } catch (e) {
+          console.warn("turn: cloudflare failed", String(e));
+        }
+      }
+      const turnUrl = env("TURN_URL");
+      if (turnUrl) iceServers.push({ urls: turnUrl.split(","), username: env("TURN_USERNAME") || "", credential: env("TURN_CREDENTIAL") || "" });
+      return json2({ iceServers, relay: iceServers.length > 1 });
+    }
+    if (route === "call/ring" && method === "POST") {
+      {
+        const blk = sendBlock(meUser);
+        if (blk) return err(blk, 403);
+      }
+      const body = await req.json().catch(() => null);
+      if (!ID_RE.test(body?.to || "") || typeof body.callId !== "string" || !/^[A-Za-z0-9_-]{8,24}$/.test(body.callId)) return err("Ung\xFCltig");
+      const t = await getUserOrImport(body.to);
+      if (!t || t.deleted) return err("Dieses Konto existiert nicht mehr.", 404);
+      if (t.banned) return err("Dieses Konto ist gesperrt.", 403);
+      if (t.callsOff) return json2({ ok: false, reason: "off" });
+      if ((await getPref(body.to, me)).noCalls) return json2({ ok: false, reason: "off" });
+      if (await blocks().get(`${body.to}/${me}`)) return json2({ ok: false, reason: "off" });
+      context5.waitUntil(notify(body.to, me, meUser.name || "", void 0, { call: body.callId }).catch(() => {
+      }));
+      return json2({ ok: true });
+    }
+    if (route === "signal" && method === "POST") {
+      const body = await req.json().catch(() => null);
+      if (!ID_RE.test(body?.to || "") || !validEnc(body, 4e4) || typeof body.sid !== "string" || !/^[A-Za-z0-9_-]{8,32}$/.test(body.sid))
+        return err("Ung\xFCltig");
+      if (await blocks().get(`${body.to}/${me}`)) return json2({ ok: true });
+      await signals().setJSON(`${body.to}/${Date.now()}-${b64uRand(6)}`, { from: me, sid: body.sid, iv: body.iv, ct: body.ct });
+      return json2({ ok: true });
+    }
+    if (route === "signal" && method === "GET") {
+      const store = signals();
+      const { blobs } = await store.list({ prefix: `${me}/` });
+      const now2 = Date.now();
+      const out = [];
+      for (const b of blobs.sort((x, y) => x.key.localeCompare(y.key))) {
+        const ts = Number(b.key.slice(me.length + 1).split("-")[0]);
+        const v = ts && now2 - ts < 12e4 ? await store.get(b.key, { type: "json" }) : null;
+        await store.delete(b.key);
+        if (v) out.push({ ...v, ts });
+      }
+      return json2({ signals: out });
+    }
     if (route === "prefs" && method === "POST") {
       const body = await req.json().catch(() => null);
       const about = String(body?.id || "");
       if (!ID_RE.test(about) && !GID_RE.test(about)) return err("Ung\xFCltig");
       const cur = await getPref(me, about);
       if (typeof body.muteUntil === "number") cur.muteUntil = body.muteUntil === -1 ? -1 : Math.max(0, Math.min(body.muteUntil, Date.now() + 400 * TTL_MS));
-      if (!isMuted(cur)) await prefs().delete(`${me}/${about}`);
+      if (typeof body.noCalls === "boolean") cur.noCalls = body.noCalls;
+      if (!cur.noCalls && !isMuted(cur)) await prefs().delete(`${me}/${about}`);
       else await prefs().setJSON(`${me}/${about}`, cur);
       return json2({ ok: true, ...cur });
     }

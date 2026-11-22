@@ -11,6 +11,7 @@ const SHELL = [
   "/decor.js",
   "/music.js",
   "/subs.js",
+  "/calls.js",
   "/style.css",
   "/vendor/qrcode.js",
   "/vendor/jsQR.js",
@@ -118,7 +119,20 @@ self.addEventListener("push", (event) => {
         });
         return;
       }
-      if (data.call || data.live) return; // Anrufe & Lives gibt es nicht mehr
+      if (data.live) return;
+      if (data.call) {
+        await self.registration.showNotification(`📞 ${name}`, {
+          body: "ruft dich an – tippen zum Annehmen",
+          icon: "/icon-192.png",
+          badge: "/icon-192.png",
+          tag: `call-${from}`,
+          renotify: true,
+          requireInteraction: true,
+          vibrate: [400, 200, 400, 200, 400],
+          data: { from },
+        });
+        return;
+      }
       await self.registration.showNotification(gid ? groupName || "Gruppe" : name, {
         body: gid ? `${name} hat eine Nachricht geschickt 🔒` : "hat dir eine Nachricht geschickt 🔒",
         icon: "/icon-192.png",

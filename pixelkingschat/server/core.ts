@@ -43,9 +43,10 @@ const pubIndex = () => getStore({ name: "pk-pubidx", consistency: "strong" });
 const MEDIA_CHUNK = 3_600_000; // Bytes pro Stück (unter dem Function-Limit)
 const MEDIA_MAX_CHUNKS = 10;
 const MEDIA_ID_RE = /^[A-Za-z0-9_-]{16}$/;
-// Einstellungen pro Kontakt/Gruppe: { muteUntil } (muteUntil: -1 = immer)
+const signals = () => getStore({ name: "pk-signal", consistency: "strong" });
+// Einstellungen pro Kontakt/Gruppe: { noCalls, muteUntil } (muteUntil: -1 = immer)
 const prefs = () => getStore({ name: "pk-prefs", consistency: "strong" });
-type Pref = { muteUntil?: number };
+type Pref = { noCalls?: boolean; muteUntil?: number };
 async function getPref(owner: string, about: string) {
   return ((await prefs().get(`${owner}/${about}`, { type: "json" })) as Pref | null) || {};
 }
@@ -68,6 +69,7 @@ type User = {
   deleted?: boolean;
   shadow?: boolean; // von der alten Instanz übernommen, noch nicht angemeldet
   role?: "owner"; // Besitzer der App
+  callsOff?: boolean; // Anrufe ausgeschaltet
 };
 
 const json = (data: unknown, status = 200) =>
@@ -141,7 +143,7 @@ async function vapid(): Promise<string> {
 }
 
 async function notify(to: string, from: string, name: string, gid?: string, extra?: Record<string, unknown>) {
-  if (isMuted(await getPref(to, gid || from))) return;
+  if (!extra?.call && isMuted(await getPref(to, gid || from))) return;
   await vapid();
   const store = pushStore();
   const { blobs } = await store.list({ prefix: `${to}/` });
@@ -610,13 +612,87 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
       return json({ ok: true });
     }
 
+    // ---------- Anrufe (nur Ton) ----------
+    if (route === "settings" && method === "PUT") {
+      const body = await req.json().catch(() => null);
+      if (typeof body?.callsOff === "boolean") meUser.callsOff = body.callsOff;
+      await putUser(me, meUser);
+      return json({ ok: true, callsOff: !!meUser.callsOff });
+    }
+    // STUN (kostenlos) für direkte Verbindungen; TURN (Cloudflare, 1000 GB/Monat gratis) für Netze, die das blockieren
+    if (route === "turn" && method === "GET") {
+      const iceServers: unknown[] = [
+        { urls: ["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302", "stun:global.stun.twilio.com:3478"] },
+      ];
+      const cfKey = env("CF_TURN_KEY_ID");
+      const cfTok = env("CF_TURN_API_TOKEN");
+      if (cfKey && cfTok) {
+        try {
+          const r = await fetch(`https://rtc.live.cloudflare.com/v1/turn/keys/${cfKey}/credentials/generate-ice-servers`, {
+            method: "POST",
+            headers: { authorization: `Bearer ${cfTok}`, "content-type": "application/json" },
+            body: JSON.stringify({ ttl: 86400 }),
+          });
+          const d: any = r.ok ? await r.json() : null;
+          if (!r.ok) console.warn("turn: cloudflare", r.status);
+          const list = d?.iceServers ? (Array.isArray(d.iceServers) ? d.iceServers : [d.iceServers]) : [];
+          // Port 53 blockieren Browser – herausfiltern
+          for (const srv of list) {
+            const urls = (Array.isArray(srv.urls) ? srv.urls : [srv.urls]).filter((u: string) => !/:53(\?|$)/.test(u));
+            if (urls.length) iceServers.push({ ...srv, urls });
+          }
+        } catch (e) {
+          console.warn("turn: cloudflare failed", String(e));
+        }
+      }
+      const turnUrl = env("TURN_URL");
+      if (turnUrl) iceServers.push({ urls: turnUrl.split(","), username: env("TURN_USERNAME") || "", credential: env("TURN_CREDENTIAL") || "" });
+      return json({ iceServers, relay: iceServers.length > 1 });
+    }
+    // Anruf ankündigen: prüft, ob der andere Anrufe zulässt, und klingelt per Push
+    if (route === "call/ring" && method === "POST") {
+      { const blk = sendBlock(meUser); if (blk) return err(blk, 403); }
+      const body = await req.json().catch(() => null);
+      if (!ID_RE.test(body?.to || "") || typeof body.callId !== "string" || !/^[A-Za-z0-9_-]{8,24}$/.test(body.callId)) return err("Ungültig");
+      const t = await getUserOrImport(body.to);
+      if (!t || t.deleted) return err("Dieses Konto existiert nicht mehr.", 404);
+      if (t.banned) return err("Dieses Konto ist gesperrt.", 403);
+      if (t.callsOff) return json({ ok: false, reason: "off" });
+      if ((await getPref(body.to, me)).noCalls) return json({ ok: false, reason: "off" });
+      if (await blocks().get(`${body.to}/${me}`)) return json({ ok: false, reason: "off" });
+      context.waitUntil(notify(body.to, me, meUser.name || "", undefined, { call: body.callId }).catch(() => {}));
+      return json({ ok: true });
+    }
+    // Verbindungsaufbau (Ende-zu-Ende-verschlüsselt) zwischen zwei Geräten
+    if (route === "signal" && method === "POST") {
+      const body = await req.json().catch(() => null);
+      if (!ID_RE.test(body?.to || "") || !validEnc(body, 40000) || typeof body.sid !== "string" || !/^[A-Za-z0-9_-]{8,32}$/.test(body.sid))
+        return err("Ungültig");
+      if (await blocks().get(`${body.to}/${me}`)) return json({ ok: true });
+      await signals().setJSON(`${body.to}/${Date.now()}-${b64uRand(6)}`, { from: me, sid: body.sid, iv: body.iv, ct: body.ct });
+      return json({ ok: true });
+    }
+    if (route === "signal" && method === "GET") {
+      const store = signals();
+      const { blobs } = await store.list({ prefix: `${me}/` });
+      const now = Date.now();
+      const out: unknown[] = [];
+      for (const b of blobs.sort((x, y) => x.key.localeCompare(y.key))) {
+        const ts = Number(b.key.slice(me.length + 1).split("-")[0]);
+        const v = ts && now - ts < 120000 ? await store.get(b.key, { type: "json" }) : null;
+        await store.delete(b.key);
+        if (v) out.push({ ...(v as object), ts });
+      }
+      return json({ signals: out });
+    }
     if (route === "prefs" && method === "POST") {
       const body = await req.json().catch(() => null);
       const about = String(body?.id || "");
       if (!ID_RE.test(about) && !GID_RE.test(about)) return err("Ungültig");
       const cur = await getPref(me, about);
       if (typeof body.muteUntil === "number") cur.muteUntil = body.muteUntil === -1 ? -1 : Math.max(0, Math.min(body.muteUntil, Date.now() + 400 * TTL_MS));
-      if (!isMuted(cur)) await prefs().delete(`${me}/${about}`);
+      if (typeof body.noCalls === "boolean") cur.noCalls = body.noCalls;
+      if (!cur.noCalls && !isMuted(cur)) await prefs().delete(`${me}/${about}`);
       else await prefs().setJSON(`${me}/${about}`, cur);
       return json({ ok: true, ...cur });
     }

@@ -11,6 +11,7 @@ import { applyTheme, ACCENTS, BASES, WALLPAPERS, wallpaperUrl } from "./theme.js
 import { FLAGS, EFFECT_AVATARS, EFFECT_FRAMES, avatarUrl, frameUrl, isDecorId } from "./decor.js";
 import { TRACKS, trackById, playTrack, stopMusic, unlockAudio, isPlaying } from "./music.js";
 import { transcribe, SUB_LANGS, cleanSubs } from "./subs.js";
+import { initCalls } from "./calls.js";
 
 /* ================= Hilfsfunktionen ================= */
 const enc = new TextEncoder();
@@ -899,7 +900,10 @@ async function poll() {
           changed = true;
           continue;
         }
-        if (p.k === "call") continue; // Anrufe gibt es nicht mehr
+        if (p.k === "call") {
+          if (calls?.handleCallCtl(m.from, p, m)) changed = true;
+          continue;
+        }
         if (p.k === "re") {
           // Reaktion im Einzelchat
           if (applyReaction(S.messages[m.from], m.from, p)) changed = true;
@@ -1480,6 +1484,7 @@ function openChat(id) {
   $("#app").classList.add("chat-open");
   if (onceMode && isGroup(id)) toggleOnce();
   $("#onceBtn").classList.toggle("hidden", isGroup(id));
+  $("#callBtn").classList.toggle("hidden", isGroup(id));
   updateComposerLock();
   renderChatHead();
   applyWallpaper(id);
@@ -2466,6 +2471,22 @@ function showSettings() {
     toast(pcb.checked ? "🌍 Neue Stories sind öffentlich – alle können sie unter „Entdecken“ sehen." : "👥 Neue Stories sehen nur deine Kontakte.");
   };
   pl.append(pcb, " Stories öffentlich (alle App-Nutzer können sie sehen)");
+  const cl = el("label", "check");
+  const ccb = el("input");
+  ccb.type = "checkbox";
+  ccb.checked = !S.settings.callsOff;
+  ccb.onchange = async () => {
+    S.settings.callsOff = !ccb.checked;
+    save();
+    try {
+      await api("settings", { method: "PUT", body: { callsOff: S.settings.callsOff } });
+      toast(ccb.checked ? "📞 Man kann dich wieder anrufen." : "📵 Niemand kann dich mehr anrufen.");
+    } catch (e) {
+      toast(e.message);
+    }
+  };
+  cl.append(ccb, " 📞 Anrufe erlauben");
+  root.append(cl);
   root.append(ol, rl, pl, el("p", "small muted", "Ausgeschaltet sehen andere nicht, wann du online warst bzw. ob du ihre Nachrichten gesehen hast. Öffentliche Stories erscheinen für alle unter „🌍 Entdecken“ und werden vorher geprüft."), el("hr"));
   root.append(el("strong", null, "☁️ Backup"));
   root.append(
@@ -4987,6 +5008,39 @@ async function showDiscover() {
   }
 }
 
+/* ================= Anrufe (nur Ton) ================= */
+let calls = null;
+function setupCalls() {
+  calls = initCalls({
+    api,
+    S: () => S,
+    el,
+    rich,
+    toast,
+    b64u,
+    rand,
+    encryptFor,
+    decryptFrom,
+    ensurePeer,
+    sendCtl,
+    memberName,
+    fillAvatar,
+    sysMsg,
+    save,
+    sendBlocked,
+    shareMeeting: () => {},
+    sendMeetInvite: () => {},
+    refresh: (id) => {
+      renderList();
+      if (currentChat === id) renderMessages();
+    },
+  });
+  $("#callBtn").onclick = () => {
+    if (!currentChat || isGroup(currentChat)) return;
+    calls.startCall(currentChat);
+  };
+}
+
 /* ================= Automatische Updates (Handy, PC, iOS) ================= */
 const APP_VERSION = "__PK_VERSION__";
 let updateReady = false;
@@ -4994,6 +5048,7 @@ let updateTimer = null;
 function updateSafeNow() {
   // nicht mitten im Anruf, bei Aufnahme, offenem Dialog, Story oder beim Tippen neu laden
   return (
+    !calls?.inCall() &&
     !rec &&
     $("#modal").classList.contains("hidden") &&
     !document.querySelector(".story-view, .call-incoming") &&
@@ -5263,6 +5318,18 @@ function prefsSection(holder, id, isContact) {
   }
   describe();
   box.append(row, label);
+  if (isContact) {
+    const cl = el("label", "check");
+    const cb = el("input");
+    cb.type = "checkbox";
+    cb.checked = !holder.noCalls;
+    cb.onchange = async () => {
+      await setPref(holder, id, { noCalls: !cb.checked });
+      toast(cb.checked ? `📞 ${displayName(holder)} kann dich wieder anrufen.` : `📵 ${displayName(holder)} kann dich nicht mehr anrufen.`);
+    };
+    cl.append(cb, ` 📞 Anrufe von ${displayName(holder)} erlauben`);
+    box.append(cl);
+  }
   return box;
 }
 
@@ -5561,6 +5628,7 @@ async function startApp() {
   requestPersistence();
   updateBackupBanner();
   uploadBackup(false);
+  if (S.settings.callsOff) api("settings", { method: "PUT", body: { callsOff: true } }).catch(() => {});
   if (pendingHash) {
     const { kind, code } = pendingHash;
     pendingHash = null;
@@ -5730,6 +5798,7 @@ function bind() {
 applyTheme(S.settings);
 adaptToDevice();
 autoPixelize(document.body);
+setupCalls();
 document.addEventListener("pointerdown", unlockAudio, { passive: true });
 bind();
 setupUpdates();
