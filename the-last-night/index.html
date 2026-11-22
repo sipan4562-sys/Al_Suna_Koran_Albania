@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="The Last Night" />
+    <meta name="description" content="THE LAST NIGHT – ein 3D-Horrorspiel im Browser. Entkomme vor Sonnenaufgang aus der verlassenen Anstalt St. Aldric." />
+    <title>THE LAST NIGHT</title>
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icon-180.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="game" tabindex="0"></canvas>
+
+      <!-- HUD -->
+      <div id="hud" class="hidden">
+        <div id="crosshair"></div>
+        <div id="prompt"></div>
+        <div id="objective"><span class="label">ZIEL</span><span id="objective-text"></span></div>
+        <div id="toasts"></div>
+        <div id="status">
+          <div id="battery" class="stat">
+            <svg viewBox="0 0 24 24" width="20" height="20"><path d="M7 2h10l-1 6H8L7 2zm1 7h8v11a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V9z" fill="currentColor" /></svg>
+            <div class="cells"><i></i><i></i><i></i><i></i><i></i></div>
+            <span id="bat-count">×0</span>
+          </div>
+          <div class="stat bar" id="health"><span>LEBEN</span><div><i></i></div></div>
+          <div class="stat bar" id="stamina"><span>AUSDAUER</span><div><i></i></div></div>
+        </div>
+        <div id="hint-keys">[F] Lampe · [E] Benutzen · [Tab] Inventar · [C] Ducken · [Shift] Rennen</div>
+        <div id="hide-overlay"><div class="slits"></div><span>VERSTECKT – [E] verlassen</span></div>
+        <div id="checkpoint-flash">CHECKPOINT</div>
+        <div id="fps"></div>
+      </div>
+
+      <!-- Touch-Steuerung -->
+      <div id="touch-ui" class="hidden">
+        <div id="tz-move"></div>
+        <div id="tz-look"></div>
+        <div id="stick-base"><div id="stick-knob"></div></div>
+        <button class="tbtn" id="tb-pause" aria-label="Pause">❚❚</button>
+        <button class="tbtn" id="tb-inv" aria-label="Inventar">INV</button>
+        <button class="tbtn big" id="tb-interact" aria-label="Benutzen">E</button>
+        <button class="tbtn" id="tb-flash" aria-label="Taschenlampe">
+          <svg viewBox="0 0 24 24" width="24" height="24"><path d="M7 2h10l-1 6H8L7 2zm1 7h8v11a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2V9z" fill="currentColor" /></svg>
+        </button>
+        <button class="tbtn" id="tb-crouch" aria-label="Ducken">⤓</button>
+        <button class="tbtn" id="tb-sprint" aria-label="Rennen">»</button>
+        <button class="tbtn small" id="tb-throw" aria-label="Werfen">WURF</button>
+        <button class="tbtn small" id="tb-heal" aria-label="Heilen">+</button>
+        <button class="tbtn small" id="tb-reload" aria-label="Batterie">BAT</button>
+      </div>
+
+      <!-- Kameramodus -->
+      <div id="monitor-ui" class="hidden">
+        <div class="cam-top"><span class="rec">● REC</span><span id="cam-name">KAM 1</span><span id="cam-time">03:12:44</span></div>
+        <div class="cam-bottom">
+          <button id="cam-prev" class="btn">◀ Kamera</button>
+          <button id="cam-exit" class="btn">Zurück [E]</button>
+          <button id="cam-next" class="btn">Kamera ▶</button>
+        </div>
+        <div id="cam-warning">BEWEGUNG IN DER NÄHE</div>
+      </div>
+
+      <!-- Ladebildschirm -->
+      <div id="screen-loading" class="screen">
+        <div class="title-wrap"><h1 class="title" data-text="THE LAST NIGHT">THE LAST NIGHT</h1></div>
+        <div class="loadbar"><i id="load-fill"></i></div>
+        <p id="load-text">Die Anstalt wird errichtet …</p>
+      </div>
+
+      <!-- Hauptmenü -->
+      <div id="screen-menu" class="screen hidden">
+        <div class="title-wrap">
+          <h1 class="title" data-text="THE LAST NIGHT">THE LAST NIGHT</h1>
+          <p class="subtitle">Psychiatrische Anstalt St. Aldric · 31. Oktober 1987</p>
+        </div>
+        <nav class="menu">
+          <button class="btn" id="btn-new">Neues Spiel</button>
+          <button class="btn" id="btn-continue">Fortsetzen</button>
+          <button class="btn" id="btn-settings">Einstellungen</button>
+          <button class="btn" id="btn-controls">Steuerung</button>
+          <button class="btn" id="btn-credits">Über das Spiel</button>
+        </nav>
+        <p class="foot">Kopfhörer empfohlen · Spiele im Dunkeln</p>
+      </div>
+
+      <!-- Intro -->
+      <div id="screen-intro" class="screen hidden">
+        <div class="intro-text">
+          <p>Du öffnest die Augen.</p>
+          <p>Kaltes Licht flackert. Der Geruch von Desinfektionsmittel und Fäulnis.</p>
+          <p>Du weißt nicht, wer du bist. Du weißt nicht, wie du hierhergekommen bist.</p>
+          <p>Du weißt nur eines: <em>Du musst hier raus, bevor die Sonne aufgeht.</em></p>
+        </div>
+        <button class="btn" id="btn-intro">Aufwachen</button>
+      </div>
+
+      <!-- Pause -->
+      <div id="screen-pause" class="screen hidden">
+        <h2>PAUSE</h2>
+        <nav class="menu">
+          <button class="btn" id="btn-resume">Fortsetzen</button>
+          <button class="btn" id="btn-pause-inv">Inventar</button>
+          <button class="btn" id="btn-pause-settings">Einstellungen</button>
+          <button class="btn" id="btn-pause-controls">Steuerung</button>
+          <button class="btn" id="btn-pause-checkpoint">Letzter Checkpoint</button>
+          <button class="btn" id="btn-pause-menu">Hauptmenü</button>
+        </nav>
+      </div>
+
+      <!-- Einstellungen -->
+      <div id="screen-settings" class="screen hidden">
+        <h2>EINSTELLUNGEN</h2>
+        <div class="settings">
+          <label>Helligkeit <input type="range" id="set-brightness" min="0.5" max="2" step="0.05" /></label>
+          <label>Lautstärke <input type="range" id="set-volume" min="0" max="1" step="0.05" /></label>
+          <label>Musik <input type="range" id="set-music" min="0" max="1" step="0.05" /></label>
+          <label>Mausempfindlichkeit <input type="range" id="set-sens" min="0.2" max="3" step="0.05" /></label>
+          <label>Touch-Empfindlichkeit <input type="range" id="set-tsens" min="0.2" max="3" step="0.05" /></label>
+          <label>Sichtfeld <input type="range" id="set-fov" min="60" max="95" step="1" /></label>
+          <label>Grafikqualität
+            <select id="set-quality">
+              <option value="auto">Automatisch</option>
+              <option value="low">Niedrig</option>
+              <option value="medium">Mittel</option>
+              <option value="high">Hoch</option>
+            </select>
+          </label>
+          <label class="check"><input type="checkbox" id="set-invert" /> Y-Achse invertieren</label>
+          <label class="check"><input type="checkbox" id="set-bob" /> Kopfwippen</label>
+          <label class="check"><input type="checkbox" id="set-fps" /> FPS anzeigen</label>
+        </div>
+        <button class="btn" id="btn-settings-back">Zurück</button>
+      </div>
+
+      <!-- Steuerung -->
+      <div id="screen-controls" class="screen hidden">
+        <h2>STEUERUNG</h2>
+        <div class="controls-grid">
+          <div><h3>Tastatur &amp; Maus</h3>
+            <p><kbd>W A S D</kbd> Laufen</p>
+            <p><kbd>Maus</kbd> Umsehen</p>
+            <p><kbd>Shift</kbd> Rennen (Ausdauer)</p>
+            <p><kbd>C</kbd> Ducken (umschalten) · <kbd>Strg</kbd> halten</p>
+            <p><kbd>E</kbd> Interagieren / Verstecken</p>
+            <p><kbd>F</kbd> Taschenlampe an/aus</p>
+            <p><kbd>R</kbd> Batterie wechseln</p>
+            <p><kbd>H</kbd> Verbandskasten benutzen</p>
+            <p><kbd>G</kbd> Flasche werfen (lenkt ab)</p>
+            <p><kbd>Tab</kbd> / <kbd>I</kbd> Inventar &amp; Dokumente</p>
+            <p><kbd>Esc</kbd> Pause</p>
+          </div>
+          <div><h3>Touch (iPhone / Tablet)</h3>
+            <p><b>Linke Hälfte</b> ziehen: Laufen (ganz nach vorn = Rennen)</p>
+            <p><b>Rechte Hälfte</b> ziehen: Umsehen</p>
+            <p><b>E</b>: Interagieren · <b>Lampe</b> · <b>⤓</b> Ducken · <b>»</b> Rennen</p>
+            <p><b>WURF</b> Flasche · <b>+</b> Heilen · <b>BAT</b> Batterie</p>
+            <h3>Überleben</h3>
+            <p>Das Ding hört Schritte, Türen und Glas. Licht macht dich sichtbar. Ducken macht dich leise.</p>
+            <p>Verstecke dich in Spinden – aber nicht, wenn es dir dabei zusieht.</p>
+          </div>
+        </div>
+        <button class="btn" id="btn-controls-back">Zurück</button>
+      </div>
+
+      <!-- Credits -->
+      <div id="screen-credits" class="screen hidden">
+        <h2>ÜBER DAS SPIEL</h2>
+        <div class="credits">
+          <p><b>THE LAST NIGHT</b> ist ein Survival-Horror-Spiel, vollständig im Browser mit Three.js / WebGL gebaut.</p>
+          <p>Sämtliche Texturen, Modelle, Animationen, Klänge und die Musik werden zur Laufzeit prozedural erzeugt – ohne externe Assets oder Dienste.</p>
+          <p>Fiktion: Alle Personen und Orte sind frei erfunden.</p>
+        </div>
+        <button class="btn" id="btn-credits-back">Zurück</button>
+      </div>
+
+      <!-- Inventar -->
+      <div id="screen-inventory" class="screen hidden">
+        <h2>INVENTAR</h2>
+        <div class="tabs"><button class="tab active" data-tab="items">Gegenstände</button><button class="tab" data-tab="docs">Dokumente</button></div>
+        <div id="inv-items" class="inv-grid"></div>
+        <div id="inv-docs" class="inv-docs hidden"></div>
+        <div id="inv-detail"></div>
+        <button class="btn" id="btn-inv-close">Schließen [Tab]</button>
+      </div>
+
+      <!-- Dokument -->
+      <div id="screen-note" class="screen hidden">
+        <div class="paper"><h3 id="note-title"></h3><div id="note-text"></div></div>
+        <button class="btn" id="btn-note-close">Schließen [E]</button>
+      </div>
+
+      <!-- Tastenfeld -->
+      <div id="screen-keypad" class="screen hidden">
+        <div class="keypad">
+          <div class="kp-label">OP 1 · ZUGANGSCODE</div>
+          <div id="kp-display">____</div>
+          <div class="kp-grid">
+            <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+            <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+            <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+            <button data-k="C" class="kp-c">C</button><button data-k="0">0</button><button data-k="OK" class="kp-ok">OK</button>
+          </div>
+          <button class="btn" id="btn-kp-close">Abbrechen</button>
+        </div>
+      </div>
+
+      <!-- Game Over -->
+      <div id="screen-dead" class="screen hidden">
+        <h1 class="title dead" data-text="DU BIST TOT">DU BIST TOT</h1>
+        <p class="subtitle" id="dead-sub">Die Nacht hat dich verschlungen.</p>
+        <nav class="menu">
+          <button class="btn" id="btn-retry">Vom Checkpoint fortsetzen</button>
+          <button class="btn" id="btn-dead-menu">Hauptmenü</button>
+        </nav>
+      </div>
+
+      <!-- Ende -->
+      <div id="screen-end" class="screen hidden">
+        <h1 class="title end" data-text="DÄMMERUNG">DÄMMERUNG</h1>
+        <p class="subtitle">Du bist der Anstalt St. Aldric entkommen.</p>
+        <p class="end-text" id="end-text"></p>
+        <div id="end-stats"></div>
+        <nav class="menu"><button class="btn" id="btn-end-menu">Hauptmenü</button></nav>
+      </div>
+
+      <div id="fade"></div>
+      <div id="rotate-hint">Bitte das Gerät ins Querformat drehen</div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

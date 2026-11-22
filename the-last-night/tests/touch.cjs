@@ -1,0 +1,100 @@
+const { chromium, devices } = require('playwright');
+(async () => {
+  const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+  const iphone = devices['iPhone 13 landscape'];
+  const ctx = await browser.newContext({ ...iphone, deviceScaleFactor: 1 });
+  const page = await ctx.newPage();
+  const logs = [];
+  page.on('pageerror', (e) => logs.push('PAGEERROR: ' + e.message));
+  page.on('console', (m) => { if (m.type() === 'error') logs.push('console.error: ' + m.text()); });
+  await page.goto('http://localhost:4173/?debug', { waitUntil: 'load' });
+  await page.waitForFunction(() => window.TLN && window.TLN.mode === 'menu', null, { timeout: 120000 });
+  const vp = page.viewportSize();
+  console.log('viewport', JSON.stringify(vp));
+  const R = [];
+  const ok = (n, c, i) => R.push((c ? 'PASS ' : 'FAIL ') + n + (i !== undefined ? '  ' + JSON.stringify(i) : ''));
+  const cdp = await ctx.newCDPSession(page);
+  const touch = (type, pts) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y, id]) => ({ x, y, id, radiusX: 5, radiusY: 5, force: 1 })) });
+  await page.tap('#btn-new');
+  await page.waitForTimeout(400);
+  ok('Intro nach Tippen auf Neues Spiel', await page.evaluate(() => TLN.mode === 'intro'));
+  await page.tap('#btn-intro');
+  await page.waitForTimeout(500);
+  ok('Spiel läuft', await page.evaluate(() => TLN.mode === 'playing'));
+  ok('Touch-UI sichtbar', await page.evaluate(() => !document.querySelector('#touch-ui').classList.contains('hidden')));
+  ok('Touch-Klasse gesetzt', await page.evaluate(() => document.body.classList.contains('touch')));
+  // Bewegung
+  await page.evaluate(() => TLN.player.spawn(31.0, 25.0, Math.PI, 0));
+  await page.waitForTimeout(300);
+  const p0 = await page.evaluate(() => ({ x: TLN.player.pos.x, z: TLN.player.pos.z }));
+  await touch('touchStart', [[110, 280, 1]]);
+  for (let k = 1; k <= 6; k++) { await touch('touchMove', [[110, 280 - k * 10, 1]]); await page.waitForTimeout(30); }
+  const stick = await page.evaluate(() => ({ ...TLN.input.stick }));
+  ok('Joystick-Vektor vorwärts', stick.y > 0.9, stick);
+  await page.waitForTimeout(1800);
+  const p1 = await page.evaluate(() => ({ x: TLN.player.pos.x, z: TLN.player.pos.z }));
+  ok('Spieler bewegt sich per Joystick (vorwärts = +z bei yaw π)', p1.z - p0.z > 0.4, { p0, p1 });
+  // Gleichzeitig umsehen (Multitouch)
+  const yaw0 = await page.evaluate(() => TLN.player.yaw);
+  await touch('touchStart', [[110, 220, 1], [470, 140, 2]]);
+  for (let k = 1; k <= 8; k++) { await touch('touchMove', [[110, 220, 1], [470 + k * 15, 140, 2]]); await page.waitForTimeout(30); }
+  await page.waitForTimeout(200);
+  const yaw1 = await page.evaluate(() => TLN.player.yaw);
+  ok('Umsehen per Wischen (rechte Hälfte), gleichzeitig mit Joystick', Math.abs(yaw1 - yaw0) > 0.2, { yaw0, yaw1 });
+  await touch('touchEnd', []);
+  await page.waitForTimeout(200);
+  ok('Joystick zurückgesetzt nach Loslassen', await page.evaluate(() => TLN.input.stick.x === 0 && TLN.input.stick.y === 0));
+  // Interagieren per Button: Taschenlampe
+  await page.evaluate(() => {
+    const g = TLN; const P = g.player; P.spawn(31.0, 26.7, 0, 0);
+  });
+  await page.waitForTimeout(200);
+  await page.evaluate(() => {
+    const g = TLN; const P = g.player; const c = g.camera.position;
+    const dx = 31.55 - c.x, dy = 0.65 - c.y, dz = 27.5 - c.z;
+    P.yaw = Math.atan2(-dx, -dz); P.pitch = Math.atan2(dy, Math.hypot(dx, dz));
+  });
+  await page.waitForTimeout(400);
+  ok('Interaktions-Button hervorgehoben', await page.evaluate(() => document.querySelector('#tb-interact').classList.contains('ready')));
+  await page.tap('#tb-interact');
+  await page.waitForTimeout(400);
+  ok('Taschenlampe per Touch aufgehoben', await page.evaluate(() => TLN.state.inv.flashlight));
+  const f0 = await page.evaluate(() => TLN.player.flashOn);
+  await page.tap('#tb-flash');
+  await page.waitForTimeout(300);
+  ok('Lampen-Button schaltet um', await page.evaluate((f0) => TLN.player.flashOn !== f0, f0));
+  await page.tap('#tb-crouch');
+  await page.waitForTimeout(300);
+  ok('Ducken-Button', await page.evaluate(() => TLN.player.crouched));
+  await page.tap('#tb-crouch');
+  await page.waitForTimeout(300);
+  ok('Aufstehen-Button', await page.evaluate(() => !TLN.player.crouched));
+  await page.tap('#tb-sprint');
+  await page.waitForTimeout(200);
+  ok('Sprint-Umschalter aktiv', await page.evaluate(() => TLN.input.touchSprint));
+  await page.screenshot({ path: (process.argv[2] || require('os').tmpdir()) + '/touch_play.png' });
+  await page.tap('#tb-inv');
+  await page.waitForTimeout(400);
+  ok('Inventar per Touch', await page.evaluate(() => TLN.mode === 'overlay' && TLN.overlay === 'inventory'));
+  await page.screenshot({ path: (process.argv[2] || require('os').tmpdir()) + '/touch_inv.png' });
+  await page.tap('#btn-inv-close');
+  await page.waitForTimeout(300);
+  await page.tap('#tb-pause');
+  await page.waitForTimeout(400);
+  ok('Pause per Touch', await page.evaluate(() => TLN.mode === 'paused'));
+  await page.tap('#btn-resume');
+  await page.waitForTimeout(300);
+  ok('Fortsetzen per Touch', await page.evaluate(() => TLN.mode === 'playing'));
+  // Tastenfeld per Touch
+  await page.evaluate(() => { TLN.state.flags.codeKnown = true; TLN.doors.or.interact(); });
+  await page.waitForTimeout(300);
+  const code = await page.evaluate(() => TLN.state.code);
+  for (const c of code) await page.tap(`.kp-grid button[data-k="${c}"]`);
+  await page.screenshot({ path: (process.argv[2] || require('os').tmpdir()) + '/touch_keypad.png' });
+  await page.tap('.kp-grid button[data-k="OK"]');
+  await page.waitForTimeout(300);
+  ok('Tastenfeld per Touch – Code korrekt', await page.evaluate(() => !TLN.doors.or.locked && TLN.mode === 'playing'));
+  console.log(R.join('\n'));
+  console.log(logs.join('\n'));
+  await browser.close();
+})();

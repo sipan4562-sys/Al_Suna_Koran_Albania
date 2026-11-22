@@ -14,3 +14,11 @@ Einfach `index.html` im Browser öffnen (Doppelklick) – es ist keine Installat
 - **Formelsammlung** – Algebra, Geometrie, Trigonometrie zum Aufklappen.
 - **Fortschritt** – lokal gespeichert (localStorage), ohne Anmeldung.
 - **Hell/Dunkel-Modus**, animierte Oberfläche, `prefers-reduced-motion` respektiert.
+
+---
+
+# THE LAST NIGHT (3D-Horrorspiel)
+
+Im Ordner [`the-last-night/`](the-last-night/) liegt ein vollständiges 3D-Horrorspiel für Browser, Desktop und iPhone (Three.js/WebGL). Hinweise zum Starten, Bauen und Deployen stehen in [`the-last-night/README.md`](the-last-night/README.md).
+
+Live: https://the-last-night-seven.vercel.app
