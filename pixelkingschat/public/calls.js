@@ -2,11 +2,14 @@
 // Ton/Bild laufen direkt zwischen den Geräten (DTLS-SRTP-verschlüsselt).
 // Der Verbindungsaufbau (SDP) wird zusätzlich Ende-zu-Ende verschlüsselt über den Server ausgetauscht.
 
+import { startRelay, prepareAudio, relaySupported } from "./relay.js";
+
 export function initCalls(ctx) {
   const { api, S, el, rich, toast } = ctx;
   const RING_MS = 45000;
   let iceServers = null;
   let hasRelay = false;
+  let fallbackCfg = null; // Notfall-Weiterleitung über Supabase Realtime
   let call = null; // aktiver Anruf oder Meeting
   let incoming = null; // klingelnder Anruf
   let sigTimer = null;
@@ -15,7 +18,9 @@ export function initCalls(ctx) {
   async function getIce() {
     if (iceServers) return iceServers;
     try {
-      iceServers = (await api("turn")).iceServers;
+      const t = await api("turn");
+      iceServers = t.iceServers;
+      fallbackCfg = t.fallback?.url && t.fallback?.key ? t.fallback : null;
       hasRelay = iceServers.some((s) => [].concat(s.urls).some((u) => /^turns?:/.test(u)));
     } catch {
       iceServers = [{ urls: "stun:stun.l.google.com:19302" }];
@@ -132,14 +137,21 @@ export function initCalls(ctx) {
       if (!peer.stream.getTracks().includes(e.track)) peer.stream.addTrack(e.track);
       renderTiles();
     };
+    // Keine direkte Verbindung nach ein paar Sekunden? → automatisch über die Weiterleitung
+    // (Sicherheitsnetz – der eigentliche Timer startet, sobald beide Seiten ihre Verbindungsdaten haben)
+    if (call.kind === "direct") peer.fbTimer = setTimeout(() => !peer.connected && startFallback(id), 25000);
     pc.onconnectionstatechange = () => {
-      if (!call || call.peers.get(id) !== peer) return;
+      if (!call || call.peers.get(id) !== peer || peer.relay) return;
       if (pc.connectionState === "connected") {
         peer.connected = true;
         if (!call.connectedAt) call.connectedAt = Date.now();
         sigFast = false;
         stopRinging();
         playRemote(peer);
+      }
+      if (pc.connectionState === "failed" && call.kind === "direct" && fallbackCfg && relaySupported()) {
+        startFallback(id);
+        return;
       }
       if (pc.connectionState === "failed") {
         // einmal neu versuchen (z. B. nach Netzwechsel WLAN ↔ Mobilfunk)
@@ -159,6 +171,58 @@ export function initCalls(ctx) {
     call.peers.set(id, peer);
     return peer;
   }
+  /* ---------- Notfall-Weiterleitung ---------- */
+  // Ab jetzt prüfen beide Geräte die direkte Verbindung – klappt sie nicht rasch, geht es über den Server
+  function armFallback(id) {
+    const peer = call?.peers.get(id);
+    if (!peer || call.kind !== "direct" || peer.connected) return;
+    clearTimeout(peer.fbTimer);
+    peer.fbTimer = setTimeout(() => !peer.connected && startFallback(id), hasRelay ? 12000 : 6000);
+  }
+  async function startFallback(id) {
+    const c = call;
+    if (!c || c.kind !== "direct" || c.fb || !fallbackCfg || !relaySupported()) return false;
+    const peer = c.peers.get(id);
+    if (!peer || peer.connected) return false;
+    c.fb = "starting";
+    clearTimeout(peer.fbTimer);
+    peer.relay = true;
+    try {
+      peer.pc.close();
+    } catch {}
+    c.status = "verbinde über Server…";
+    renderTiles();
+    try {
+      const R = await startRelay({
+        cfg: fallbackCfg,
+        room: c.room,
+        me: S().me.id,
+        local: c.local,
+        onConnected: () => {
+          if (call !== c) return;
+          peer.connected = true;
+          if (!c.connectedAt) c.connectedAt = Date.now();
+          sigFast = false;
+          stopRinging();
+          renderTiles();
+        },
+        onState: (st) => {
+          if (st === "error" && call === c && !peer.connected) endCall("Keine Verbindung möglich – bitte später nochmal versuchen.");
+        },
+      });
+      if (call !== c) {
+        R.close();
+        return true;
+      }
+      c.fb = R;
+      R.setOutputMuted(!!view?._muteOut);
+    } catch (e) {
+      c.fb = null;
+      toast("Weiterleitung nicht möglich: " + (e.message || e));
+    }
+    return true;
+  }
+
   function gathered(pc) {
     return new Promise((res) => {
       if (pc.iceGatheringState === "complete") return res();
@@ -200,10 +264,12 @@ export function initCalls(ctx) {
     await peer.pc.setLocalDescription(ans);
     await gathered(peer.pc);
     await signal(from, { k: "answer", room: call.room, sdp: peer.pc.localDescription.sdp });
+    armFallback(from);
   }
   function closePeer(id) {
     const p = call?.peers.get(id);
     if (!p) return;
+    clearTimeout(p.fbTimer);
     try {
       p.pc.close();
     } catch {}
@@ -224,7 +290,10 @@ export function initCalls(ctx) {
       await onOffer(from, p);
     } else if (p.k === "answer" && call?.room === p.room) {
       const peer = call.peers.get(from);
-      if (peer && peer.pc.signalingState === "have-local-offer") await peer.pc.setRemoteDescription({ type: "answer", sdp: p.sdp });
+      if (peer && peer.pc.signalingState === "have-local-offer") {
+        await peer.pc.setRemoteDescription({ type: "answer", sdp: p.sdp });
+        armFallback(from);
+      }
     } else if (/^l[a-z]+$/.test(p.k)) {
       await ctx.onLiveSignal?.(from, p);
     } else if (p.k === "hangup") {
@@ -240,6 +309,7 @@ export function initCalls(ctx) {
   /* ---------- Direkter Anruf ---------- */
   async function startCall(to) {
     const video = false;
+    prepareAudio();
     if (call) return toast("Du bist schon in einem Anruf.");
     if (ctx.sendBlocked()) return;
     if (!window.RTCPeerConnection) return toast("Dein Browser unterstützt keine Anrufe.");
@@ -330,6 +400,7 @@ export function initCalls(ctx) {
     if (!call) stopSignalPolling();
   }
   async function acceptIncoming() {
+    prepareAudio();
     const inc = incoming;
     closeIncoming();
     let local;
@@ -433,6 +504,7 @@ export function initCalls(ctx) {
       const muted = !view._muteOut;
       view._muteOut = muted;
       for (const p of call.peers.values()) if (p.audio) p.audio.muted = muted;
+      if (call.fb?.setOutputMuted) call.fb.setOutputMuted(muted);
       spk.textContent = muted ? "🔕" : "🔊";
       spk.classList.toggle("off", muted);
       toast(muted ? "🔕 Du hörst die anderen gerade nicht." : "🔊 Ton wieder an");
@@ -473,7 +545,7 @@ export function initCalls(ctx) {
     if (call.kind === "direct") {
       title.textContent = "";
       title.append(rich("span", null, ctx.memberName(call.with)));
-      sub.textContent = call.connectedAt ? `🔐 ${fmt((Date.now() - call.connectedAt) / 1000)}` : call.status;
+      sub.textContent = call.connectedAt ? `🔐 ${fmt((Date.now() - call.connectedAt) / 1000)}${call.fb?.close ? " · 📡" : ""}` : call.status;
     } else {
       title.textContent = "";
       title.append(rich("span", null, call.title || "Meeting"));
@@ -527,7 +599,15 @@ export function initCalls(ctx) {
       }
       if (p.audio.srcObject !== p.stream || p.audio.paused) playRemote(p);
       const st = p.pc.connectionState;
-      p.tileState.textContent = st === "connected" ? "" : st === "failed" ? "⚠ keine Verbindung" : "verbinde…";
+      p.tileState.textContent = p.relay
+        ? p.connected
+          ? "📡 über Server"
+          : "verbinde über Server…"
+        : st === "connected"
+        ? ""
+        : st === "failed"
+        ? "⚠ keine Verbindung"
+        : "verbinde…";
       if (p.tile.parentNode !== grid) grid.append(p.tile);
     }
     for (const t of [...grid.children]) if (!peers.some((p) => p.tile === t)) t.remove();
@@ -547,6 +627,7 @@ export function initCalls(ctx) {
   // Sprech-Anzeige: Profilbild leuchtet, wenn jemand spricht.
   // Pegel kommen direkt aus WebRTC – kein WebAudio, das auf iPhones den Ton stören kann.
   function remoteLevel(p) {
+    if (p.relay) return (call?.fb?.remoteLevel || 0) * 4;
     try {
       const r = p.pc.getReceivers().find((x) => x.track?.kind === "audio");
       const src = r?.getSynchronizationSources?.()[0];
@@ -557,6 +638,7 @@ export function initCalls(ctx) {
   }
   let meBusy = false;
   async function localLevel() {
+    if (call?.fb?.close) return call.fb.localLevel * 4;
     const p = [...call.peers.values()].find((x) => x.pc.connectionState === "connected");
     if (!p) return 0;
     const st = await p.pc.getStats();
@@ -599,8 +681,10 @@ export function initCalls(ctx) {
     clearInterval(beatTimer);
     clearInterval(durTimer);
     stopRinging();
+    if (c.fb?.close) c.fb.close();
     for (const p of c.peers.values())
       try {
+        clearTimeout(p.fbTimer);
         p.pc.close();
       } catch {}
     c.local.getTracks().forEach((t) => t.stop());

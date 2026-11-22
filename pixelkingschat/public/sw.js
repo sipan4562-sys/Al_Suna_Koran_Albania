@@ -12,6 +12,8 @@ const SHELL = [
   "/music.js",
   "/subs.js",
   "/calls.js",
+  "/relay.js",
+  "/relay-worklet.js",
   "/style.css",
   "/vendor/qrcode.js",
   "/vendor/jsQR.js",

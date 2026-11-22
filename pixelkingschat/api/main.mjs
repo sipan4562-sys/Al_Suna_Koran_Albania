@@ -59093,7 +59093,10 @@ async function handle(req, context5, routeOverride) {
       }
       const turnUrl = env("TURN_URL");
       if (turnUrl) iceServers.push({ urls: turnUrl.split(","), username: env("TURN_USERNAME") || "", credential: env("TURN_CREDENTIAL") || "" });
-      return json2({ iceServers, relay: iceServers.length > 1 });
+      const sbUrl = env("SUPABASE_URL") || env("NEXT_PUBLIC_SUPABASE_URL");
+      const sbKey = env("SUPABASE_ANON_KEY") || env("NEXT_PUBLIC_SUPABASE_ANON_KEY") || env("SUPABASE_PUBLISHABLE_KEY");
+      const fallback = sbUrl && sbKey && /^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(sbUrl) ? { url: sbUrl, key: sbKey } : null;
+      return json2({ iceServers, relay: iceServers.length > 1, fallback });
     }
     if (route === "call/ring" && method === "POST") {
       {

@@ -647,7 +647,11 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
       }
       const turnUrl = env("TURN_URL");
       if (turnUrl) iceServers.push({ urls: turnUrl.split(","), username: env("TURN_USERNAME") || "", credential: env("TURN_CREDENTIAL") || "" });
-      return json({ iceServers, relay: iceServers.length > 1 });
+      // Notfall-Weiterleitung über Supabase Realtime (öffentlicher Schlüssel – der Ton ist Ende-zu-Ende-verschlüsselt)
+      const sbUrl = env("SUPABASE_URL") || env("NEXT_PUBLIC_SUPABASE_URL");
+      const sbKey = env("SUPABASE_ANON_KEY") || env("NEXT_PUBLIC_SUPABASE_ANON_KEY") || env("SUPABASE_PUBLISHABLE_KEY");
+      const fallback = sbUrl && sbKey && /^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(sbUrl) ? { url: sbUrl, key: sbKey } : null;
+      return json({ iceServers, relay: iceServers.length > 1, fallback });
     }
     // Anruf ankündigen: prüft, ob der andere Anrufe zulässt, und klingelt per Push
     if (route === "call/ring" && method === "POST") {
