@@ -58861,8 +58861,25 @@ async function aesOpen(kB64u, e, aad) {
   );
   return JSON.parse(new TextDecoder().decode(pt));
 }
+function cleanSubs(x) {
+  if (!Array.isArray(x)) return void 0;
+  const out = [];
+  for (const c2 of x.slice(0, 80)) {
+    if (!Array.isArray(c2) || typeof c2[2] !== "string") continue;
+    const s = Number(c2[0]);
+    const e = Number(c2[1]);
+    if (!Number.isFinite(s) || !Number.isFinite(e) || e <= s || s < 0 || e > 120) continue;
+    const t = c2[2].trim().slice(0, 160);
+    if (t) out.push([s, e, t]);
+  }
+  return out.length ? out : void 0;
+}
 function contentParts2(p2) {
   let text3 = typeof p2.t === "string" ? p2.t.slice(0, 4e3) : "";
+  const subs = cleanSubs(p2.sub);
+  if (subs) text3 += "\n[Untertitel] " + subs.map((c2) => c2[2]).join(" ");
+  if (p2.mus && typeof p2.mus.title === "string") text3 += `
+[Musik: ${String(p2.mus.title).slice(0, 60)} \u2013 ${String(p2.mus.artist || "").slice(0, 60)}]`;
   if (p2.file && typeof p2.file.name === "string") text3 += `
 [Datei: ${p2.file.name.slice(0, 120)}]`;
   if (p2.vid) text3 += "\n[Video]";
@@ -59389,7 +59406,10 @@ async function handle(req, context5, routeOverride) {
           t: typeof c2.t === "string" ? c2.t.slice(0, 300) : "",
           bg: typeof c2.bg === "string" && /^#[0-9a-f]{6}$/i.test(c2.bg) ? c2.bg : void 0,
           img: typeof c2.img === "string" && /^[A-Za-z0-9+/=]+$/.test(c2.img) ? c2.img : void 0,
-          vid: c2.vid && typeof c2.vid === "object" ? c2.vid : void 0
+          vid: c2.vid && typeof c2.vid === "object" ? c2.vid : void 0,
+          // Musik aus der eigenen Bibliothek (eigene Uploads nur bei Kontakte-Stories)
+          mus: c2.mus && typeof c2.mus.id === "string" && /^[a-z]{2,12}$/.test(c2.mus.id) && !c2.mus.own ? { id: c2.mus.id, title: String(c2.mus.title || "").slice(0, 60), artist: String(c2.mus.artist || "").slice(0, 60) } : void 0,
+          sub: cleanSubs(c2.sub)
         };
         if (JSON.stringify(content).length > MAX_STORY_CT) return err("Story zu gro\xDF");
         const mine2 = await stories().list({ prefix: `${me}/` });

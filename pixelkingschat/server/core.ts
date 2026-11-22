@@ -370,8 +370,25 @@ async function aesOpen(kB64u: string, e: Enc, aad: string) {
   return JSON.parse(new TextDecoder().decode(pt));
 }
 
+function cleanSubs(x: unknown): [number, number, string][] | undefined {
+  if (!Array.isArray(x)) return undefined;
+  const out: [number, number, string][] = [];
+  for (const c of x.slice(0, 80)) {
+    if (!Array.isArray(c) || typeof c[2] !== "string") continue;
+    const s = Number(c[0]);
+    const e = Number(c[1]);
+    if (!Number.isFinite(s) || !Number.isFinite(e) || e <= s || s < 0 || e > 120) continue;
+    const t = c[2].trim().slice(0, 160);
+    if (t) out.push([s, e, t]);
+  }
+  return out.length ? out : undefined;
+}
+
 function contentParts(p: any) {
   let text = typeof p.t === "string" ? p.t.slice(0, 4000) : "";
+  const subs = cleanSubs(p.sub);
+  if (subs) text += "\n[Untertitel] " + subs.map((c) => c[2]).join(" ");
+  if (p.mus && typeof p.mus.title === "string") text += `\n[Musik: ${String(p.mus.title).slice(0, 60)} – ${String(p.mus.artist || "").slice(0, 60)}]`;
   if (p.file && typeof p.file.name === "string") text += `\n[Datei: ${p.file.name.slice(0, 120)}]`;
   // Sprachnachrichten können nicht automatisch angehört werden – sie gehen in die genauere Prüfung
   if (p.vid) text += "\n[Video]";
@@ -962,6 +979,12 @@ export async function handle(req: Request, context: Ctx, routeOverride?: string)
           bg: typeof c.bg === "string" && /^#[0-9a-f]{6}$/i.test(c.bg) ? c.bg : undefined,
           img: typeof c.img === "string" && /^[A-Za-z0-9+/=]+$/.test(c.img) ? c.img : undefined,
           vid: c.vid && typeof c.vid === "object" ? c.vid : undefined,
+          // Musik aus der eigenen Bibliothek (eigene Uploads nur bei Kontakte-Stories)
+          mus:
+            c.mus && typeof c.mus.id === "string" && /^[a-z]{2,12}$/.test(c.mus.id) && !c.mus.own
+              ? { id: c.mus.id, title: String(c.mus.title || "").slice(0, 60), artist: String(c.mus.artist || "").slice(0, 60) }
+              : undefined,
+          sub: cleanSubs(c.sub),
         };
         if (JSON.stringify(content).length > MAX_STORY_CT) return err("Story zu groß");
         const mine = await stories().list({ prefix: `${me}/` });

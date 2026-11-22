@@ -9,6 +9,8 @@ const SHELL = [
   "/emoji.js",
   "/theme.js",
   "/decor.js",
+  "/music.js",
+  "/subs.js",
   "/style.css",
   "/vendor/qrcode.js",
   "/vendor/jsQR.js",

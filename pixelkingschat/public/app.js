@@ -6,9 +6,11 @@ const TTL = 24 * 60 * 60 * 1000;
 const STORE_KEY = "pk_v1";
 const MAX_IMG_B64 = 1_050_000;
 const $ = (s) => document.querySelector(s);
-import { renderRich, isEmoji, pixelEmoji, EMOJI_SETS } from "./emoji.js";
+import { renderRich, isEmoji, pixelEmoji, EMOJI_SETS, autoPixelize } from "./emoji.js";
 import { applyTheme, ACCENTS, BASES, WALLPAPERS, wallpaperUrl } from "./theme.js";
 import { FLAGS, EFFECT_AVATARS, EFFECT_FRAMES, avatarUrl, frameUrl, isDecorId } from "./decor.js";
+import { TRACKS, trackById, playTrack, stopMusic, unlockAudio, isPlaying } from "./music.js";
+import { transcribe, SUB_LANGS, cleanSubs } from "./subs.js";
 
 /* ================= Hilfsfunktionen ================= */
 const enc = new TextEncoder();
@@ -3209,6 +3211,196 @@ function audienceToggle() {
   return box;
 }
 
+/* ================= Story-Musik ================= */
+const MAX_OWN_MUSIC = 3_000_000;
+function musicField() {
+  let sel = null; // { kind: "lib", id } | { kind: "own", file, title, artist }
+  const box = el("div", "stack music-field");
+  const head = el("div", "music-head");
+  const label = el("span", "music-label");
+  const toggle = el("button", "btn small-btn", "🎵 Musik wählen");
+  toggle.type = "button";
+  head.append(label, toggle);
+  const panel = el("div", "stack music-panel hidden");
+  const setLabel = () => {
+    label.textContent = "";
+    if (!sel) label.append("🎵 Keine Musik");
+    else if (sel.kind === "lib") {
+      const t = trackById(sel.id);
+      label.append("🎵 ", el("b", null, t.title), ` · ${t.artist}`);
+    } else label.append("🎵 ", el("b", null, sel.title), ` · ${sel.artist} (eigene Musik)`);
+    toggle.textContent = sel ? "Ändern" : "🎵 Musik wählen";
+  };
+  toggle.onclick = () => panel.classList.toggle("hidden");
+  const list = el("div", "music-list");
+  const rows = [];
+  for (const t of TRACKS) {
+    const row = el("div", "music-row");
+    const play = el("button", "icon-btn music-play", "▶");
+    play.type = "button";
+    play.title = "Reinhören";
+    play.onclick = () => {
+      if (isPlaying(t.id)) {
+        stopMusic();
+        play.textContent = "▶";
+        return;
+      }
+      for (const r of rows) r.play.textContent = "▶";
+      playTrack(t.id);
+      play.textContent = "⏸";
+    };
+    const info = el("div", "music-info");
+    info.append(el("b", null, t.title), el("span", "small muted", `${t.artist} · ${t.mood} · ${t.bpm} BPM`));
+    const pick = el("button", "btn small-btn", "Wählen");
+    pick.type = "button";
+    pick.onclick = () => {
+      sel = { kind: "lib", id: t.id };
+      for (const r of rows) r.row.classList.toggle("active", r.row === row);
+      setLabel();
+      panel.classList.add("hidden");
+    };
+    row.append(play, info, pick);
+    rows.push({ row, play });
+    list.append(row);
+  }
+  const none = el("button", "btn small-btn", "Ohne Musik");
+  none.type = "button";
+  none.onclick = () => {
+    sel = null;
+    stopMusic();
+    for (const r of rows) r.row.classList.remove("active");
+    setLabel();
+    panel.classList.add("hidden");
+  };
+  // Eigene Musik – nur mit Rechten, nur für Kontakte-Stories
+  const own = el("details", "music-own");
+  own.append(el("summary", null, "📁 Eigene Musik hochladen"));
+  const file = el("input");
+  file.type = "file";
+  file.accept = "audio/*";
+  const title = el("input");
+  title.placeholder = "Titel *";
+  title.maxLength = 60;
+  const artist = el("input");
+  artist.placeholder = "Künstler / Sänger *";
+  artist.maxLength = 60;
+  const lab = el("label", "check");
+  const ok = el("input");
+  ok.type = "checkbox";
+  lab.append(ok, " Ich habe die Rechte an dieser Musik (selbst gemacht oder frei lizenziert).");
+  const useOwn = el("button", "btn small-btn", "Eigene Musik verwenden");
+  useOwn.type = "button";
+  useOwn.onclick = () => {
+    const f = file.files?.[0];
+    if (!f) return toast("Wähle zuerst eine Audiodatei.");
+    if (f.size > MAX_OWN_MUSIC) return toast("Die Datei ist zu groß (max. 3 MB).");
+    if (!title.value.trim() || !artist.value.trim()) return toast("Bitte Titel und Künstler angeben – sie stehen in der Story.");
+    if (!ok.checked) return toast("Bitte bestätige, dass du die Rechte an der Musik hast.");
+    sel = { kind: "own", file: f, title: title.value.trim(), artist: artist.value.trim() };
+    stopMusic();
+    for (const r of rows) r.row.classList.remove("active");
+    setLabel();
+    panel.classList.add("hidden");
+  };
+  own.append(
+    el("p", "small muted", "Bekannte Songs (z. B. aus den Charts) sind urheberrechtlich geschützt und dürfen nicht verwendet werden. Eigene Musik geht nur bei Stories für Kontakte."),
+    file,
+    title,
+    artist,
+    lab,
+    useOwn
+  );
+  panel.append(
+    el("p", "small muted", "Alle Songs sind eigene Kompositionen von Pixelkings Studio – frei nutzbar, ohne Lizenzprobleme."),
+    list,
+    none,
+    own
+  );
+  box.append(head, panel);
+  setLabel();
+  return {
+    node: box,
+    // in Story-Inhalt umwandeln (eigene Musik wird verschlüsselt hochgeladen)
+    async value(isPublic) {
+      if (!sel) return null;
+      if (sel.kind === "lib") {
+        const t = trackById(sel.id);
+        return { id: t.id, title: t.title, artist: t.artist };
+      }
+      if (isPublic) throw new Error("Eigene Musik geht nur bei Stories für Kontakte. Wähle einen Song aus der Bibliothek.");
+      const ref = await uploadMedia(sel.file);
+      return { own: true, ref, title: sel.title, artist: sel.artist, type: String(sel.file.type || "audio/mpeg").slice(0, 60) };
+    },
+  };
+}
+
+/* ================= Automatische Untertitel ================= */
+function subtitleField(file) {
+  let subs = null;
+  const box = el("div", "stack subs-field");
+  const row = el("div", "subs-head");
+  const lang = el("select");
+  for (const [k, n] of SUB_LANGS) {
+    const o = el("option", null, n);
+    o.value = k;
+    lang.append(o);
+  }
+  lang.value = S.settings.subLang || "german";
+  const go = el("button", "btn small-btn", "💬 Untertitel automatisch erstellen");
+  go.type = "button";
+  row.append(go, lang);
+  const status = el("p", "small muted", "Die Spracherkennung läuft auf deinem Gerät – das Video verlässt dein Handy dafür nicht.");
+  const list = el("div", "stack subs-list");
+  const fmt = (x) => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, "0")}`;
+  const render = () => {
+    list.textContent = "";
+    if (!subs) return;
+    subs.forEach((c, i) => {
+      const r = el("div", "sub-row");
+      const inp = el("input");
+      inp.value = c[2];
+      inp.maxLength = 160;
+      inp.oninput = () => (c[2] = inp.value);
+      const x = el("button", "icon-btn", "✕");
+      x.type = "button";
+      x.title = "Zeile löschen";
+      x.onclick = () => {
+        subs.splice(i, 1);
+        if (!subs.length) subs = null;
+        render();
+      };
+      r.append(el("span", "sub-time", fmt(c[0])), inp, x);
+      list.append(r);
+    });
+  };
+  go.onclick = async () => {
+    go.disabled = true;
+    S.settings.subLang = lang.value;
+    save();
+    try {
+      subs = await transcribe(file, {
+        lang: lang.value,
+        onProgress: (phase, f) => {
+          status.textContent =
+            phase === "audio"
+              ? "Ton wird gelesen…"
+              : phase === "load"
+              ? `Spracherkennung wird geladen (nur beim ersten Mal, ca. 80 MB)… ${Math.round(f * 100)} %`
+              : "Untertitel werden erstellt… (kann etwas dauern)";
+        },
+      });
+      status.textContent = "✓ Fertig – du kannst die Untertitel noch korrigieren.";
+      go.textContent = "🔄 Neu erstellen";
+    } catch (e) {
+      status.textContent = "⚠ " + (e.message || "Untertitel konnten nicht erstellt werden.");
+    }
+    go.disabled = false;
+    render();
+  };
+  box.append(row, status, list);
+  return { node: box, value: () => cleanSubs(subs) };
+}
+
 function newStory() {
   const body = el("div", "stack");
   body.append(el("h2", null, "📸 Neue Story"));
@@ -3238,15 +3430,16 @@ function newStory() {
     };
     sw.append(b);
   }
+  const mus = musicField();
   const post = el("button", "btn big", "Text-Story posten");
   post.onclick = async () => {
     if (!ta.value.trim()) return toast("Schreib etwas für deine Story.");
     post.disabled = true;
-    await postStory({ t: ta.value.trim(), bg });
+    await postStory({ t: ta.value.trim(), bg }, mus);
     post.disabled = false;
   };
-  body.append(prevBox, ta, sw, post);
-  openModal(body);
+  body.append(prevBox, ta, sw, mus.node, post);
+  openModal(body, stopMusic);
 }
 
 async function storyFromPhoto(file) {
@@ -3264,14 +3457,15 @@ async function storyFromPhoto(file) {
   const cap = el("input");
   cap.placeholder = "Text dazu (optional)";
   cap.maxLength = 200;
+  const mus = musicField();
   const post = el("button", "btn primary big", "Story posten");
   post.onclick = async () => {
     post.disabled = true;
-    await postStory({ img: b64, t: cap.value.trim() });
+    await postStory({ img: b64, t: cap.value.trim() }, mus);
     post.disabled = false;
   };
-  body.append(img, cap, audienceToggle(), post);
-  openModal(body);
+  body.append(img, cap, mus.node, audienceToggle(), post);
+  openModal(body, stopMusic);
 }
 
 async function storyFromVideo(file) {
@@ -3290,21 +3484,38 @@ async function storyFromVideo(file) {
   const cap = el("input");
   cap.placeholder = "Text dazu (optional)";
   cap.maxLength = 200;
+  const mus = musicField();
+  const subs = subtitleField(file);
   const post = el("button", "btn primary big", "Story posten");
   post.onclick = async () => {
     post.disabled = true;
-    await postStory({ vid, t: cap.value.trim() });
+    const sub = subs.value();
+    await postStory({ vid, t: cap.value.trim(), ...(sub ? { sub } : {}) }, mus);
     post.disabled = false;
   };
-  body.append(img, el("p", "small muted", `Video · ${fmtDur(vid.dur)}`), cap, audienceToggle(), post);
-  openModal(body);
+  body.append(
+    img,
+    el("p", "small muted", `Video · ${fmtDur(vid.dur)}`),
+    cap,
+    subs.node,
+    mus.node,
+    el("p", "small muted", "Mit Musik läuft das Video ohne Originalton."),
+    audienceToggle(),
+    post
+  );
+  openModal(body, stopMusic);
 }
 
-async function postStory(content) {
+async function postStory(content, musicPick) {
   if (sendBlocked()) return;
   const ids = storyContacts();
   const isPublic = !!S.settings.publicStories;
   try {
+    stopMusic();
+    if (musicPick) {
+      const mus = await musicPick.value(isPublic);
+      if (mus) content = { ...content, mus };
+    }
     const sid = b64u(rand(9));
     if (isPublic) {
       toast("Story wird geprüft…", 2500);
@@ -3385,9 +3596,34 @@ function viewStories(owner, opts = {}) {
   ov.append(bars, head, stage, foot);
   document.body.append(ov);
 
+  let ownAudio = null;
   const stopVideo = () => {
     if (videoEl) videoEl.pause();
     videoEl = null;
+    stopMusic();
+    if (ownAudio) {
+      ownAudio.pause();
+      URL.revokeObjectURL(ownAudio.src);
+      ownAudio = null;
+    }
+  };
+  // Musik der Story starten + Sticker „🎵 Titel · Künstler“
+  const startMusic = async (c, v) => {
+    const m = c.mus;
+    if (!m || typeof m.title !== "string") return;
+    const sticker = el("div", "story-music");
+    sticker.append(el("span", "story-music-note", "🎵"), el("span", "story-music-text", `${m.title.slice(0, 60)} · ${String(m.artist || "").slice(0, 60)}`));
+    stage.append(sticker);
+    if (v) v.muted = true;
+    if (m.own && m.ref) {
+      try {
+        const blob = await downloadMedia(m.ref);
+        const a = new Audio(URL.createObjectURL(blob));
+        a.loop = true;
+        ownAudio = a;
+        await a.play().catch(() => {});
+      } catch {}
+    } else if (trackById(m.id)) playTrack(m.id);
   };
   const end = () => {
     clearTimeout(timer);
@@ -3433,6 +3669,7 @@ function viewStories(owner, opts = {}) {
       if (c.vid?.ref) {
         const v = el("video", "story-img");
         v.playsInline = true;
+        v.muted = !!c.mus;
         v.poster = c.vid.poster ? "data:image/jpeg;base64," + c.vid.poster : "";
         stage.append(v);
         const load = el("div", "story-loading story-over", "Video wird geladen…");
@@ -3456,16 +3693,31 @@ function viewStories(owner, opts = {}) {
           stage.append(unmute);
         }
         if (c.t) stage.append(rich("div", "story-caption", c.t));
+        const subs = cleanSubs(c.sub);
+        if (subs) {
+          const line = el("div", "story-sub hidden");
+          stage.append(line);
+          v.ontimeupdate = () => {
+            const cur = subs.find((x) => v.currentTime >= x[0] && v.currentTime < x[1]);
+            line.textContent = cur ? cur[2] : "";
+            line.classList.toggle("hidden", !cur);
+          };
+        }
+        await startMusic(c, v);
       } else if (c.img) {
         const img = el("img", "story-img");
         img.src = "data:image/jpeg;base64," + c.img;
         stage.append(img);
         if (c.t) stage.append(rich("div", "story-caption", c.t));
+        if (c.mus) ms = 12000;
+        await startMusic(c);
       } else {
         const t = el("div", "story-text");
         t.append(rich("div", null, c.t || ""));
         t.style.background = c.bg || "var(--accent)";
         stage.append(t);
+        if (c.mus) ms = 12000;
+        await startMusic(c);
       }
       runBar(ms);
       if (owner !== S.me.id && !S.storySeen[`${owner}/${st.skey}`]) {
@@ -5339,6 +5591,8 @@ function bind() {
 
 applyTheme(S.settings);
 adaptToDevice();
+autoPixelize(document.body);
+document.addEventListener("pointerdown", unlockAudio, { passive: true });
 bind();
 setupUpdates();
 $("#importBtn").onclick = showImport;

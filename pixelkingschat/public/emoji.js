@@ -25,7 +25,10 @@ export function pixelEmoji(g) {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.font = `${Math.round(S * 0.78)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif`;
-    ctx.fillText(g, S / 2, S / 2 + S * 0.06);
+    // Farbige Emoji-Darstellung erzwingen (U+FE0F); falls es nur ein Schwarz-Weiß-Zeichen gibt, hell zeichnen
+    ctx.fillStyle = "#e6f2f2";
+    const shown = /[\uFE0F\u200D]/.test(g) || /\p{Regional_Indicator}|[\u{1F3FB}-\u{1F3FF}]/u.test(g) ? g : g + "\uFE0F";
+    ctx.fillText(shown, S / 2, S / 2 + S * 0.06);
 
     const d = document.createElement("canvas");
     d.width = d.height = N;
@@ -120,3 +123,72 @@ export const EMOJI_SETS = [
   ["🍕", "Essen", "🍏 🍎 🍐 🍊 🍋 🍌 🍉 🍇 🍓 🍒 🍑 🥭 🍍 🥥 🥝 🍅 🥑 🍆 🥕 🌽 🌶️ 🍔 🍟 🍕 🌭 🥪 🌮 🌯 🍣 🍜 🍝 🍦 🍩 🍪 🎂 🍰 🍫 🍬 🍭 🍿 ☕ 🧋 🥤 🍺"],
   ["⚽", "Aktivität", "⚽ 🏀 🏈 ⚾ 🎾 🏐 🎱 🏓 🏸 🥊 🎮 🕹️ 🎲 🧩 🎯 🎳 🎸 🎹 🎤 🎧 🎬 🎨 🏆 🥇 🥈 🥉 🏅 🎉 🎊 🎁 🎈 👑 💎 💰 📱 💻 📷 🚗 🚀 ✈️ 🏠 🌍"],
 ];
+
+/* ================= Automatisch: jedes Emoji in der App wird zum Pixel-Bild ================= */
+// Ein Wächter beobachtet die ganze Seite. Alles, was neu erscheint (Knöpfe, Menüs, Hinweise, Dialoge –
+// auch in künftigen Updates), wird sofort umgewandelt. Eingabefelder bleiben unverändert.
+const SKIP_TAGS = new Set(["SCRIPT", "STYLE", "TEXTAREA", "INPUT", "OPTION", "SELECT", "TITLE", "NOSCRIPT", "svg"]);
+const KEEP_TEXT = new Set(["©", "®", "™"]);
+function skipped(node) {
+  for (let el = node.parentElement; el; el = el.parentElement) {
+    if (SKIP_TAGS.has(el.tagName) || el.isContentEditable || el.dataset?.px === "off") return true;
+  }
+  return false;
+}
+function convertText(t) {
+  const text = t.nodeValue;
+  if (!text || !EMOJI_RE.test(text) || skipped(t)) return;
+  const parts = graphemes(text);
+  if (!parts.some((g) => isEmoji(g) && !KEEP_TEXT.has(g))) return;
+  const frag = document.createDocumentFragment();
+  let buf = "";
+  let changed = false;
+  for (const g of parts) {
+    const url = isEmoji(g) && !KEEP_TEXT.has(g) ? pixelEmoji(g) : null;
+    if (!url) {
+      buf += g;
+      continue;
+    }
+    if (buf) frag.append(document.createTextNode(buf));
+    buf = "";
+    const img = document.createElement("img");
+    img.className = "pxe";
+    img.src = url;
+    img.alt = g;
+    img.draggable = false;
+    frag.append(img);
+    changed = true;
+  }
+  if (!changed) return;
+  if (buf) frag.append(document.createTextNode(buf));
+  t.replaceWith(frag);
+}
+function scan(root) {
+  if (root.nodeType === 3) return convertText(root);
+  if (root.nodeType !== 1 || SKIP_TAGS.has(root.tagName)) return;
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const list = [];
+  for (let n = w.nextNode(); n; n = w.nextNode()) if (EMOJI_RE.test(n.nodeValue)) list.push(n);
+  list.forEach(convertText);
+}
+export function autoPixelize(root = document.body) {
+  scan(root);
+  const queue = new Set();
+  let scheduled = false;
+  const flush = () => {
+    scheduled = false;
+    const items = [...queue];
+    queue.clear();
+    for (const n of items) if (n.isConnected) scan(n);
+  };
+  new MutationObserver((muts) => {
+    for (const m of muts) {
+      if (m.type === "characterData") queue.add(m.target);
+      else for (const n of m.addedNodes) queue.add(n);
+    }
+    if (!scheduled && queue.size) {
+      scheduled = true;
+      queueMicrotask(flush);
+    }
+  }).observe(root, { childList: true, subtree: true, characterData: true });
+}
