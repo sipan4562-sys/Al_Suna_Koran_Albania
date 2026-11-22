@@ -370,6 +370,14 @@ flag("eu", "Europa", () => {
   return g;
 });
 flag("rb", "Regenbogen", () => hs(grid(), ["#e40303", "#ff8c00", "#ffed00", "#008026", "#24408e", "#732982"]));
+flag("pp", "Progress Pride", () => {
+  const g = hs(grid(), ["#e40303", "#ff8c00", "#ffed00", "#008026", "#24408e", "#732982"]);
+  // Pfeil am Fahnenmast: Schwarz, Braun, Hellblau, Rosa, Weiß (von außen nach innen)
+  const layers = [[14, "#000000"], [12, "#784f17"], [10, "#5bcefa"], [8, "#f5a9b8"], [6, "#ffffff"]];
+  for (const [depth, c] of layers)
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (x + 0.5 < depth - Math.abs(y + 0.5 - H / 2) * 0.95) g[y][x] = c;
+  return g;
+});
 flag("pkc", "Pixelkingschat", () => {
   const g = grid("#0b1416");
   sprite(g, 6, 4, ["#...#...#...", "##.###.###.#", "############", "############", "#.#.#.#.#.##", "############", "############"].map((r) => r.slice(0, 12)), "#2ee6d6");
@@ -386,7 +394,12 @@ function flagGrid(id) {
   return gridCache.get(id);
 }
 // Hauptfarben einer Flagge (für die Ringe)
+const RING_COLORS = {
+  rb: ["#e40303", "#ff8c00", "#ffed00", "#008026", "#24408e", "#732982"],
+  pp: ["#e40303", "#ff8c00", "#ffed00", "#008026", "#24408e", "#732982", "#000000", "#784f17", "#5bcefa", "#f5a9b8", "#ffffff"],
+};
 function flagColors(id) {
+  if (RING_COLORS[id]) return RING_COLORS[id];
   const cnt = new Map();
   for (const row of flagGrid(id)) for (const c of row) cnt.set(c, (cnt.get(c) || 0) + 1);
   return [...cnt.entries()]
