@@ -38,6 +38,8 @@ export class Input {
 
   bindKeyboard() {
     window.addEventListener('keydown', (e) => {
+      // Eingaben in Formularfeldern (Anmeldung) nicht als Spielsteuerung werten
+      if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
       if (e.code === 'Tab') e.preventDefault();
       if (e.repeat) return;
       this.usingTouch = false;

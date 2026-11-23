@@ -7,17 +7,24 @@ const { chromium } = require('playwright');
   page.on('pageerror', (e) => logs.push('PAGEERROR: ' + e.message));
   page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) logs.push('console.error: ' + m.text()); });
   let paid = false;
+  let loggedIn = false;
   const calls = [];
-  await ctx.route('**/accounts.google.com/**', (r) => r.abort());
   await ctx.route('**/api/**', async (route) => {
     const url = route.request().url();
     const body = route.request().postData() || '';
-    calls.push(url.replace(/^.*\/api\//, '') + ' ' + body.slice(0, 60));
-    const json = (o) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(o) });
-    if (url.includes('/api/config')) return json({ googleClientId: 'test.apps.googleusercontent.com', payments: true, priceCents: 1000, currency: 'EUR' });
-    if (url.includes('/api/me')) return json({ user: { sub: '123', email: 'spieler@example.com', name: 'Spieler' }, premium: paid });
-    if (url.includes('/api/checkout')) { const b = JSON.parse(body); if (!b.consent) return route.fulfill({ status: 400, contentType: 'application/json', body: '{"error":"Zustimmung fehlt"}' }); return json({ url: 'http://localhost:4173/?debug&purchase=success&session_id=cs_test_ABC' }); }
-    if (url.includes('/api/verify')) { paid = true; return json({ premium: true, user: { sub: '123', email: 'spieler@example.com' } }); }
+    calls.push(url.replace(/^.*\/api\//, '') + ' ' + body.slice(0, 70));
+    const json = (o, st = 200) => route.fulfill({ status: st, contentType: 'application/json', body: JSON.stringify(o) });
+    const user = { id: 'u1', email: 'spieler@example.com', name: 'Spieler' };
+    if (url.includes('/api/config')) return json({ accounts: true, payments: true, priceCents: 1000, currency: 'EUR' });
+    if (url.includes('/api/auth')) {
+      const b = JSON.parse(body);
+      if (b.password !== 'geheim123') return json({ error: 'E-Mail oder Passwort ist falsch.' }, 401);
+      loggedIn = true;
+      return json({ token: 'tok.sig', user, premium: paid });
+    }
+    if (url.includes('/api/me')) return loggedIn ? json({ user, premium: paid }) : json({ error: 'Bitte anmelden.' }, 401);
+    if (url.includes('/api/checkout')) { const b = JSON.parse(body); if (!b.consent) return json({ error: 'Zustimmung fehlt' }, 400); return json({ url: 'http://localhost:4173/?debug&purchase=success&session_id=cs_test_ABC' }); }
+    if (url.includes('/api/verify')) { paid = true; return json({ premium: true }); }
     return route.fulfill({ status: 404, body: '{}' });
   });
   const R = [];
@@ -30,9 +37,28 @@ const { chromium } = require('playwright');
   ok('Shop-Bildschirm offen', await page.evaluate(() => TLN.ui.current === 'shop'));
   ok('Kaufen gesperrt ohne Anmeldung', await page.evaluate(() => document.querySelector('#shop-step-buy').classList.contains('disabled')));
   await page.screenshot({ path: (process.argv[2] || require('os').tmpdir()) + '/shop_logged_out.png' });
-  await page.evaluate(() => TLN.account.onCredential('fake.jwt.token'));
+  ok('Anmeldeformular sichtbar (ohne Google)', await page.evaluate(() => !document.querySelector('#auth-form').classList.contains('hidden') && !document.querySelector('script[src*="accounts.google"]')));
+  await page.click('.atab[data-mode="register"]');
+  await page.fill('#auth-name', 'Spieler');
+  await page.fill('#auth-email', 'spieler@example.com');
+  await page.fill('#auth-pw', 'geheim123');
+  await page.fill('#auth-pw2', 'anders123');
+  await page.click('#btn-auth');
+  await page.waitForTimeout(300);
+  ok('Passwörter müssen übereinstimmen', await page.evaluate(() => TLN.account.message.includes('stimmen nicht')));
+  await page.fill('#auth-pw2', 'geheim123');
+  await page.fill('#auth-pw', 'falsch99');
+  await page.fill('#auth-pw2', 'falsch99');
+  await page.click('#btn-auth');
   await page.waitForTimeout(400);
-  ok('Angemeldet (Name angezeigt)', await page.evaluate(() => document.querySelector('#shop-user').textContent.includes('spieler@example.com')));
+  ok('Fehlermeldung vom Server angezeigt', await page.evaluate(() => document.querySelector('#shop-msg').textContent.includes('falsch')));
+  await page.click('.atab[data-mode="login"]');
+  await page.fill('#auth-pw', 'geheim123');
+  await page.press('#auth-pw', 'Enter');
+  await page.waitForFunction(() => TLN.account.loggedIn, null, { timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(200);
+  ok('Angemeldet (E-Mail angezeigt)', await page.evaluate(() => document.querySelector('#shop-user').textContent.includes('spieler@example.com')), await page.evaluate(() => [document.querySelector('#shop-user').textContent, TLN.account.loggedIn, TLN.account.message]));
+  ok('Tippen im Formular steuert nicht das Spiel', await page.evaluate(() => TLN.input.keys.size === 0));
   ok('Noch keine Vollversion', await page.evaluate(() => !TLN.premium));
   ok('Kaufen jetzt möglich', await page.evaluate(() => !document.querySelector('#shop-step-buy').classList.contains('disabled')));
   await page.click('#btn-buy');

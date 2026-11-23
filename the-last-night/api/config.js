@@ -1,11 +1,6 @@
 // Öffentliche Konfiguration für den Client (keine Geheimnisse).
-import { send, configured, PRICE_CENTS } from './_lib.js';
+import { send, accountsReady, paymentsReady, PRICE_CENTS } from './_lib.js';
 
 export default function handler(req, res) {
-  send(res, 200, {
-    googleClientId: process.env.GOOGLE_CLIENT_ID || null,
-    payments: configured(),
-    priceCents: PRICE_CENTS,
-    currency: 'EUR',
-  });
+  send(res, 200, { accounts: accountsReady(), payments: paymentsReady(), priceCents: PRICE_CENTS, currency: 'EUR' });
 }

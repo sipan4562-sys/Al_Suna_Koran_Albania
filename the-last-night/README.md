@@ -5,7 +5,7 @@ Ein 3D-Survival-Horrorspiel für den Browser (Desktop und iPhone/Android), gebau
 > Katholische Heil- und Pflegeanstalt St. Aldric, 31. Oktober 1987. Du wachst in Zimmer 116 auf und erinnerst dich an nichts.
 > Du musst vor Sonnenaufgang entkommen, während etwas durch die Lüftungsschächte kriecht und dich sucht.
 
-Texturen, Modelle, Animationen, Soundeffekte und Musik werden beim Start prozedural erzeugt. Das Spiel lädt keine externen Assets. Nur die optionale Vollversion nutzt Google-Anmeldung und Stripe; Stripe erhebt dabei eine Gebühr pro Zahlung, aber keine Grundgebühr.
+Texturen, Modelle, Animationen, Soundeffekte und Musik werden beim Start prozedural erzeugt. Das Spiel lädt keine externen Assets. Nur die optionale Vollversion nutzt ein eigenes Spielerkonto und Stripe; Stripe erhebt dabei eine Gebühr pro Zahlung, aber keine Grundgebühr.
 
 ## Starten
 
@@ -60,15 +60,20 @@ Die Basisversion ist komplett spielbar. Die Vollversion schaltet zusätzlich fre
 - **Gebet** (B, Touch 🙏): Zeigt das Monster 6 Sekunden lang durch Wände (Abklingzeit 60 s).
 - **Gesegnete Batterien:** Die Taschenlampe hält doppelt so lange.
 
-Ablauf: Anmeldung mit Google (Google Identity Services), dann Bezahlung über Stripe Checkout. Möglich sind Karte, PayPal, Apple Pay, Google Pay usw., je nachdem, was im Stripe-Dashboard aktiviert ist. Der Kauf wird über die Google-Konto-ID dem Konto zugeordnet und serverseitig bei Stripe geprüft. Dafür braucht es keine eigene Datenbank, denn Stripe speichert die Käufe.
+Ablauf: Spieler legen im Spiel ein eigenes Konto mit E-Mail und Passwort an. Ein Google-Konto ist nicht nötig. Danach bezahlen sie über Stripe Checkout; möglich sind Karte, PayPal, Apple Pay, Google Pay usw., je nachdem, was im Stripe-Dashboard aktiviert ist. Der Kauf ist an das Spielerkonto gebunden und gilt auf jedem Gerät, auf dem man sich anmeldet.
 
-Server-Funktionen (Vercel): `api/config.js`, `api/me.js`, `api/checkout.js`, `api/verify.js`.
+**Konten:** Sie liegen in einem privaten Vercel-Blob-Speicher (`the-last-night-accounts`, Region Frankfurt). Passwörter werden nur als scrypt-Hash gespeichert, und die E-Mail steht nicht im Dateinamen. Sitzungen sind HMAC-signiert und 30 Tage gültig; nach einem Passwortwechsel werden alte Sitzungen ungültig. Nach 8 Fehlversuchen wird das Konto 10 Minuten gesperrt. Spieler können ihr Passwort ändern und ihr Konto selbst löschen. „Passwort vergessen“ per E-Mail gibt es nicht, weil dafür ein E-Mail-Dienst nötig wäre.
 
-### Einrichtung (einmalig)
+Server-Funktionen (Vercel): `api/config.js`, `api/auth.js` (Registrierung/Anmeldung), `api/me.js`, `api/password.js`, `api/delete.js`, `api/checkout.js`, `api/verify.js`.
 
-1. **Google:** In der Google Cloud Console unter „APIs & Dienste → Anmeldedaten“ eine *OAuth-Client-ID* vom Typ Webanwendung erstellen. Unter „Autorisierte JavaScript-Quellen“ `https://the-last-night-seven.vercel.app` eintragen.
-2. **Stripe:** Ein Konto anlegen und im Dashboard unter „Entwickler → API-Schlüssel“ den geheimen Schlüssel kopieren. Zum Testen eignet sich zuerst `sk_test_…`.
-3. **Vercel:** Im Projekt `the-last-night` unter „Settings → Environment Variables“ zwei Variablen anlegen: `GOOGLE_CLIENT_ID` und `STRIPE_SECRET_KEY`. Optional sind `PRICE_CENTS` (Standard 1000) und `PUBLIC_URL`. Danach neu deployen.
-4. **Rechtliches:** In `public/impressum.html`, `public/datenschutz.html` und `public/agb.html` die Angaben in eckigen Klammern ersetzen.
+### Einrichtung
+
+Bereits erledigt: Der Blob-Speicher ist angelegt und mit dem Projekt verbunden (`BLOB_READ_WRITE_TOKEN`), und `SESSION_SECRET` ist als geschützte Umgebungsvariable gesetzt. Konten funktionieren damit sofort.
+
+Für Zahlungen fehlt nur noch:
+
+1. **Stripe:** Ein Konto anlegen und im Dashboard unter „Entwickler → API-Schlüssel“ den geheimen Schlüssel kopieren. Zum Testen eignet sich zuerst `sk_test_…`.
+2. **Vercel:** Im Projekt `the-last-night` unter „Settings → Environment Variables“ die Variable `STRIPE_SECRET_KEY` anlegen. Optional sind `PRICE_CENTS` (Standard 1000) und `PUBLIC_URL`. Danach neu deployen.
+3. **Rechtliches:** In `public/impressum.html`, `public/datenschutz.html` und `public/agb.html` die Angaben in eckigen Klammern ersetzen.
 
 Hinweis: Das Spiel läuft im Browser. Wer technisch versiert ist, kann clientseitige Freischaltungen grundsätzlich manipulieren. Die Bezahlung selbst wird aber immer serverseitig geprüft.

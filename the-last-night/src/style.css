@@ -1177,3 +1177,67 @@ body.premium .tbtn.premium {
 #screen-credits > :last-child {
   margin-bottom: auto;
 }
+
+/* Anmeldung / Registrierung */
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(420px, 82vw);
+}
+.auth-form input {
+  -webkit-user-select: text;
+  user-select: text;
+  padding: 11px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 16px;
+  outline: none;
+}
+.auth-form input:focus {
+  border-color: rgba(220, 180, 90, 0.7);
+}
+.auth-form .btn {
+  padding: 10px 16px;
+  font-size: 14px;
+}
+.atabs {
+  display: flex;
+  gap: 6px;
+}
+.atab {
+  flex: 1;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  padding: 7px 10px;
+  font-family: var(--mono);
+  cursor: pointer;
+}
+.atab.active {
+  color: var(--ink);
+  border-color: rgba(220, 180, 90, 0.6);
+}
+.small {
+  font-size: 11px;
+  margin: 0;
+}
+#pw-change summary {
+  cursor: pointer;
+  color: #9a917f;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.account-bar .acc-name,
+.account-bar .acc-signout {
+  display: none;
+}
+.account-bar.logged .acc-name,
+.account-bar.logged .acc-signout {
+  display: inline;
+}
+.account-bar.logged .acc-login {
+  display: none;
+}

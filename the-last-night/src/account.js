@@ -1,6 +1,7 @@
-// Konto & Vollversion: Google-Anmeldung (Google Identity Services) und
-// Einmalkauf über Stripe Checkout. Die Prüfung des Kaufs passiert auf dem Server.
-const CACHE_KEY = 'tln_account_v1';
+// Konto & Vollversion: eigenes Konto (E-Mail + Passwort, ohne Google)
+// und Einmalkauf über Stripe Checkout. Der Kauf wird auf dem Server geprüft.
+const TOKEN_KEY = 'tln_session_v2';
+const CACHE_KEY = 'tln_account_v2';
 const CACHE_DAYS = 30;
 
 export class Account {
@@ -8,11 +9,10 @@ export class Account {
     this.config = null;
     this.user = null;
     this.premium = false;
-    this.idToken = null;
+    this.token = null;
     this.listeners = new Set();
-    this.status = 'idle';
+    this.busy = false;
     this.message = '';
-    this.gsiReady = false;
     this.loadCache();
   }
 
@@ -25,16 +25,12 @@ export class Account {
 
   loadCache() {
     try {
+      this.token = localStorage.getItem(TOKEN_KEY) || null;
       const c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
-      if (c && c.user && Date.now() - c.ts < CACHE_DAYS * 864e5) {
+      if (this.token && c && c.user && Date.now() - c.ts < CACHE_DAYS * 864e5) {
         this.user = c.user;
         this.premium = !!c.premium;
       }
-    } catch (e) {
-      /* ignore */
-    }
-    try {
-      this.idToken = sessionStorage.getItem('tln_idtoken') || null;
     } catch (e) {
       /* ignore */
     }
@@ -42,21 +38,26 @@ export class Account {
 
   saveCache() {
     try {
+      if (this.token) localStorage.setItem(TOKEN_KEY, this.token);
+      else localStorage.removeItem(TOKEN_KEY);
       if (this.user) localStorage.setItem(CACHE_KEY, JSON.stringify({ user: this.user, premium: this.premium, ts: Date.now() }));
       else localStorage.removeItem(CACHE_KEY);
-      if (this.idToken) sessionStorage.setItem('tln_idtoken', this.idToken);
-      else sessionStorage.removeItem('tln_idtoken');
     } catch (e) {
       /* ignore */
     }
   }
 
   async api(path, body) {
-    const r = await fetch('/api/' + path, {
-      method: body ? 'POST' : 'GET',
-      headers: body ? { 'Content-Type': 'application/json' } : undefined,
-      body: body ? JSON.stringify(body) : undefined,
-    });
+    let r;
+    try {
+      r = await fetch('/api/' + path, {
+        method: body ? 'POST' : 'GET',
+        headers: body ? { 'Content-Type': 'application/json' } : undefined,
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    } catch (e) {
+      throw new Error('Keine Verbindung zum Server.');
+    }
     let j = {};
     try {
       j = await r.json();
@@ -75,15 +76,21 @@ export class Account {
     try {
       this.config = await this.api('config');
     } catch (e) {
-      this.config = { googleClientId: null, payments: false, priceCents: 1000, currency: 'EUR' };
+      this.config = { accounts: false, payments: false, priceCents: 1000, currency: 'EUR' };
     }
-    if (this.config.googleClientId) this.loadGsi();
+    if (this.token && this.config.accounts) await this.refresh();
     await this.handleReturn();
     this.emit();
   }
 
+  get accountsAvailable() {
+    return !!(this.config && this.config.accounts);
+  }
   get available() {
     return !!(this.config && this.config.payments);
+  }
+  get loggedIn() {
+    return !!(this.user && this.token);
   }
 
   get priceLabel() {
@@ -91,73 +98,73 @@ export class Account {
     return (c / 100).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
   }
 
-  loadGsi() {
-    if (document.getElementById('gsi-script')) return;
-    const s = document.createElement('script');
-    s.id = 'gsi-script';
-    s.src = 'https://accounts.google.com/gsi/client';
-    s.async = true;
-    s.onload = () => {
-      const g = window.google && window.google.accounts && window.google.accounts.id;
-      if (!g) return;
-      g.initialize({
-        client_id: this.config.googleClientId,
-        callback: (resp) => this.onCredential(resp.credential),
-        auto_select: true,
-        cancel_on_tap_outside: true,
-        ux_mode: 'popup',
-        itp_support: true,
-      });
-      this.gsiReady = true;
-      this.renderButtons();
-      // Bereits angemeldete Nutzer still neu bestätigen (für frisches Token)
-      if (this.user && !this.idToken) g.prompt();
-      this.emit();
-    };
-    document.head.appendChild(s);
-  }
-
-  // Google-Anmeldeknöpfe in alle Platzhalter rendern
-  renderButtons() {
-    if (!this.gsiReady) return;
-    const g = window.google.accounts.id;
-    document.querySelectorAll('.gsi-slot').forEach((el) => {
-      if (el.dataset.rendered) return;
-      el.dataset.rendered = '1';
-      g.renderButton(el, { theme: 'filled_black', size: 'large', text: 'signin_with', shape: 'rectangular', locale: 'de', width: 260 });
-    });
-  }
-
-  async onCredential(token) {
-    this.idToken = token;
-    this.status = 'checking';
-    this.message = 'Anmeldung wird geprüft …';
-    this.emit();
+  async refresh() {
     try {
-      const r = await this.api('me', { idToken: token });
+      const r = await this.api('me', { token: this.token });
       this.user = r.user;
       this.premium = !!r.premium;
-      this.status = 'ok';
-      this.message = this.premium ? 'Vollversion aktiv.' : '';
     } catch (e) {
-      this.status = 'error';
-      this.message = e.message;
-      if (e.status === 401) this.idToken = null;
+      if (e.status === 401) {
+        this.token = null;
+        this.user = null;
+        this.premium = false;
+        this.message = e.message;
+      }
+      // Bei Netzwerkfehlern bleibt der zwischengespeicherte Stand erhalten
     }
     this.saveCache();
+  }
+
+  async auth(action, email, password, name) {
+    if (this.busy) return false;
+    this.busy = true;
+    this.message = action === 'register' ? 'Konto wird erstellt …' : 'Anmeldung …';
+    this.emit();
+    let ok = false;
+    try {
+      const r = await this.api('auth', { action, email, password, name });
+      this.token = r.token;
+      this.user = r.user;
+      this.premium = !!r.premium;
+      this.message = action === 'register' ? 'Willkommen! Dein Konto ist erstellt.' : this.premium ? 'Angemeldet – Vollversion aktiv.' : 'Angemeldet.';
+      ok = true;
+    } catch (e) {
+      this.message = e.message;
+    }
+    this.busy = false;
+    this.saveCache();
+    this.emit();
+    return ok;
+  }
+
+  async changePassword(oldPassword, newPassword) {
+    try {
+      const r = await this.api('password', { token: this.token, oldPassword, newPassword });
+      this.token = r.token;
+      this.message = 'Passwort geändert.';
+      this.saveCache();
+    } catch (e) {
+      this.message = e.message;
+    }
+    this.emit();
+  }
+
+  async deleteAccount(password) {
+    try {
+      await this.api('delete', { token: this.token, password });
+      this.signOut();
+      this.message = 'Dein Konto wurde gelöscht.';
+    } catch (e) {
+      this.message = e.message;
+    }
     this.emit();
   }
 
   signOut() {
     this.user = null;
     this.premium = false;
-    this.idToken = null;
+    this.token = null;
     this.message = 'Abgemeldet.';
-    try {
-      window.google && window.google.accounts.id.disableAutoSelect();
-    } catch (e) {
-      /* ignore */
-    }
     this.saveCache();
     this.emit();
   }
@@ -168,10 +175,9 @@ export class Account {
       this.emit();
       return;
     }
-    if (!this.user || !this.idToken) {
-      this.message = 'Bitte zuerst mit Google anmelden.';
+    if (!this.loggedIn) {
+      this.message = 'Bitte zuerst anmelden oder ein Konto erstellen.';
       this.emit();
-      if (this.gsiReady) window.google.accounts.id.prompt();
       return;
     }
     if (!consent) {
@@ -179,27 +185,24 @@ export class Account {
       this.emit();
       return;
     }
-    this.status = 'checking';
+    this.busy = true;
     this.message = 'Weiterleitung zur sicheren Bezahlseite …';
     this.emit();
     try {
-      const r = await this.api('checkout', { idToken: this.idToken, consent: true });
+      const r = await this.api('checkout', { token: this.token, consent: true });
       if (r.premium) {
         this.premium = true;
         this.message = 'Du besitzt die Vollversion bereits.';
+        this.busy = false;
         this.saveCache();
         this.emit();
         return;
       }
-      this.saveCache();
       location.href = r.url;
     } catch (e) {
-      this.status = 'error';
+      this.busy = false;
       this.message = e.message;
-      if (e.status === 401) {
-        this.idToken = null;
-        this.saveCache();
-      }
+      if (e.status === 401) this.signOut();
       this.emit();
     }
   }
@@ -222,12 +225,10 @@ export class Account {
       clean();
       return;
     }
-    const sid = p.get('session_id');
     try {
-      const r = await this.api('verify', { sessionId: sid });
+      const r = await this.api('verify', { token: this.token, sessionId: p.get('session_id') });
       if (r.premium) {
         this.premium = true;
-        if (!this.user && r.user) this.user = { sub: r.user.sub, email: r.user.email, name: r.user.email };
         this.message = 'Danke! Die Vollversion ist freigeschaltet.';
         this.justReturned = 'success';
       } else {
@@ -235,7 +236,7 @@ export class Account {
         this.justReturned = 'pending';
       }
     } catch (e) {
-      this.message = e.message;
+      this.message = e.status === 401 ? 'Bitte melde dich an – dein Kauf wird dann automatisch erkannt.' : e.message;
       this.justReturned = 'error';
     }
     this.saveCache();

@@ -118,6 +118,25 @@ export class UI {
     on('#btn-shop-back', () => this.closeSub());
     on('#btn-buy', () => g.account.buy(document.getElementById('shop-consent').checked));
     document.querySelectorAll('.acc-signout').forEach((b) => b.addEventListener('click', () => g.account.signOut()));
+    document.querySelectorAll('.acc-login').forEach((b) => b.addEventListener('click', () => this.openShop('menu')));
+    document.querySelectorAll('.atab').forEach((t) => t.addEventListener('click', () => this.setAuthMode(t.dataset.mode)));
+    document.getElementById('auth-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      g.audio.init();
+      this.submitAuth();
+    });
+    $('#btn-acc-delete').addEventListener('click', () => {
+      const pw = $('#pw-old').value;
+      if (!pw) {
+        g.account.message = 'Zum Löschen bitte oben dein Passwort eingeben.';
+        return this.refreshAccount();
+      }
+      if (confirm('Konto wirklich endgültig löschen? Eine gekaufte Vollversion ist dann nicht mehr an dieses Konto gebunden.')) g.account.deleteAccount(pw);
+    });
+    $('#btn-pw-change').addEventListener('click', () => g.account.changePassword($('#pw-old').value, $('#pw-new').value).then(() => {
+      $('#pw-old').value = '';
+      $('#pw-new').value = '';
+    }));
     document.getElementById('shop-consent').addEventListener('change', () => {
       g.account.message = '';
       this.refreshAccount();
@@ -215,36 +234,63 @@ export class UI {
     this.refreshAccount();
   }
 
+  setAuthMode(mode) {
+    this.authMode = mode;
+    document.querySelectorAll('.atab').forEach((t) => t.classList.toggle('active', t.dataset.mode === mode));
+    const reg = mode === 'register';
+    document.getElementById('auth-name').classList.toggle('hidden', !reg);
+    document.getElementById('auth-pw2').classList.toggle('hidden', !reg);
+    document.getElementById('auth-pw').setAttribute('autocomplete', reg ? 'new-password' : 'current-password');
+    document.getElementById('btn-auth').textContent = reg ? 'Konto erstellen' : 'Anmelden';
+  }
+
+  async submitAuth() {
+    const a = this.game.account;
+    const email = document.getElementById('auth-email').value;
+    const pw = document.getElementById('auth-pw').value;
+    if ((this.authMode || 'login') === 'register') {
+      if (pw !== document.getElementById('auth-pw2').value) {
+        a.message = 'Die Passwörter stimmen nicht überein.';
+        this.refreshAccount();
+        return;
+      }
+      const ok = await a.auth('register', email, pw, document.getElementById('auth-name').value);
+      if (ok) document.getElementById('auth-pw2').value = '';
+    } else await a.auth('login', email, pw);
+    if (a.loggedIn) document.getElementById('auth-pw').value = '';
+  }
+
   refreshAccount() {
     const g = this.game;
     const a = g.account;
     if (!a) return;
     document.body.classList.toggle('premium', !!g.premium);
     const bar = document.getElementById('account-bar-menu');
-    bar.classList.toggle('show', !!a.user);
+    bar.classList.toggle('show', !!(a.config && a.config.accounts) || a.loggedIn);
     bar.classList.toggle('premium', !!g.premium);
-    bar.querySelector('.acc-name').textContent = a.user ? a.user.name || a.user.email : '';
+    bar.classList.toggle('logged', a.loggedIn);
+    bar.querySelector('.acc-name').textContent = a.loggedIn ? a.user.name || a.user.email : '';
     const price = a.priceLabel;
     document.getElementById('shop-price').textContent = price;
     const sb = document.getElementById('btn-shop');
     sb.textContent = g.premium ? '✝ Vollversion aktiv' : `✝ Vollversion · ${price.replace(',00', '')}`;
-    document.getElementById('shop-user').innerHTML = a.user
-      ? `Angemeldet als <b>${escapeHtml(a.user.email || a.user.name || '')}</b> · <button class="link-btn acc-signout2">Abmelden</button>`
-      : 'Melde dich an, damit dein Kauf an dein Konto gebunden ist und auf allen Geräten gilt.';
+    document.getElementById('shop-user').innerHTML = a.loggedIn
+      ? `Angemeldet als <b>${escapeHtml(a.user.email)}</b> · <button class="link-btn acc-signout2">Abmelden</button>`
+      : a.config && !a.config.accounts
+        ? '<span class="muted">Die Anmeldung ist im Moment nicht verfügbar.</span>'
+        : 'Erstelle ein Konto oder melde dich an. Dein Kauf gilt dann auf allen Geräten, auf denen du angemeldet bist.';
     const so = document.querySelector('.acc-signout2');
     if (so) so.addEventListener('click', () => a.signOut());
-    const gsi = document.getElementById('gsi-shop');
-    gsi.style.display = a.user && a.idToken ? 'none' : 'block';
-    const nl = document.getElementById('shop-nologin');
-    nl.textContent = !a.config ? 'Verbinde …' : !a.config.googleClientId ? 'Die Anmeldung ist im Moment nicht verfügbar.' : a.user && !a.idToken ? 'Bitte erneut anmelden, um zu kaufen.' : '';
-    document.getElementById('shop-step-buy').classList.toggle('disabled', !(a.user && a.idToken) || !a.available || g.premium);
-    document.getElementById('shop-step-login').classList.toggle('hidden', !!g.premium);
+    document.getElementById('auth-form').classList.toggle('hidden', a.loggedIn || !(a.config && a.config.accounts));
+    document.getElementById('pw-change').classList.toggle('hidden', !a.loggedIn);
+    document.getElementById('btn-auth').disabled = !!a.busy;
+    document.getElementById('shop-step-buy').classList.toggle('disabled', !a.loggedIn || !a.available || g.premium);
     document.getElementById('shop-step-buy').classList.toggle('hidden', !!g.premium);
     document.getElementById('shop-owned').classList.toggle('hidden', !g.premium);
+    document.getElementById('btn-buy').disabled = !!a.busy;
     let msg = a.message || '';
-    if (!msg && a.config && !a.available) msg = 'Der Kauf ist im Moment nicht verfügbar.';
+    if (!msg && a.loggedIn && a.config && !a.available && !g.premium) msg = 'Der Kauf ist im Moment nicht verfügbar.';
     document.getElementById('shop-msg').textContent = msg;
-    a.renderButtons();
     if (a.justReturned && this.current === 'menu') {
       a.justReturned = null;
       this.openShop('menu');

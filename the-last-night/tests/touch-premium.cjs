@@ -2,12 +2,11 @@ const { chromium, devices } = require('playwright');
 (async () => {
   const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const ctx = await browser.newContext({ ...devices['iPhone 13 landscape'], deviceScaleFactor: 1 });
-  await ctx.route('**/accounts.google.com/**', (r) => r.abort());
   await ctx.route('**/api/**', (route) => {
     const u = route.request().url();
     const j = (o) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(o) });
-    if (u.includes('config')) return j({ googleClientId: 'x', payments: true, priceCents: 1000 });
-    if (u.includes('me')) return j({ user: { sub: '1', email: 'a@b.de', name: 'A' }, premium: true });
+    if (u.includes('config')) return j({ accounts: true, payments: true, priceCents: 1000 });
+    if (u.includes('auth') || u.includes('me')) return j({ token: 't.s', user: { id: '1', email: 'a@b.de', name: 'A' }, premium: true });
     return j({});
   });
   const page = await ctx.newPage();
@@ -15,7 +14,7 @@ const { chromium, devices } = require('playwright');
   page.on('pageerror', (e) => logs.push('PAGEERROR: ' + e.message));
   await page.goto('http://localhost:4173/?debug', { waitUntil: 'load' });
   await page.waitForFunction(() => window.TLN && TLN.mode === 'menu' && TLN.account.config, null, { timeout: 120000 });
-  await page.evaluate(() => TLN.account.onCredential('tok'));
+  await page.evaluate(() => TLN.account.auth('login', 'a@b.de', 'geheim123'));
   await page.waitForTimeout(400);
   await page.tap('#btn-new'); await page.waitForTimeout(300); await page.tap('#btn-intro'); await page.waitForTimeout(500);
   const R = [];

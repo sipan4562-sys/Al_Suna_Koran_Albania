@@ -15,7 +15,7 @@ Voraussetzung: `npm i -D playwright` und ein installierter Chromium (`npx playwr
 Vollversion & Shop:
 
 ```bash
-node tests/api.mjs               # Server-Funktionen (Google/Stripe simuliert): Token-Prüfung, Einmalkauf, kein Doppelkauf
+node tests/api.mjs               # Server-Funktionen (Speicher/Stripe simuliert): Konten, Sitzungen, Sperre, Einmalkauf, Löschen
 node tests/premium.cjs           # Kauf-Ablauf im Browser (Server simuliert) + Revolver, Kreuzkette, Gebet
 node tests/touch-premium.cjs     # Touch-Buttons der Vollversion, keine Überlappungen
 ```

@@ -91,6 +91,7 @@
           <p class="subtitle">Katholische Heil- und Pflegeanstalt St. Aldric · 31. Oktober 1987</p>
         </div>
         <div class="account-bar" id="account-bar-menu">
+          <button class="link-btn acc-login">Anmelden / Konto erstellen</button>
           <span class="acc-name"></span>
           <span class="acc-badge">VOLLVERSION</span>
           <button class="link-btn acc-signout">Abmelden</button>
@@ -158,7 +159,7 @@
 
       <!-- Vollversion / Shop -->
       <div id="screen-shop" class="screen hidden">
-        <h2>VOLLVERSION</h2>
+        <h2>KONTO &amp; VOLLVERSION</h2>
         <p class="shop-price"><b id="shop-price">10,00 €</b> · einmalig · <u>kein Abo</u></p>
         <div class="shop-features">
           <div class="feat"><span class="fi">🔫</span><div><b>Revolver</b><br />Ein Treffer betäubt das Monster und treibt es in die Flucht. Munition liegt im Haus verteilt.</div></div>
@@ -171,8 +172,24 @@
             <span class="num">1</span>
             <div class="step-body">
               <div id="shop-user"></div>
-              <div class="gsi-slot" id="gsi-shop"></div>
-              <div id="shop-nologin" class="muted"></div>
+              <form id="auth-form" class="auth-form" autocomplete="on" novalidate>
+                <div class="atabs"><button type="button" class="atab active" data-mode="login">Anmelden</button><button type="button" class="atab" data-mode="register">Konto erstellen</button></div>
+                <input type="text" id="auth-name" class="hidden" placeholder="Name (optional)" autocomplete="nickname" maxlength="40" />
+                <input type="email" id="auth-email" placeholder="E-Mail-Adresse" autocomplete="email" inputmode="email" />
+                <input type="password" id="auth-pw" placeholder="Passwort (mind. 8 Zeichen)" autocomplete="current-password" />
+                <input type="password" id="auth-pw2" class="hidden" placeholder="Passwort wiederholen" autocomplete="new-password" />
+                <button type="submit" class="btn" id="btn-auth">Anmelden</button>
+                <p class="muted small">Kein Google-Konto nötig. Dein Passwort wird nur als sicherer Hash gespeichert.</p>
+              </form>
+              <details id="pw-change" class="hidden">
+                <summary>Passwort ändern / Konto löschen</summary>
+                <div class="auth-form">
+                  <input type="password" id="pw-old" placeholder="Bisheriges Passwort" autocomplete="current-password" />
+                  <input type="password" id="pw-new" placeholder="Neues Passwort (mind. 8 Zeichen)" autocomplete="new-password" />
+                  <button type="button" class="btn" id="btn-pw-change">Speichern</button>
+                  <button type="button" class="link-btn" id="btn-acc-delete">Konto löschen …</button>
+                </div>
+              </details>
             </div>
           </div>
           <div class="step" id="shop-step-buy">
