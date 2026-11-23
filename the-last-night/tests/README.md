@@ -11,3 +11,11 @@ node tests/ai-soak.cjs            # 10 Minuten simulierte Monster-KI (Hänger, P
 ```
 
 Voraussetzung: `npm i -D playwright` und ein installierter Chromium (`npx playwright install chromium`).
+
+Vollversion & Shop:
+
+```bash
+node tests/api.mjs               # Server-Funktionen (Google/Stripe simuliert): Token-Prüfung, Einmalkauf, kein Doppelkauf
+node tests/premium.cjs           # Kauf-Ablauf im Browser (Server simuliert) + Revolver, Kreuzkette, Gebet
+node tests/touch-premium.cjs     # Touch-Buttons der Vollversion, keine Überlappungen
+```

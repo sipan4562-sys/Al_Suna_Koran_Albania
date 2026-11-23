@@ -2,7 +2,7 @@
 // Kühlfächer, Geheimregal, Ausgang, Überwachungspult, Terminal, Lüftungsgitter, Wurfflaschen.
 import * as THREE from 'three';
 import { MAT, emissiveMaterial } from './materials.js';
-import { box, cyl, part, G, locker as lockerModel, bookshelf as bookshelfModel, sign, mergeByMaterial } from './level/props.js';
+import { box, cyl, part, G, locker as lockerModel, bookshelf as bookshelfModel, sign, mergeByMaterial, confessional as confessionalModel } from './level/props.js';
 import { DECAL } from './textures.js';
 import { damp, clamp, rand } from './utils.js';
 import { PLAYER } from './config.js';
@@ -366,10 +366,12 @@ export class Locker {
     const [fx, fz] = DIRV[def.dir];
     this.facing = { x: fx, z: fz };
     const floor = w.floorY[w.idx(def.x, def.z)];
-    const cx = def.x + 0.5 - fx * 0.235;
-    const cz = def.z + 0.5 - fz * 0.235;
+    this.isConfessional = def.type === 'confessional';
+    const back = this.isConfessional ? 0.04 : 0.235;
+    const cx = def.x + 0.5 - fx * back;
+    const cz = def.z + 0.5 - fz * back;
     this.yaw = Math.atan2(fx, fz);
-    const m = lockerModel(cx, floor, cz, this.yaw);
+    const m = this.isConfessional ? confessionalModel(cx, floor, cz, this.yaw) : lockerModel(cx, floor, cz, this.yaw);
     this.model = m;
     // Korpus statisch, Tür dynamisch
     const doorPivot = m.pivot;
@@ -383,9 +385,10 @@ export class Locker {
     this.pivot = doorPivot;
     doorPivot.children.forEach((c) => c.isGroup && mergeByMaterial(c));
     this.collider = game.world.addCollider({ ...m.collider });
-    this.pos = new THREE.Vector3(cx + fx * 0.2, floor + 1.1, cz + fz * 0.2);
-    this.front = { x: cx + fx * 0.85, z: cz + fz * 0.85 };
-    this.eyePos = new THREE.Vector3(cx - fx * 0.02, floor + 1.55, cz - fz * 0.02);
+    const fo = this.isConfessional ? 0.42 : 0.2;
+    this.pos = new THREE.Vector3(cx + fx * fo, floor + 1.1, cz + fz * fo);
+    this.front = { x: cx + fx * (this.isConfessional ? 1.05 : 0.85), z: cz + fz * (this.isConfessional ? 1.05 : 0.85) };
+    this.eyePos = new THREE.Vector3(cx - fx * 0.02, floor + (this.isConfessional ? 1.35 : 1.55), cz - fz * 0.02);
     this.radius = 0.45;
     this.doorAngle = 0;
     this.doorTarget = 0;
@@ -400,9 +403,10 @@ export class Locker {
 
   prompt() {
     const P = this.game.player;
-    if (P.hidden === this) return '[E] Spind verlassen';
+    const n = this.isConfessional ? 'Beichtstuhl' : 'Spind';
+    if (P.hidden === this) return `[E] ${n} verlassen`;
     if (P.hidden) return null;
-    return '[E] Im Spind verstecken';
+    return `[E] Im ${n} verstecken`;
   }
 
   interact() {
@@ -453,7 +457,11 @@ export class Locker {
 
   update(dt) {
     this.doorAngle = damp(this.doorAngle, this.doorTarget, this.forcedOpen ? 16 : 9, dt);
-    this.pivot.rotation.y = this.doorAngle;
+    if (this.isConfessional) {
+      // Vorhang wird zur Seite gerafft
+      const open = Math.min(1, Math.abs(this.doorAngle) / 1.5);
+      this.pivot.scale.x = 1 - open * 0.82;
+    } else this.pivot.rotation.y = this.doorAngle;
     // Türblatt ausblenden, solange man drinnen steckt (Sicht durch die Lüftungsschlitze per Overlay)
     const inside = this.game.player.hidden === this && Math.abs(this.doorAngle) < 0.3;
     this.pivot.visible = !inside;
@@ -502,6 +510,12 @@ export function itemMesh(kind) {
       cyl(g, MAT.steel, 0.032, 0.05, 0, 0.026, 0.12, Math.PI / 2, 0);
       part(g, G.cyl, glow, 0, 0.026, 0.146, 0.028, 0.004, 0.028, Math.PI / 2, 0, 0);
       break;
+    case 'ammo':
+      box(g, MAT.copper, 0.1, 0.05, 0.07, 0, 0.025, 0);
+      box(g, MAT.paper, 0.102, 0.03, 0.072, 0, 0.03, 0);
+      for (let k = 0; k < 3; k++) cyl(g, MAT.gold, 0.006, 0.03, -0.03 + k * 0.03, 0.065, 0.02);
+      box(g, glow, 0.04, 0.002, 0.01, 0, 0.051, -0.03);
+      break;
     case 'note': {
       const m = new THREE.Mesh(G.plane, new THREE.MeshStandardMaterial({ map: DECAL.paper[1], roughness: 0.9, emissive: 0x332a18, emissiveIntensity: 0 }));
       m.rotation.x = -Math.PI / 2;
@@ -529,6 +543,7 @@ const ITEM_NAMES = {
   fuse: 'Sicherung',
   flashlight: 'Taschenlampe',
   note: 'Dokument',
+  ammo: 'Revolvermunition',
 };
 
 export class Pickup {
@@ -552,6 +567,7 @@ export class Pickup {
 
   available() {
     if (this.taken) return false;
+    if (this.def.premiumOnly && !this.game.premium) return false;
     if (this.hiddenUntil && !this.hiddenUntil()) return false;
     return true;
   }
@@ -589,6 +605,7 @@ export class Pickup {
       glow.emissiveIntensity = (0.25 + 0.25 * Math.sin(this.t * 3)) * k * (this.item === 'note' ? 0.6 : 1.4);
     }
     if (this.hiddenUntil) this.mesh.userData.hidden = !this.hiddenUntil();
+    if (this.def.premiumOnly) this.mesh.userData.hidden = !this.game.premium;
   }
 }
 

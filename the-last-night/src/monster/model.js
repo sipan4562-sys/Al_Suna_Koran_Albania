@@ -231,6 +231,24 @@ export class MonsterModel {
     this.lastStepSign = [0, 0];
   }
 
+  // Vollversion „Gebet“: Silhouette durch Wände sichtbar
+  setXray(on) {
+    if (on && !this.xray) {
+      const mat = new THREE.MeshBasicMaterial({ color: 0xff4a2a, transparent: true, opacity: 0.4, depthTest: false, depthWrite: false, blending: THREE.AdditiveBlending });
+      this.xray = [];
+      const meshes = [];
+      this.root.traverse((o) => o.isMesh && meshes.push(o));
+      for (const m of meshes) {
+        const x = new THREE.Mesh(m.geometry, mat);
+        x.renderOrder = 30;
+        x.frustumCulled = false;
+        m.add(x);
+        this.xray.push(x);
+      }
+    }
+    if (this.xray) for (const x of this.xray) x.visible = on;
+  }
+
   set(params) {
     Object.assign(this.target, params);
   }

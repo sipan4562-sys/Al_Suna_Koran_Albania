@@ -20,6 +20,13 @@ import { Input } from './input.js';
 import { UI } from './ui.js';
 import { NOTES, objectiveText } from './story.js';
 import { Projectile } from './entities.js';
+import { Revolver } from './weapon.js';
+import { Account } from './account.js';
+
+const CROSS_TIME = 12;
+const CROSS_COOLDOWN = 120;
+const PRAY_TIME = 6;
+const PRAY_COOLDOWN = 60;
 
 const SAVE_KEY = 'tln_save_v1';
 
@@ -34,6 +41,9 @@ export class Game {
     this.timers = [];
     this.staticMats = [];
     this.fovBase = settings.fov;
+    this.premium = false;
+    this.ab = { crossT: 0, crossCd: 0, prayT: 0, prayCd: 0 };
+    this.muzzleFlash = 0;
   }
 
   async init(onProgress) {
@@ -58,6 +68,10 @@ export class Game {
     };
     this.ui = new UI(this);
     this.input.bindTouch(document.querySelector('#touch-ui'));
+    this.account = new Account();
+    this.premium = this.account.premium;
+    this.account.on(() => this.onAccountChange());
+    this.account.init();
 
     onProgress(0.02, 'Texturen werden erzeugt …');
     await generateAll((p) => onProgress(0.02 + p * 0.6, 'Texturen werden erzeugt …'));
@@ -94,6 +108,7 @@ export class Game {
     this.ambient = new THREE.HemisphereLight(0x3a4658, 0x14100c, 0.55);
     scene.add(this.ambient);
     this.post = new PostFX(r, scene, this.camera, this.quality);
+    this.revolver = new Revolver(this);
     this.setupCulling();
     onProgress(0.88, 'Shader werden kompiliert …');
     await tick();
@@ -119,7 +134,7 @@ export class Game {
     return {
       code,
       flags: { fusesInserted: 0 },
-      inv: { flashlight: false, batteries: 0, medkits: 0, bottles: 0, fuses: 0, staffKey: false, basementKey: false },
+      inv: { flashlight: false, batteries: 0, medkits: 0, bottles: 0, fuses: 0, staffKey: false, basementKey: false, revolver: false, ammo: 0, reserve: 0, cross: false },
       notes: [],
       picked: [],
       playTime: 0,
@@ -216,6 +231,8 @@ export class Game {
       this.codeDecal.userData.code = s.code;
     }
     const f = this.state.flags;
+    this.ensurePremiumItems();
+    this.ab = { crossT: 0, crossCd: 0, prayT: 0, prayCd: 0 };
     for (const p of Object.values(this.pickupById)) p.restore(this.state.picked.includes(p.id));
     for (const [id, d] of Object.entries(this.doors)) {
       const ds = s.doors && s.doors[id];
@@ -294,6 +311,90 @@ export class Game {
     return pickOne(cands.slice(0, Math.max(3, Math.floor(cands.length / 2))));
   }
 
+  // ------------------------------------------------------------------ Vollversion
+  onAccountChange() {
+    const was = this.premium;
+    this.premium = !!this.account.premium;
+    if (this.premium && !was) {
+      this.ensurePremiumItems();
+      if (this.mode === 'playing') this.ui.toast('Vollversion aktiv: Revolver [Klick/V], Kreuzkette [Q], Gebet [B].', 5000);
+    }
+    this.ui.refreshAccount();
+    this.ui.refreshAbilities();
+  }
+
+  ensurePremiumItems() {
+    if (!this.premium || !this.state) return;
+    const inv = this.state.inv;
+    if (inv.revolver === undefined) Object.assign(inv, { revolver: false, ammo: 0, reserve: 0, cross: false });
+    if (!inv.revolver) {
+      inv.revolver = true;
+      inv.ammo = 6;
+      inv.reserve = 6;
+    }
+    inv.cross = true;
+  }
+
+  crossActive() {
+    return this.premium && this.ab.crossT > 0;
+  }
+
+  useCross() {
+    if (!this.premium) return this.ui.toast('Die Kreuzkette gehört zur Vollversion.');
+    const a = this.ab;
+    if (a.crossT > 0) return;
+    if (a.crossCd > 0) return this.ui.toast(`Die Kreuzkette ruht noch ${Math.ceil(a.crossCd)} s.`);
+    a.crossT = CROSS_TIME;
+    a.crossCd = CROSS_COOLDOWN;
+    this.audio.holy();
+    this.ui.toast('Du hebst die Kreuzkette. Es kann dich jetzt nicht angreifen.');
+  }
+
+  usePray() {
+    if (!this.premium) return this.ui.toast('Das Gebet gehört zur Vollversion.');
+    const a = this.ab;
+    if (a.prayT > 0) return;
+    if (a.prayCd > 0) return this.ui.toast(`Du kannst erst in ${Math.ceil(a.prayCd)} s wieder beten.`);
+    a.prayT = PRAY_TIME;
+    a.prayCd = PRAY_COOLDOWN;
+    this.audio.prayer();
+    this.ui.toast('Ein Gebet … du spürst, wo es ist.');
+  }
+
+  updateAbilities(dt) {
+    const a = this.ab;
+    a.crossT = Math.max(0, a.crossT - dt);
+    a.crossCd = Math.max(0, a.crossCd - dt);
+    a.prayT = Math.max(0, a.prayT - dt);
+    a.prayCd = Math.max(0, a.prayCd - dt);
+    this.monster.model.setXray(this.premium && a.prayT > 0 && this.monster.state !== 'inVent');
+    const u = this.post.u;
+    u.holy.value = damp(u.holy.value, this.crossActive() ? 0.6 + Math.sin(this.time * 4) * 0.15 : 0, 6, dt);
+    this.muzzleFlash = Math.max(0, this.muzzleFlash - dt);
+    this.ui.updateAbilities(this);
+  }
+
+  // Mündungsfeuer bzw. goldener Schein über das indirekte Licht (kein Shader-Neukompilieren)
+  overrideBounce() {
+    const b = this.lights.bounce;
+    const reg = regionUniforms.tlnLightRegion.value;
+    const c = this.camera.position;
+    if (this.muzzleFlash > 0) {
+      const d = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
+      b.position.copy(c).addScaledVector(d, 0.6);
+      b.color.setHex(0xffc070);
+      b.intensity = 14;
+      b.distance = 12;
+      reg[0] = this.world.regionAt(c.x, c.z);
+    } else if (this.crossActive()) {
+      b.position.set(c.x, c.y + 0.3, c.z);
+      b.color.setHex(0xffd890);
+      b.intensity = 1.6 + Math.sin(this.time * 4) * 0.4;
+      b.distance = 6;
+      reg[0] = this.world.regionAt(c.x, c.z);
+    } else b.color.setHex(0xffe6c8);
+  }
+
   // ------------------------------------------------------------------ Raum-Culling
   // Objekte gehören zu Regionen (Räumen). Sichtbar ist nur die Region der Kamera
   // plus Regionen, die über offene Türen verbunden sind.
@@ -356,11 +457,11 @@ export class Game {
       for (let i = 0; i < regs.length; i++) if (vis.has(regs[i])) { v = true; break; }
       o.visible = v && !o.userData.hidden;
     }
-    // Monster: dynamische Region
+    // Monster: dynamische Region (beim Gebet immer sichtbar)
     const M = this.monster;
     if (M && M.state !== 'inVent') {
       const mr = this.world.probeRegions(M.pos.x, M.pos.z, 0.4);
-      M.model.root.visible = mr.some((r) => vis.has(r));
+      M.model.root.visible = mr.some((r) => vis.has(r)) || (this.premium && this.ab.prayT > 0);
     }
   }
 
@@ -372,6 +473,7 @@ export class Game {
     this.ui.show('menu');
     this.ui.setHud(false);
     this.ui.setContinue(!!this.loadSave());
+    this.ui.refreshAccount();
     this.menuMonster();
   }
 
@@ -568,6 +670,11 @@ export class Game {
       case 'fuse':
         inv.fuses++;
         this.ui.toast('Sicherung gefunden.');
+        break;
+      case 'ammo':
+        inv.reserve = (inv.reserve || 0) + 6;
+        this.ui.toast('Revolvermunition (+6).');
+        if (inv.ammo === 0) this.revolver.startReload();
         break;
       case 'note':
         p.take();
@@ -1019,7 +1126,8 @@ export class Game {
     if (input.pressed('reload')) this.useBattery();
     if (input.pressed('heal')) this.useMedkit();
     if (input.pressed('throw')) this.throwBottle();
-    if (input.pressed('click') && s.inv.bottles > 0 && input.keys.has('KeyG')) this.throwBottle();
+    if (input.pressed('cross')) this.useCross();
+    if (input.pressed('pray')) this.usePray();
 
     this.runTimers(dt);
     P.update(dt, input);
@@ -1032,6 +1140,8 @@ export class Game {
       if (pr) target.interact();
     }
 
+    this.revolver.update(dt, input);
+    this.updateAbilities(dt);
     for (const e of this.entities) if (e.update) e.update(dt);
     for (const v of Object.values(this.vents)) v.update(dt);
     for (const pr of this.projectiles) pr.update(dt);
@@ -1133,6 +1243,7 @@ export class Game {
   updateWorldVisuals(dt) {
     const P = this.player;
     this.lights.update(dt, this.camera, { light: P.flash, dir: P.flashDir });
+    this.overrideBounce();
     this.dust.update(dt, this.camera, P.flash, P.flashPower, innerHeight * this.renderer.getPixelRatio());
     for (const m of this.staticMats) m.uniforms.time.value += dt;
     if (this.audio.ready) {

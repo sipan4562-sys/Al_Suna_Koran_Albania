@@ -64,6 +64,8 @@ const TYPES = {
   moon: { color: 0x7a96d8, intensity: 4.5, range: 12, emissive: 0 },
   tv: { color: 0x9fb8e0, intensity: 1.8, range: 5, emissive: 0 },
   exit: { color: 0x40ff70, intensity: 0.8, range: 3.5, emissive: 0 },
+  candle: { color: 0xff9440, intensity: 1.6, range: 5, emissive: 3.5 },
+  stained: { color: 0x8a70c8, intensity: 2.2, range: 9, emissive: 0 },
 };
 
 export class LightSystem {
@@ -163,6 +165,17 @@ export class LightSystem {
       f.mats.push(m);
       const b = box(group, m, 0.24, 0.06, 0.02, 0, 0, 0.055);
       b.castShadow = false;
+    } else if (type === 'candle') {
+      const m = emissiveMaterial(f.color, 0);
+      f.mats.push(m);
+      const flames = opts.flames || [[0, 0, 0]];
+      for (const [fx, fy, fz] of flames) {
+        const fl = new THREE.Mesh(new THREE.ConeGeometry(0.011, 0.045, 6), m);
+        fl.position.set(fx, fy + 0.02, fz);
+        fl.castShadow = false;
+        group.add(fl);
+      }
+      f.hum = false;
     } else if (type === 'surgical') {
       cyl(stat, MAT.steel, 0.025, 0.8, 0, 0.45, 0);
       const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.42, 0.18, 24, 1, true), MAT.lampHousing);
@@ -241,6 +254,8 @@ export class LightSystem {
         return 0.55 + 0.45 * Math.sin(t * 2.2 + f.seed);
       case 'static':
         return 0.6 + Math.random() * 0.4;
+      case 'candle':
+        return 0.82 + noise1(t * 6 + f.seed) * 0.1 + noise1(t * 17 + f.seed * 3) * 0.07;
       default:
         return 1;
     }

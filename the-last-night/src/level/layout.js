@@ -9,7 +9,7 @@ export const H = 44;
 export const ZONES = {
   corridor: { floor: 'linoleum', wall: 'hospitalWall', ceil: 'ceilingTiles', y: 0, c: 3, surface: 'tile', wallH: 3 },
   patient: { floor: 'tileWorn', wall: 'patientWall', ceil: 'ceilingTiles', y: 0, c: 3, surface: 'tile', wallH: 3 },
-  dayroom: { floor: 'linoleum', wall: 'patientWall', ceil: 'ceilingTiles', y: 0, c: 3, surface: 'tile', wallH: 3 },
+  chapel: { floor: 'marble', wall: 'stoneWall', ceil: 'plaster', y: 0, c: 4.6, surface: 'tile', wallH: 2 },
   lobby: { floor: 'marble', wall: 'lobbyWall', ceil: 'plaster', y: 0, c: 4.2, surface: 'tile', wallH: 4.2 },
   exitway: { floor: 'marble', wall: 'lobbyWall', ceil: 'plaster', y: 0, c: 3.2, surface: 'tile', wallH: 4.2 },
   nurse: { floor: 'linoleum', wall: 'hospitalWall', ceil: 'ceilingTiles', y: 0, c: 3, surface: 'tile', wallH: 3 },
@@ -50,7 +50,7 @@ export const ROOMS = [
   [17, 34, 19, 34, 'exitway'], // Nische Haupteingang
   [45, 23, 46, 29, 'corridor'], // Verbindungsflur Ost
   [25, 30, 46, 32, 'corridor'], // Versorgungsflur Süd
-  [27, 34, 41, 41, 'dayroom'], // Aufenthaltsraum
+  [27, 34, 41, 41, 'chapel'], // Kapelle
   // Patientenzimmer
   [25, 14, 28, 18, 'patient'],
   [30, 14, 33, 18, 'patient'],
@@ -87,8 +87,8 @@ export const DOORS = [
   { id: 'iso2', x: 24, z: 10, lock: 'sealed', label: 'Isolation 2', style: 'cell' },
   { id: 'hydro', x: 29, z: 6, label: 'Hydrotherapie' },
   { id: 'lobbyEast', x: 24, z: 31, label: '' },
-  { id: 'day1', x: 30, z: 33, label: 'Aufenthalt' },
-  { id: 'day2', x: 38, z: 33, label: '' },
+  { id: 'day1', x: 30, z: 33, label: 'Kapelle', style: 'wood' },
+  { id: 'day2', x: 38, z: 33, label: '', style: 'wood' },
   { id: 'r111', x: 26, z: 19, label: '111' },
   { id: 'r112', x: 31, z: 19, label: '112' },
   { id: 'r113', x: 36, z: 19, label: '113' },
@@ -147,7 +147,7 @@ export const LOCKERS = [
   { x: 19, z: 15, dir: 0 },
   { x: 43, z: 14, dir: 0 },
   { x: 33, z: 28, dir: 2 },
-  { x: 41, z: 36, dir: 1 },
+  { x: 41, z: 36, dir: 1, type: 'confessional' },
   { x: 46, z: 27, dir: 1 },
   { x: 40, z: 4, dir: 0 },
   { x: 58, z: 12, dir: 1 },

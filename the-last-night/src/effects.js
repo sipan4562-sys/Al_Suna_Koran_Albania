@@ -20,13 +20,14 @@ const HorrorShader = {
     fade: { value: 0 },
     cctv: { value: 0 },
     flash: { value: 0 },
+    holy: { value: 0 },
   },
   vertexShader: /* glsl */ `
     varying vec2 vUv;
     void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: /* glsl */ `
     uniform sampler2D tDiffuse;
-    uniform float time, grain, vignette, damage, danger, lowHealth, fade, cctv, flash;
+    uniform float time, grain, vignette, damage, danger, lowHealth, fade, cctv, flash, holy;
     uniform vec2 resolution;
     varying vec2 vUv;
     float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
@@ -62,6 +63,9 @@ const HorrorShader = {
         col *= 1.0 - vignette * smoothstep(0.08, 0.62, r2 * (1.0 + danger * 0.6));
         float n = hash(uv * resolution + fract(time * 1.3) * 91.0);
         col += (n - 0.5) * grain * (1.0 + danger * 0.6);
+        // Kreuzkette: goldener Schein
+        col = mix(col, col * vec3(1.15, 1.05, 0.82) + vec3(0.05, 0.035, 0.0), holy * 0.7);
+        col += vec3(1.0, 0.78, 0.35) * holy * smoothstep(0.12, 0.5, r2) * 0.22;
       }
       col += flash;
       col *= 1.0 - fade;

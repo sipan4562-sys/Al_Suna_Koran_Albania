@@ -209,7 +209,7 @@ export class Player {
     // Taschenlampe
     if (!this.locked && input.pressed('flashlight') && this.hasFlashlight) this.toggleFlash();
     if (this.flashOn) {
-      this.battery = Math.max(0, this.battery - PLAYER.batteryDrain * dt);
+      this.battery = Math.max(0, this.battery - PLAYER.batteryDrain * dt * (g.premium ? 0.5 : 1));
       if (this.battery <= 0) {
         this.flashOn = false;
         g.audio.click();

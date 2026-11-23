@@ -883,6 +883,57 @@ GEN.rust = (b) => {
   }
 };
 
+
+// Naturstein-Quaderwand (Kapelle), tileable 2m × 2m
+GEN.stoneWall = (b) => {
+  const { size } = b;
+  const big = sampler(fields.big, size);
+  const mid = sampler(fields.mid, size);
+  const fine = sampler(fields.fine, size);
+  const grain = sampler(fields.grain, size);
+  const rows = 8;
+  const rh = size / rows;
+  const rng = mulberry32(131);
+  const offs = [];
+  const widths = [];
+  for (let r = 0; r < rows; r++) {
+    offs.push((rng() * size) | 0);
+    widths.push(size / (3 + ((rng() * 2) | 0)));
+  }
+  const base = hex(0x7d7462);
+  const mortar = hex(0x3e3a33);
+  const grime = hex(0x2a241b);
+  for (let y = 0; y < size; y++) {
+    const row = (y / rh) | 0;
+    const ry = y % rh;
+    for (let x = 0; x < size; x++) {
+      const i = y * size + x;
+      const xx = (x + offs[row]) % size;
+      const bw = widths[row];
+      const bx = xx % bw;
+      const blockId = row * 13 + ((xx / bw) | 0);
+      const edge = Math.min(bx, bw - bx, ry, rh - ry);
+      const isMortar = edge < 3;
+      const f = fine(x, y);
+      if (isMortar) {
+        setCol(b, i, mortar, 0.8 + f * 0.3);
+        b.h[i] = -1.2;
+        b.r[i] = 0.95;
+      } else {
+        const tint = 0.82 + ((blockId * 37) % 9) * 0.03;
+        setCol(b, i, base, tint * (0.85 + f * 0.2 + mid(x, y) * 0.1));
+        // gerundete, verwitterte Kanten
+        b.h[i] = Math.min(1, edge / 10) * 0.8 + grain(x, y) * 0.3 + f * 0.2;
+        b.r[i] = 0.9;
+        if (grain(x, y) > 0.78) mulCol(b, i, 0.75);
+      }
+      const damp = clamp((big(x, y) - 0.5) * 2.5, 0, 1);
+      mixCol(b, i, grime, damp * 0.6);
+      b.r[i] = Math.max(0.35, b.r[i] - damp * 0.3);
+    }
+  }
+};
+
 const SPECS = {
   linoleum: { size: 512, gen: (b) => GEN.linoleum(b, false), ns: 3 },
   linoleumDark: { size: 512, gen: (b) => GEN.linoleum(b, true), ns: 3 },
@@ -913,6 +964,7 @@ const SPECS = {
   sheet: { size: 256, gen: (b) => GEN.fabric(b, 'sheet'), ns: 1.5 },
   cloth: { size: 256, gen: (b) => GEN.fabric(b, 'cloth'), ns: 2 },
   skin: { size: 512, gen: GEN.skin, ns: 4 },
+  stoneWall: { size: 512, gen: GEN.stoneWall, ns: 3 },
 };
 
 export const TEX = {};
@@ -986,6 +1038,14 @@ export function makeWritingTexture(text, opts = {}) {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const color = opts.color || 'rgba(78,8,6,';
+  if (opts.painted) {
+    ctx.fillStyle = color + '0.8)';
+    ctx.fillText(text, w / 2, h / 2);
+    for (let k = 0; k < 400; k++) {
+      ctx.clearRect(rng() * w, rng() * h, 2 + rng() * 6, 1 + rng() * 3);
+    }
+    return canvasTex(c);
+  }
   // Grobe, verschmierte Schrift aus mehreren Lagen
   for (let k = 0; k < 6; k++) {
     ctx.fillStyle = color + (0.25 + rng() * 0.3) + ')';
@@ -1191,6 +1251,152 @@ export function makeCodeTexture(code) {
   return canvasTex(c);
 }
 
+
+// Buntglasfenster mit Spitzbogen (transparent außerhalb des Bogens)
+export function makeStainedGlass(seed = 1) {
+  const w = 256;
+  const h = 512;
+  const c = canvas(w, h);
+  const ctx = c.getContext('2d');
+  const rng = mulberry32(seed);
+  const arch = () => {
+    ctx.beginPath();
+    ctx.moveTo(8, h - 8);
+    ctx.lineTo(8, h * 0.32);
+    ctx.quadraticCurveTo(8, 8, w / 2, 8);
+    ctx.quadraticCurveTo(w - 8, 8, w - 8, h * 0.32);
+    ctx.lineTo(w - 8, h - 8);
+    ctx.closePath();
+  };
+  ctx.save();
+  arch();
+  ctx.clip();
+  const cols = ['#7a0f14', '#13306e', '#b88a1c', '#1f5a2c', '#5a1f6e', '#9a3a10', '#1d4f8a'];
+  for (let y = 0; y < h; y += 34) {
+    for (let x = 0; x < w; x += 30) {
+      ctx.fillStyle = cols[(rng() * cols.length) | 0];
+      ctx.beginPath();
+      ctx.moveTo(x + rng() * 8, y + rng() * 8);
+      ctx.lineTo(x + 30 + rng() * 8, y + rng() * 8);
+      ctx.lineTo(x + 30 + rng() * 8, y + 34 + rng() * 8);
+      ctx.lineTo(x + rng() * 8, y + 34 + rng() * 8);
+      ctx.fill();
+    }
+  }
+  // Kreuz in der Mitte
+  ctx.fillStyle = '#e8c45a';
+  ctx.fillRect(w / 2 - 14, h * 0.18, 28, h * 0.62);
+  ctx.fillRect(w / 2 - 70, h * 0.34, 140, 26);
+  ctx.fillStyle = 'rgba(255,240,200,0.35)';
+  ctx.beginPath();
+  ctx.arc(w / 2, h * 0.36, 60, 0, Math.PI * 2);
+  ctx.fill();
+  // Bleiruten
+  ctx.strokeStyle = '#111';
+  ctx.lineWidth = 4;
+  for (let y = 0; y < h; y += 34) {
+    ctx.beginPath();
+    ctx.moveTo(0, y + rng() * 6);
+    ctx.lineTo(w, y + rng() * 6);
+    ctx.stroke();
+  }
+  for (let x = 0; x < w; x += 30) {
+    ctx.beginPath();
+    ctx.moveTo(x + rng() * 6, 0);
+    ctx.lineTo(x + rng() * 6, h);
+    ctx.stroke();
+  }
+  // Risse / zerbrochene Scheiben
+  for (let k = 0; k < 6; k++) {
+    ctx.fillStyle = 'rgba(0,0,0,0.85)';
+    ctx.beginPath();
+    const cx = rng() * w;
+    const cy = rng() * h;
+    ctx.moveTo(cx, cy);
+    for (let j = 0; j < 4; j++) ctx.lineTo(cx + (rng() - 0.5) * 50, cy + (rng() - 0.5) * 50);
+    ctx.fill();
+  }
+  ctx.restore();
+  ctx.lineWidth = 10;
+  ctx.strokeStyle = '#2a2620';
+  arch();
+  ctx.stroke();
+  return canvasTex(c);
+}
+
+// Heiligenbild (Ikonen-Stil): Goldgrund, Nimbus, Gewandfigur
+export function makeIcon(seed = 1) {
+  const w = 256;
+  const h = 340;
+  const c = canvas(w, h);
+  const ctx = c.getContext('2d');
+  const rng = mulberry32(seed);
+  const g = ctx.createLinearGradient(0, 0, w, h);
+  g.addColorStop(0, '#8a6a22');
+  g.addColorStop(0.5, '#c9a245');
+  g.addColorStop(1, '#6e5418');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+  for (let k = 0; k < 1600; k++) {
+    ctx.fillStyle = `rgba(40,25,5,${rng() * 0.12})`;
+    ctx.fillRect(rng() * w, rng() * h, rng() * 6, rng() * 6);
+  }
+  ctx.strokeStyle = '#f3dd8a';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.arc(w / 2, h * 0.3, 46, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = '#e9d6a8';
+  ctx.beginPath();
+  ctx.ellipse(w / 2, h * 0.31, 26, 32, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = seed % 2 ? '#1d2f6a' : '#5a1414';
+  ctx.beginPath();
+  ctx.moveTo(w / 2 - 30, h * 0.24);
+  ctx.quadraticCurveTo(w / 2, h * 0.12, w / 2 + 30, h * 0.24);
+  ctx.lineTo(w / 2 + 80, h * 0.95);
+  ctx.lineTo(w / 2 - 80, h * 0.95);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#e9d6a8';
+  ctx.beginPath();
+  ctx.ellipse(w / 2, h * 0.31, 22, 28, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Gesicht schemenhaft, Augen verkratzt
+  ctx.fillStyle = '#2a1a10';
+  ctx.fillRect(w / 2 - 12, h * 0.3, 8, 3);
+  ctx.fillRect(w / 2 + 4, h * 0.3, 8, 3);
+  ctx.strokeStyle = 'rgba(30,10,5,0.9)';
+  ctx.lineWidth = 2;
+  for (let k = 0; k < 9; k++) {
+    ctx.beginPath();
+    ctx.moveTo(w / 2 - 18 + rng() * 6, h * 0.27 + rng() * 10);
+    ctx.lineTo(w / 2 + 12 + rng() * 6, h * 0.3 + rng() * 10);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#d8b04a';
+  ctx.fillRect(w / 2 - 4, h * 0.55, 8, 60);
+  ctx.fillRect(w / 2 - 20, h * 0.6, 40, 8);
+  ctx.strokeStyle = '#3a2a10';
+  ctx.lineWidth = 12;
+  ctx.strokeRect(6, 6, w - 12, h - 12);
+  return canvasTex(c);
+}
+
+// Heller Abdruck eines abgenommenen Kreuzes an der Wand
+export function makeCrossGhost() {
+  const c = canvas(128, 192);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = 'rgba(230,225,200,0.28)';
+  ctx.fillRect(52, 10, 24, 172);
+  ctx.fillRect(18, 52, 92, 22);
+  ctx.fillStyle = 'rgba(20,15,10,0.6)';
+  ctx.beginPath();
+  ctx.arc(64, 14, 3, 0, Math.PI * 2);
+  ctx.fill();
+  return canvasTex(c);
+}
+
 export const DECAL = {};
 function makeDecals() {
   DECAL.cookie = makeCookie();
@@ -1201,4 +1407,7 @@ function makeDecals() {
   DECAL.vent = makeVent();
   DECAL.paper = [makePaperTexture(1), makePaperTexture(2), makePaperTexture(3)];
   DECAL.static = makeScreenStatic();
+  DECAL.glass = [makeStainedGlass(3), makeStainedGlass(8)];
+  DECAL.icons = [makeIcon(1), makeIcon(2), makeIcon(5)];
+  DECAL.crossGhost = makeCrossGhost();
 }

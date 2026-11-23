@@ -9,7 +9,9 @@ const ACTION_KEYS = {
   KeyR: 'reload',
   KeyH: 'heal',
   KeyG: 'throw',
-  KeyQ: 'throw',
+  KeyQ: 'cross',
+  KeyB: 'pray',
+  KeyV: 'fire',
   Tab: 'inventory',
   KeyI: 'inventory',
   Escape: 'pause',
@@ -207,6 +209,9 @@ export class Input {
     btn('#tb-throw', 'throw');
     btn('#tb-heal', 'heal');
     btn('#tb-reload', 'reload');
+    btn('#tb-fire', 'fire');
+    btn('#tb-cross', 'cross');
+    btn('#tb-pray', 'pray');
     btn('#tb-sprint', null, {
       toggle: (el) => {
         this.touchSprint = !this.touchSprint;

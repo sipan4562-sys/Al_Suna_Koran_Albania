@@ -472,3 +472,161 @@ export function papers(group, cx, y, cz, n, seed, spread = 1.2) {
     group.add(m);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Katholische Ausstattung
+// ---------------------------------------------------------------------------
+
+// Wandkreuz (optional mit Korpus). Lokale Vorderseite: +z, Rückseite an der Wand.
+export function crucifix(x, y, z, ry, size = 1, opts = {}) {
+  const g = root(x, y, z, ry);
+  const inner = new THREE.Group();
+  inner.rotation.z = opts.tilt || 0;
+  g.add(inner);
+  const s = size;
+  box(inner, MAT.darkWood, 0.06 * s, 0.62 * s, 0.035 * s, 0, 0, 0.02 * s);
+  box(inner, MAT.darkWood, 0.36 * s, 0.06 * s, 0.035 * s, 0, 0.14 * s, 0.02 * s);
+  if (opts.corpus) {
+    const m = MAT.ivory;
+    box(inner, m, 0.05 * s, 0.18 * s, 0.03 * s, 0, 0.02 * s, 0.05 * s);
+    part(inner, G.sphere, m, 0, 0.15 * s, 0.055 * s, 0.022 * s, 0.026 * s, 0.022 * s);
+    for (const sd of [-1, 1]) {
+      const arm = box(inner, m, 0.13 * s, 0.018 * s, 0.018 * s, sd * 0.075 * s, 0.11 * s, 0.05 * s);
+      arm.rotation.z = sd * 0.25;
+      const leg = box(inner, m, 0.018 * s, 0.17 * s, 0.018 * s, sd * 0.012 * s, -0.15 * s, 0.05 * s);
+      leg.rotation.z = -sd * 0.06;
+    }
+    box(inner, MAT.cloth, 0.06 * s, 0.04 * s, 0.035 * s, 0, -0.06 * s, 0.05 * s);
+    box(inner, MAT.paper, 0.08 * s, 0.03 * s, 0.01 * s, 0, 0.27 * s, 0.04 * s);
+  }
+  g.traverse((o) => o.isMesh && (o.castShadow = size > 1.2));
+  return { group: g };
+}
+
+export function pew(x, y, z, ry, len = 3.2) {
+  const g = root(x, y, z, ry);
+  box(g, MAT.darkWood, len, 0.06, 0.42, 0, 0.45, 0);
+  box(g, MAT.darkWood, len, 0.5, 0.05, 0, 0.78, -0.22);
+  box(g, MAT.darkWood, len, 0.04, 0.12, 0, 1.03, -0.2);
+  for (const sx of [-len / 2 + 0.04, len / 2 - 0.04]) {
+    box(g, MAT.darkWood, 0.07, 1.0, 0.5, sx, 0.5, -0.02);
+    part(g, G.sphere, MAT.darkWood, sx, 1.02, -0.18, 0.05, 0.05, 0.05);
+  }
+  box(g, MAT.velvet, len - 0.2, 0.08, 0.12, 0, 0.12, 0.38);
+  box(g, MAT.darkWood, len, 0.05, 0.3, 0, 0.32, -0.42 + 0.06);
+  return { group: g, collider: footprint(x, z, len, 0.6, ry) };
+}
+
+export function altar(x, y, z, ry) {
+  const g = root(x, y, z, ry);
+  box(g, MAT.stoneWall, 2.2, 0.95, 0.8, 0, 0.475, 0);
+  box(g, MAT.statue, 2.35, 0.08, 0.9, 0, 0.99, 0);
+  box(g, MAT.altarCloth, 2.38, 0.02, 0.94, 0, 1.04, 0);
+  box(g, MAT.altarCloth, 2.38, 0.5, 0.01, 0, 0.8, 0.47);
+  box(g, MAT.redPaint, 0.5, 0.4, 0.012, 0, 0.78, 0.478);
+  box(g, MAT.gold, 0.04, 0.3, 0.014, 0, 0.78, 0.482);
+  box(g, MAT.gold, 0.2, 0.04, 0.014, 0, 0.85, 0.482);
+  // Bibel
+  box(g, MAT.velvet, 0.3, 0.05, 0.22, 0.45, 1.075, 0.05, 0.2);
+  return { group: g, collider: footprint(x, z, 2.4, 0.95, ry) };
+}
+
+// Madonnenstatue auf Sockel
+export function madonna(x, y, z, ry, scale = 1) {
+  const g = root(x, y, z, ry);
+  const s = scale;
+  box(g, MAT.statue, 0.5 * s, 0.9 * s, 0.5 * s, 0, 0.45 * s, 0);
+  const prof = [[0.0, 0], [0.2, 0], [0.18, 0.2], [0.15, 0.55], [0.12, 0.85], [0.08, 1.02], [0.0, 1.05]].map(([r, h]) => new THREE.Vector2(r * s, h * s));
+  const robe = new THREE.Mesh(new THREE.LatheGeometry(prof, 16), MAT.statueBlue);
+  robe.position.y = 0.9 * s;
+  robe.castShadow = true;
+  g.add(robe);
+  part(g, G.sphere, MAT.statue, 0, 2.03 * s, 0.01 * s, 0.075 * s, 0.09 * s, 0.075 * s);
+  part(g, G.sphere, MAT.statueBlue, 0, 2.05 * s, -0.01 * s, 0.09 * s, 0.1 * s, 0.085 * s);
+  const halo = part(g, G.torus, MAT.gold, 0, 2.08 * s, -0.08 * s, 0.13 * s, 0.13 * s, 0.13 * s);
+  halo.castShadow = false;
+  // gefaltete Hände
+  part(g, G.sphere, MAT.statue, 0, 1.55 * s, 0.13 * s, 0.04 * s, 0.07 * s, 0.035 * s);
+  // Tränen aus Blut
+  box(g, MAT.redPaint, 0.008 * s, 0.08 * s, 0.004 * s, -0.025 * s, 1.98 * s, 0.075 * s);
+  box(g, MAT.redPaint, 0.008 * s, 0.06 * s, 0.004 * s, 0.025 * s, 1.99 * s, 0.075 * s);
+  return { group: g, collider: footprint(x, z, 0.55 * s, 0.55 * s, ry) };
+}
+
+// Kerzenständer mit mehreren Kerzen (Flammen kommen vom Lichtsystem)
+export function candleStand(x, y, z, ry, n = 5) {
+  const g = root(x, y, z, ry);
+  cyl(g, MAT.gold, 0.12, 0.04, 0, 0.02, 0);
+  cyl(g, MAT.gold, 0.02, 0.9, 0, 0.47, 0);
+  box(g, MAT.gold, 0.55, 0.03, 0.18, 0, 0.93, 0);
+  const tops = [];
+  for (let k = 0; k < n; k++) {
+    const cx = -0.22 + (k / Math.max(1, n - 1)) * 0.44;
+    const h = 0.08 + ((k * 37) % 5) * 0.03;
+    cyl(g, MAT.wax, 0.018, h, cx, 0.945 + h / 2, (k % 2) * 0.05 - 0.02);
+    tops.push([cx, 0.945 + h + 0.02, (k % 2) * 0.05 - 0.02]);
+  }
+  return { group: g, tops, collider: footprint(x, z, 0.3, 0.3, ry) };
+}
+
+export function holyWaterFont(x, y, z, ry) {
+  const g = root(x, y, z, ry);
+  box(g, MAT.statue, 0.3, 0.12, 0.08, 0, 1.0, -0.04);
+  const bowl = new THREE.Mesh(new THREE.SphereGeometry(0.15, 14, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), MAT.statue);
+  bowl.position.set(0, 1.12, 0.1);
+  g.add(bowl);
+  const water = new THREE.MeshStandardMaterial({ color: 0x0c1012, roughness: 0.02, metalness: 0.3 });
+  part(g, G.cyl, water, 0, 1.1, 0.1, 0.13, 0.005, 0.13);
+  return { group: g };
+}
+
+export function lectern(x, y, z, ry) {
+  const g = root(x, y, z, ry);
+  box(g, MAT.darkWood, 0.35, 0.06, 0.35, 0, 0.03, 0);
+  box(g, MAT.darkWood, 0.12, 1.1, 0.12, 0, 0.58, 0);
+  const top = box(g, MAT.darkWood, 0.55, 0.04, 0.42, 0, 1.16, 0);
+  top.rotation.x = 0.35;
+  const book = box(g, MAT.paper, 0.4, 0.03, 0.3, 0, 1.2, 0.01);
+  book.rotation.x = 0.35;
+  return { group: g, collider: footprint(x, z, 0.4, 0.4, ry) };
+}
+
+// Gerahmtes Heiligenbild für Wände
+export function iconFrame(tex, x, y, z, ry, w = 0.45) {
+  const g = root(x, y, z, ry);
+  const h = w * 1.33;
+  box(g, MAT.gold, w + 0.06, h + 0.06, 0.03, 0, 0, 0.015);
+  const m = new THREE.Mesh(G.plane, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.55, metalness: 0.2 }));
+  m.scale.set(w, h, 1);
+  m.position.z = 0.032;
+  g.add(m);
+  return { group: g };
+}
+
+// Beichtstuhl (Versteck): Korpus + Vorhang. Vorderseite +z
+export function confessional(x, y, z, ry) {
+  const g = root(x, y, z, ry);
+  box(g, MAT.darkWood, 0.9, 2.3, 0.05, 0, 1.15, -0.4);
+  box(g, MAT.darkWood, 0.05, 2.3, 0.85, -0.45, 1.15, 0);
+  box(g, MAT.darkWood, 0.05, 2.3, 0.85, 0.45, 1.15, 0);
+  box(g, MAT.darkWood, 1.0, 0.08, 0.9, 0, 2.3, 0);
+  box(g, MAT.darkWood, 0.9, 0.08, 0.85, 0, 0.04, 0);
+  box(g, MAT.darkWood, 0.8, 0.05, 0.3, 0, 0.48, -0.25);
+  // Gitter zum Priester
+  for (let k = 0; k < 5; k++) box(g, MAT.black, 0.02, 0.35, 0.02, -0.43, 1.45, -0.15 + k * 0.07);
+  const c = crucifix(0, 1.85, -0.37, 0, 0.45);
+  g.add(c.group);
+  // Vorhang als „Tür“ (dynamisch, wird vom Versteck animiert)
+  const pivot = new THREE.Group();
+  pivot.position.set(-0.42, 0, 0.42);
+  g.add(pivot);
+  const door = new THREE.Group();
+  pivot.add(door);
+  for (let k = 0; k < 7; k++) {
+    const fold = box(door, MAT.velvet, 0.13, 2.05, 0.03, 0.06 + k * 0.12, 1.1, (k % 2) * 0.03);
+    fold.userData.dynamic = true;
+  }
+  box(door, MAT.gold, 0.86, 0.03, 0.03, 0.42, 2.15, 0).userData.dynamic = true;
+  door.traverse((o) => (o.userData.dynamic = true));
+  return { group: g, pivot, collider: footprint(x, z, 1.0, 0.9, ry) };
+}

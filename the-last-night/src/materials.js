@@ -111,6 +111,7 @@ export function buildMaterials() {
   MAT.concreteWet = std('concreteWet');
   MAT.padded = std('padded');
   MAT.grate = std('grate', { metal: true });
+  MAT.stoneWall = std('stoneWall');
 
   // Requisiten
   MAT.locker = std('metalLocker', { metal: true });
@@ -150,6 +151,13 @@ export function buildMaterials() {
   MAT.copper = patchRegion(new THREE.MeshStandardMaterial({ color: 0x8a5a32, roughness: 0.4, metalness: 0.9 }));
   MAT.yellow = patchRegion(new THREE.MeshStandardMaterial({ color: 0x8a6a10, roughness: 0.5, metalness: 0.2 }));
   MAT.redPaint = patchRegion(new THREE.MeshStandardMaterial({ color: 0x5a0e0a, roughness: 0.6, metalness: 0.3 }));
+  MAT.gold = patchRegion(new THREE.MeshStandardMaterial({ color: 0xb08a3a, roughness: 0.3, metalness: 1 }));
+  MAT.ivory = patchRegion(new THREE.MeshStandardMaterial({ color: 0xcfc4a8, roughness: 0.5 }));
+  MAT.wax = patchRegion(new THREE.MeshStandardMaterial({ color: 0xe8e0c8, roughness: 0.6 }));
+  MAT.altarCloth = std('sheet', { color: 0xf0ece0, label: 'altarCloth' });
+  MAT.velvet = patchRegion(new THREE.MeshStandardMaterial({ color: 0x3a0a10, roughness: 0.95 }));
+  MAT.statue = patchRegion(new THREE.MeshStandardMaterial({ color: 0xb8b2a4, roughness: 0.7 }));
+  MAT.statueBlue = patchRegion(new THREE.MeshStandardMaterial({ color: 0x3a5280, roughness: 0.75 }));
   return MAT;
 }
 

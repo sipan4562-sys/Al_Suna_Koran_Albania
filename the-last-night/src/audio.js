@@ -619,6 +619,70 @@ export class AudioEngine {
     this.thump(t, 300, 0.05, 0.4, o.input, 150);
   }
 
+  gunshot(pos) {
+    if (!this.ready) return;
+    const t = this.now;
+    const o = this.out({ gain: 1.4, reverb: 1.1 });
+    this.burst(t, 'lowpass', 6000, 0.6, 0.18, 1, o.input, 0.001);
+    this.burst(t, 'bandpass', 1400, 0.8, 0.35, 0.8, o.input, 0.001, this.pink);
+    this.thump(t, 140, 0.35, 1, o.input, 38);
+    this.thump(t + 0.01, 60, 0.6, 0.8, o.input, 30);
+    // Nachhall durch die Flure
+    const e = this.out({ gain: 0.35, reverb: 1.6, lowpass: 1200 });
+    this.burst(t + 0.12, 'lowpass', 900, 0.7, 0.9, 0.6, e.input, 0.02, this.brown);
+    void pos;
+  }
+
+  emptyClick() {
+    if (!this.ready) return;
+    const t = this.now;
+    const o = this.out({ gain: 0.6 });
+    this.burst(t, 'bandpass', 3500, 6, 0.03, 0.8, o.input);
+  }
+
+  reloadClicks() {
+    if (!this.ready) return;
+    const t = this.now;
+    const o = this.out({ gain: 0.5 });
+    for (let k = 0; k < 6; k++) this.burst(t + 0.25 + k * 0.17, 'bandpass', 2600 + k * 90, 7, 0.035, 0.6, o.input);
+    this.burst(t + 1.5, 'bandpass', 1800, 4, 0.06, 0.9, o.input);
+  }
+
+  // Engelsgleicher Akkord für die Kreuzkette
+  holy() {
+    if (!this.ready) return;
+    const t = this.now;
+    const o = this.out({ gain: 0.55, reverb: 1.4, bus: this.musicBus });
+    [261.6, 329.6, 392, 523.3].forEach((f, k) => {
+      this.voice(t + k * 0.04, o.input, { f0: f, f1: f * 1.002, dur: 3.2, vowel: 'a', vol: 0.22, vib: 5, vibDepth: 0.006, noise: 0.05 });
+    });
+    // Glocke
+    [880, 1318, 2093].forEach((f, k) => {
+      const s = this.osc('sine', f);
+      const g = this.gain(0);
+      s.connect(g);
+      g.connect(o.input);
+      this.env(g, t, 0.002, 0, 2.5 - k * 0.6, 0.16 / (k + 1));
+      s.start(t);
+      s.stop(t + 2.6);
+    });
+  }
+
+  prayer() {
+    if (!this.ready) return;
+    const t = this.now;
+    const o = this.out({ gain: 0.45, reverb: 1.2, bus: this.musicBus });
+    this.voice(t, o.input, { f0: 196, f1: 196, dur: 2.4, vowel: 'o', vol: 0.18, vib: 4, vibDepth: 0.004, noise: 0.1 });
+    this.voice(t, o.input, { f0: 293.7, f1: 293.7, dur: 2.4, vowel: 'u', vol: 0.12, vib: 4, vibDepth: 0.004, noise: 0.1 });
+    const s = this.osc('sine', 1046.5);
+    const g = this.gain(0);
+    s.connect(g);
+    g.connect(o.input);
+    this.env(g, t, 0.002, 0, 1.8, 0.12);
+    s.start(t);
+    s.stop(t + 2);
+  }
+
   ventCrawl(pos) {
     if (!this.ready) return;
     const t = this.now;

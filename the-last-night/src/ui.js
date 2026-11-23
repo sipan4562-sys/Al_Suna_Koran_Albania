@@ -12,6 +12,9 @@ const ICONS = {
   staff_key: '<svg viewBox="0 0 24 24"><circle cx="7" cy="12" r="4" fill="none" stroke="#c98a3a" stroke-width="2"/><path d="M11 12h10v3h-2v-2h-2v2h-2v-3" fill="#c98a3a" stroke="#c98a3a"/></svg>',
   basement_key: '<svg viewBox="0 0 24 24"><circle cx="7" cy="12" r="4" fill="none" stroke="#aab" stroke-width="2"/><path d="M11 12h10v3h-2v-2h-2v2h-2v-3" fill="#aab" stroke="#aab"/></svg>',
   fuse: '<svg viewBox="0 0 24 24"><rect x="6" y="8" width="12" height="8" rx="2" fill="#e8e4d8"/><rect x="2" y="9" width="4" height="6" fill="#b87333"/><rect x="18" y="9" width="4" height="6" fill="#b87333"/></svg>',
+  revolver: '<svg viewBox="0 0 24 24"><path d="M3 8h13l1-2h3v3h-2l-1 2h-3l-1 1 1 5-1 1H9l1-6H3z" fill="#9a9aa0"/><circle cx="13" cy="10" r="2.2" fill="#555"/></svg>',
+  cross: '<svg viewBox="0 0 24 24"><path d="M10.5 2h3v6h5v3h-5v11h-3V11h-5V8h5z" fill="#d8b04a"/><circle cx="12" cy="9.5" r="7.5" fill="none" stroke="#8a6a22" stroke-width="1" stroke-dasharray="1 2"/></svg>',
+  ammo: '<svg viewBox="0 0 24 24"><rect x="4" y="9" width="16" height="10" fill="#8a5a32"/><rect x="6" y="4" width="3" height="6" rx="1.5" fill="#d8b04a"/><rect x="10.5" y="4" width="3" height="6" rx="1.5" fill="#d8b04a"/><rect x="15" y="4" width="3" height="6" rx="1.5" fill="#d8b04a"/></svg>',
   code: '<svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" fill="#d6ccb2"/><text x="12" y="15" font-size="7" text-anchor="middle" fill="#7a1010" font-family="monospace">####</text></svg>',
 };
 
@@ -24,6 +27,8 @@ const ITEM_INFO = {
   basement_key: ['Kellerschlüssel', 'Öffnet die Tür zum Treppenhaus in den Keller (Ostende des Hauptflurs).'],
   fuse: ['Sicherung NH-63', 'Für den Sicherungskasten des Notstromaggregats im Keller.'],
   code: ['Code (notiert)', ''],
+  revolver: ['Revolver', 'Vollversion. [Klick] oder [V] schießen. Ein Treffer betäubt das Monster und treibt es in die Flucht.'],
+  cross: ['Kreuzkette', 'Vollversion. [Q]: 12 Sekunden lang kann es dich nicht angreifen. Danach 2 Minuten Ruhe.'],
 };
 
 export class UI {
@@ -108,6 +113,15 @@ export class UI {
     on('#btn-retry', () => g.loadCheckpoint());
     on('#btn-dead-menu', () => g.toMenu());
     on('#btn-end-menu', () => g.toMenu());
+    on('#btn-shop', () => this.openShop('menu'));
+    on('#btn-pause-shop', () => this.openShop('pause'));
+    on('#btn-shop-back', () => this.closeSub());
+    on('#btn-buy', () => g.account.buy(document.getElementById('shop-consent').checked));
+    document.querySelectorAll('.acc-signout').forEach((b) => b.addEventListener('click', () => g.account.signOut()));
+    document.getElementById('shop-consent').addEventListener('change', () => {
+      g.account.message = '';
+      this.refreshAccount();
+    });
     on('#cam-prev', () => g.cycleCam(-1));
     on('#cam-next', () => g.cycleCam(1));
     on('#cam-exit', () => g.exitMonitors());
@@ -192,6 +206,83 @@ export class UI {
 
   setContinue(enabled) {
     $('#btn-continue').disabled = !enabled;
+  }
+
+  // ---------------------------------------------------------------- Konto & Shop
+  openShop(back) {
+    this.back = back;
+    this.show('shop');
+    this.refreshAccount();
+  }
+
+  refreshAccount() {
+    const g = this.game;
+    const a = g.account;
+    if (!a) return;
+    document.body.classList.toggle('premium', !!g.premium);
+    const bar = document.getElementById('account-bar-menu');
+    bar.classList.toggle('show', !!a.user);
+    bar.classList.toggle('premium', !!g.premium);
+    bar.querySelector('.acc-name').textContent = a.user ? a.user.name || a.user.email : '';
+    const price = a.priceLabel;
+    document.getElementById('shop-price').textContent = price;
+    const sb = document.getElementById('btn-shop');
+    sb.textContent = g.premium ? '✝ Vollversion aktiv' : `✝ Vollversion · ${price.replace(',00', '')}`;
+    document.getElementById('shop-user').innerHTML = a.user
+      ? `Angemeldet als <b>${escapeHtml(a.user.email || a.user.name || '')}</b> · <button class="link-btn acc-signout2">Abmelden</button>`
+      : 'Melde dich an, damit dein Kauf an dein Konto gebunden ist und auf allen Geräten gilt.';
+    const so = document.querySelector('.acc-signout2');
+    if (so) so.addEventListener('click', () => a.signOut());
+    const gsi = document.getElementById('gsi-shop');
+    gsi.style.display = a.user && a.idToken ? 'none' : 'block';
+    const nl = document.getElementById('shop-nologin');
+    nl.textContent = !a.config ? 'Verbinde …' : !a.config.googleClientId ? 'Die Anmeldung ist im Moment nicht verfügbar.' : a.user && !a.idToken ? 'Bitte erneut anmelden, um zu kaufen.' : '';
+    document.getElementById('shop-step-buy').classList.toggle('disabled', !(a.user && a.idToken) || !a.available || g.premium);
+    document.getElementById('shop-step-login').classList.toggle('hidden', !!g.premium);
+    document.getElementById('shop-step-buy').classList.toggle('hidden', !!g.premium);
+    document.getElementById('shop-owned').classList.toggle('hidden', !g.premium);
+    let msg = a.message || '';
+    if (!msg && a.config && !a.available) msg = 'Der Kauf ist im Moment nicht verfügbar.';
+    document.getElementById('shop-msg').textContent = msg;
+    a.renderButtons();
+    if (a.justReturned && this.current === 'menu') {
+      a.justReturned = null;
+      this.openShop('menu');
+    }
+  }
+
+  refreshAbilities() {
+    this._abT = 0;
+  }
+
+  updateAbilities(g) {
+    const show = g.premium && !!g.state.inv.revolver;
+    const box = document.getElementById('abilities');
+    box.classList.toggle('hidden', !show);
+    if (!show) return;
+    this._abT = (this._abT || 0) - 1;
+    if (this._abT > 0) return;
+    this._abT = 6;
+    const inv = g.state.inv;
+    const a = g.ab;
+    const reloading = g.revolver && g.revolver.reloadT > 0;
+    document.getElementById('ab-ammo').textContent = reloading ? 'lädt …' : `${inv.ammo} | ${inv.reserve}`;
+    const tbA = document.getElementById('tb-ammo');
+    if (tbA) tbA.textContent = reloading ? '…' : `${inv.ammo}/${inv.reserve}`;
+    const setCd = (id, tid, valId, active, cd, total) => {
+      const el = document.getElementById(id);
+      el.classList.toggle('active', active > 0);
+      document.getElementById(valId).textContent = active > 0 ? `${Math.ceil(active)} s` : cd > 0 ? `${Math.ceil(cd)} s` : 'bereit';
+      el.querySelector('.cd').style.width = cd > 0 ? `${(1 - cd / total) * 100}%` : '100%';
+      const tb = document.getElementById(tid);
+      if (tb) {
+        tb.classList.toggle('cooldown', cd > 0 && active <= 0);
+        tb.classList.toggle('on', active > 0);
+        tb.querySelector('.cd').style.width = cd > 0 ? `${(1 - cd / total) * 100}%` : '100%';
+      }
+    };
+    setCd('ab-cross', 'tb-cross', 'ab-cross-val', a.crossT, a.crossCd, 120);
+    setCd('ab-pray', 'tb-pray', 'ab-pray-val', a.prayT, a.prayCd, 60);
   }
 
   // ---------------------------------------------------------------- HUD
@@ -326,6 +417,8 @@ export class UI {
       if (inv.basementKey) items.push(['basement_key', 1]);
       if (inv.fuses) items.push(['fuse', inv.fuses]);
       if (s.flags.codeKnown) items.push(['code', 1]);
+      if (g.premium && inv.revolver) items.push(['revolver', (inv.ammo || 0) + (inv.reserve || 0)]);
+      if (g.premium && inv.cross) items.push(['cross', 1]);
       const grid = $('#inv-items');
       grid.innerHTML = items.length ? '' : '<div class="empty">Deine Taschen sind leer.</div>';
       for (const [k, c] of items) {
@@ -340,7 +433,12 @@ export class UI {
       }
       if (this.invSel) {
         const k = this.invSel;
-        const info = k === 'code' ? `Vier Ziffern, gesehen auf KAM 3: <b>${s.code}</b>` : ITEM_INFO[k][1];
+        const info =
+          k === 'code'
+            ? `Vier Ziffern, gesehen auf KAM 3: <b>${s.code}</b>`
+            : k === 'revolver'
+              ? `${ITEM_INFO[k][1]}<br>Trommel: ${inv.ammo} · Reserve: ${inv.reserve}`
+              : ITEM_INFO[k][1];
         detail.innerHTML = `<div><b>${ITEM_INFO[k][0]}</b></div><div>${info}</div>`;
         const act = { battery: ['Batterie einsetzen', () => g.useBattery()], medkit: ['Benutzen', () => g.useMedkit()], bottle: ['Werfen', () => { g.closeOverlay(); g.throwBottle(); }], flashlight: [g.player.flashOn ? 'Ausschalten' : 'Einschalten', () => g.player.toggleFlash()] }[k];
         if (act) {

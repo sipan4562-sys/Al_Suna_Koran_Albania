@@ -7,6 +7,8 @@ export const NOTES = {
 
 Hör mir zu: Du musst hier raus, bevor die Sonne aufgeht. Die Anstalt ist abgeriegelt, seit der Strom ausgefallen ist. Der Haupteingang öffnet sich nur, wenn der Generator im Keller wieder läuft und jemand die Notverriegelung löst.
 
+Die Schwestern sind fort. Pater Benedikt ist in der Kapelle geblieben – er wollte beten, bis es vorbei ist.
+
 Nimm die Taschenlampe. Spar die Batterie.
 
 Und wenn du es hörst – lauf nicht blind los. Es hört dich. Versteck dich in den Spinden. Halt den Atem an.
@@ -14,7 +16,7 @@ Und wenn du es hörst – lauf nicht blind los. Es hört dich. Versteck dich in 
 – J.`,
   },
   n_shift: {
-    title: 'Schichtbuch, Station B',
+    title: 'Schichtbuch, Station B – Schwester Agnes',
     text: `31.10.1987 – 22:40
 Stromausfall im ganzen Haus. Notbeleuchtung nur teilweise. Die Türen zum Keller sind automatisch verriegelt worden. Haupteingang: Lockdown.
 
@@ -136,6 +138,18 @@ Du bist ich.
 Er jagt nicht irgendwen. Er jagt dich. Er ist das Einzige in diesem Haus, das sich noch an dich erinnert.
 
 Zieh den Hebel. Lauf. Und vergiss nicht noch einmal.`,
+  },
+  n_chapel: {
+    title: 'Notizen von Pater Benedikt',
+    text: `Herr, vergib mir, dass ich geschwiegen habe.
+
+Ich habe gesehen, was Dr. Wehrmann in diesem Haus getan hat, und ich habe den Schwestern gesagt, sie sollen beten statt fragen.
+
+Das Wesen aus dem Keller meidet das Kreuz. Ich habe es mit eigenen Augen gesehen: Als Schwester Agnes ihre Kreuzkette hob, wich es zurück, als hätte es sich verbrannt. Nur für einige Herzschläge – dann muss die Kette ruhen, bevor sie wieder schützt.
+
+Ich habe den Revolver des Hausmeisters an mich genommen. Er tötet es nicht. Aber er lässt es fliehen.
+
+Wer immer du bist: Der Beichtstuhl ist ein guter Ort, um zu schweigen.`,
   },
   n_flood: {
     title: 'Lieferschein, Lager B',

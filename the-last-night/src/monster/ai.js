@@ -170,7 +170,7 @@ export class Monster {
       }
       return;
     }
-    if (this.state === 'checkLocker' || this.state === 'openLocker') return;
+    if (this.state === 'checkLocker' || this.state === 'openLocker' || this.state === 'stunned' || this.state === 'flee') return;
     const err = Math.min(2.5, d * 0.12);
     const tx = x + rand(-err, err);
     const tz = z + rand(-err, err);
@@ -466,8 +466,14 @@ export class Monster {
     this.perceive(dt);
     const dist = Math.hypot(P.pos.x - this.pos.x, P.pos.z - this.pos.z);
 
+    // Kreuzkette: Das Monster kann nicht angreifen und weicht zurück
+    if (g.crossActive && g.crossActive() && dist < 3.4 && Math.abs(P.pos.y - this.pos.y) < 2.6 && !['stunned', 'flee', 'scripted', 'feeding', 'inVent', 'ventEnter', 'ventExit'].includes(this.state)) {
+      if (this.state === 'openLocker' && this.lockerTarget) this.lockerTarget.forcedOpen = false;
+      this.stun(1.3, 'cross');
+    }
+
     // Übergänge durch Sicht
-    if (this.awareness >= 1 && this.seeing && !['chase', 'attack', 'recover', 'checkLocker', 'openLocker', 'scripted'].includes(this.state) && !this.vent) {
+    if (this.awareness >= 1 && this.seeing && !['chase', 'attack', 'recover', 'checkLocker', 'openLocker', 'scripted', 'stunned', 'flee', 'feeding'].includes(this.state) && !this.vent) {
       this.startChase();
     } else if (this.seeing && this.awareness > 0.3 && ['patrol', 'investigate', 'search'].includes(this.state)) {
       this.setState('alert');
@@ -641,6 +647,10 @@ export class Monster {
         }
         if (this.attackT >= 0.42 && !this.hitDone) {
           this.hitDone = true;
+          if (g.crossActive && g.crossActive()) {
+            this.stun(1.3, 'cross');
+            break;
+          }
           const fx = Math.sin(this.heading);
           const fz = Math.cos(this.heading);
           const cos = (fx * (P.pos.x - this.pos.x) + fz * (P.pos.z - this.pos.z)) / (dist || 1);
@@ -729,6 +739,10 @@ export class Monster {
         anim.jaw = 0.5;
         if (this.stateTime > 0.6 && !L.forcedOpen) {
           L.forceOpen();
+          if (P.hidden === L && g.crossActive && g.crossActive()) {
+            this.stun(1.3, 'cross');
+            break;
+          }
           if (P.hidden === L) {
             g.onPlayerKilled('locker');
             this.setState('feeding');
@@ -749,6 +763,37 @@ export class Monster {
       case 'ventExit':
         this.updateVent(dt);
         break;
+      case 'stunned': {
+        // Getroffen oder vom Kreuz zurückgeworfen: Schrei, Zurückweichen
+        anim.scream = this.stateTime < 0.9 ? 1 : 0.3;
+        anim.lean = 0.1;
+        anim.spread = 0.6;
+        anim.jaw = 0.9;
+        const away = Math.atan2(this.pos.x - P.pos.x, this.pos.z - P.pos.z);
+        if (this.stateTime < 0.5 && dist < 4) {
+          this.world.moveCircle(this.pos, Math.sin(away) * 2.4 * dt, Math.cos(away) * 2.4 * dt, MONSTER.radius, 1.5);
+        }
+        this.curSpeed = damp(this.curSpeed, 0, 8, dt);
+        if (this.stateTime > this.stunDur) {
+          const spot = this.fleeSpot();
+          this.setState('flee');
+          if (spot) this.goTo(spot.x, spot.z);
+        }
+        break;
+      }
+      case 'flee': {
+        anim.lean = 0.75;
+        anim.reach = 0.2;
+        anim.jaw = 0.4;
+        speed = 4.1;
+        if (this.follow(speed, dt) || this.stateTime > 9) {
+          this.cooldown = 25;
+          this.awareness = 0;
+          this.sinceEncounter = 0;
+          this.setState('patrol');
+        }
+        break;
+      }
       case 'feeding': {
         anim.lean = 0.8;
         anim.jaw = 0.7;
@@ -783,8 +828,43 @@ export class Monster {
   }
 
   // Gefahr für Spieler-Feedback (Herzschlag/Musik) 0..1
+  // Vollversion: Treffer mit dem Revolver oder Abwehr durch die Kreuzkette
+  stun(dur, reason) {
+    if (['inVent', 'ventEnter', 'ventExit', 'feeding'].includes(this.state)) return;
+    if (this.state === 'dormant') this.awaken({ sinceEncounter: 0 });
+    const g = this.game;
+    this.setState('stunned');
+    this.stunDur = dur;
+    this.awareness = 0;
+    this.lastScream = this.time;
+    g.audio.monsterScream(this.headPos());
+    if (reason === 'cross') g.ui.toast('Das Kreuz brennt – es weicht vor dir zurück!');
+    else g.ui.toast('Getroffen! Es flieht …');
+  }
+
+  fleeSpot() {
+    const P = this.game.player.pos;
+    let best = null;
+    let bd = 0;
+    for (const [x, z] of POIS) {
+      if (!this.world.monsterPassable(x, z)) continue;
+      const px = x + 0.5;
+      const pz = z + 0.5;
+      const dp = Math.hypot(px - P.x, pz - P.z);
+      const dm = Math.hypot(px - this.pos.x, pz - this.pos.z);
+      if (dp < 14 || dm > 30) continue;
+      const score = dp - dm * 0.3 + Math.random() * 4;
+      if (score > bd) {
+        bd = score;
+        best = { x: px, z: pz };
+      }
+    }
+    return best;
+  }
+
   danger() {
     if (this.state === 'dormant') return 0;
+    if (this.state === 'stunned' || this.state === 'flee') return 0.35;
     const P = this.game.player.pos;
     const d = Math.hypot(P.x - this.pos.x, P.z - this.pos.z);
     const sameFloor = Math.abs(P.y - this.pos.y) < 2.6;

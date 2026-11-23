@@ -8,7 +8,7 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="The Last Night" />
-    <meta name="description" content="THE LAST NIGHT – ein 3D-Horrorspiel im Browser. Entkomme vor Sonnenaufgang aus der verlassenen Anstalt St. Aldric." />
+    <meta name="description" content="THE LAST NIGHT – ein 3D-Horrorspiel im Browser. Entkomme vor Sonnenaufgang aus der verlassenen katholischen Heil- und Pflegeanstalt St. Aldric." />
     <title>THE LAST NIGHT</title>
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icon-180.png" />
@@ -37,6 +37,11 @@
         <div id="hint-keys">[F] Lampe · [E] Benutzen · [Tab] Inventar · [C] Ducken · [Shift] Rennen</div>
         <div id="hide-overlay"><div class="slits"></div><span>VERSTECKT – [E] verlassen</span></div>
         <div id="checkpoint-flash">CHECKPOINT</div>
+        <div id="abilities" class="hidden">
+          <div class="ab" id="ab-gun"><span class="ab-ico">⌖</span><span class="ab-val" id="ab-ammo">6 | 6</span><span class="ab-key">Klick</span></div>
+          <div class="ab" id="ab-cross"><span class="ab-ico">✝</span><span class="ab-val" id="ab-cross-val">bereit</span><span class="ab-key">Q</span><i class="cd"></i></div>
+          <div class="ab" id="ab-pray"><span class="ab-ico">🙏</span><span class="ab-val" id="ab-pray-val">bereit</span><span class="ab-key">B</span><i class="cd"></i></div>
+        </div>
         <div id="fps"></div>
       </div>
 
@@ -56,6 +61,9 @@
         <button class="tbtn small" id="tb-throw" aria-label="Werfen">WURF</button>
         <button class="tbtn small" id="tb-heal" aria-label="Heilen">+</button>
         <button class="tbtn small" id="tb-reload" aria-label="Batterie">BAT</button>
+        <button class="tbtn premium" id="tb-fire" aria-label="Schießen">⌖<span class="tb-sub" id="tb-ammo"></span></button>
+        <button class="tbtn premium small" id="tb-cross" aria-label="Kreuzkette">✝<i class="cd"></i></button>
+        <button class="tbtn premium small" id="tb-pray" aria-label="Gebet">🙏<i class="cd"></i></button>
       </div>
 
       <!-- Kameramodus -->
@@ -80,11 +88,17 @@
       <div id="screen-menu" class="screen hidden">
         <div class="title-wrap">
           <h1 class="title" data-text="THE LAST NIGHT">THE LAST NIGHT</h1>
-          <p class="subtitle">Psychiatrische Anstalt St. Aldric · 31. Oktober 1987</p>
+          <p class="subtitle">Katholische Heil- und Pflegeanstalt St. Aldric · 31. Oktober 1987</p>
+        </div>
+        <div class="account-bar" id="account-bar-menu">
+          <span class="acc-name"></span>
+          <span class="acc-badge">VOLLVERSION</span>
+          <button class="link-btn acc-signout">Abmelden</button>
         </div>
         <nav class="menu">
           <button class="btn" id="btn-new">Neues Spiel</button>
           <button class="btn" id="btn-continue">Fortsetzen</button>
+          <button class="btn btn-gold" id="btn-shop">✝ Vollversion · 10 €</button>
           <button class="btn" id="btn-settings">Einstellungen</button>
           <button class="btn" id="btn-controls">Steuerung</button>
           <button class="btn" id="btn-credits">Über das Spiel</button>
@@ -96,7 +110,7 @@
       <div id="screen-intro" class="screen hidden">
         <div class="intro-text">
           <p>Du öffnest die Augen.</p>
-          <p>Kaltes Licht flackert. Der Geruch von Desinfektionsmittel und Fäulnis.</p>
+          <p>Kaltes Licht flackert. Über deinem Bett hängt ein Kreuz. Es riecht nach Weihrauch und Fäulnis.</p>
           <p>Du weißt nicht, wer du bist. Du weißt nicht, wie du hierhergekommen bist.</p>
           <p>Du weißt nur eines: <em>Du musst hier raus, bevor die Sonne aufgeht.</em></p>
         </div>
@@ -109,6 +123,7 @@
         <nav class="menu">
           <button class="btn" id="btn-resume">Fortsetzen</button>
           <button class="btn" id="btn-pause-inv">Inventar</button>
+          <button class="btn btn-gold" id="btn-pause-shop">✝ Vollversion</button>
           <button class="btn" id="btn-pause-settings">Einstellungen</button>
           <button class="btn" id="btn-pause-controls">Steuerung</button>
           <button class="btn" id="btn-pause-checkpoint">Letzter Checkpoint</button>
@@ -141,6 +156,39 @@
         <button class="btn" id="btn-settings-back">Zurück</button>
       </div>
 
+      <!-- Vollversion / Shop -->
+      <div id="screen-shop" class="screen hidden">
+        <h2>VOLLVERSION</h2>
+        <p class="shop-price"><b id="shop-price">10,00 €</b> · einmalig · <u>kein Abo</u></p>
+        <div class="shop-features">
+          <div class="feat"><span class="fi">🔫</span><div><b>Revolver</b><br />Ein Treffer betäubt das Monster und treibt es in die Flucht. Munition liegt im Haus verteilt.</div></div>
+          <div class="feat"><span class="fi">✝</span><div><b>Kreuzkette</b><br />Alle 2 Minuten aktivierbar: 12 Sekunden lang kann es dich nicht angreifen und weicht zurück.</div></div>
+          <div class="feat"><span class="fi">🙏</span><div><b>Gebet</b><br />Zeigt dir 6 Sekunden lang, wo das Monster ist – auch durch Wände (alle 60 s).</div></div>
+          <div class="feat"><span class="fi">🔋</span><div><b>Gesegnete Batterien</b><br />Die Taschenlampe hält doppelt so lange.</div></div>
+        </div>
+        <div class="shop-steps">
+          <div class="step" id="shop-step-login">
+            <span class="num">1</span>
+            <div class="step-body">
+              <div id="shop-user"></div>
+              <div class="gsi-slot" id="gsi-shop"></div>
+              <div id="shop-nologin" class="muted"></div>
+            </div>
+          </div>
+          <div class="step" id="shop-step-buy">
+            <span class="num">2</span>
+            <div class="step-body">
+              <label class="consent"><input type="checkbox" id="shop-consent" /> Ich verlange die sofortige Freischaltung der Vollversion und weiß, dass mein Widerrufsrecht damit erlischt.</label>
+              <button class="btn btn-gold" id="btn-buy">Jetzt kaufen</button>
+            </div>
+          </div>
+          <div id="shop-owned" class="owned hidden">✓ Die Vollversion ist auf diesem Konto aktiv.</div>
+        </div>
+        <p id="shop-msg" class="shop-msg"></p>
+        <p class="legal"><a href="/impressum.html" target="_blank" rel="noopener">Impressum</a> · <a href="/datenschutz.html" target="_blank" rel="noopener">Datenschutz</a> · <a href="/agb.html" target="_blank" rel="noopener">AGB &amp; Widerruf</a> · Sichere Zahlung über Stripe (Karte, PayPal, Apple Pay, Google Pay …)</p>
+        <button class="btn" id="btn-shop-back">Zurück</button>
+      </div>
+
       <!-- Steuerung -->
       <div id="screen-controls" class="screen hidden">
         <h2>STEUERUNG</h2>
@@ -155,6 +203,7 @@
             <p><kbd>R</kbd> Batterie wechseln</p>
             <p><kbd>H</kbd> Verbandskasten benutzen</p>
             <p><kbd>G</kbd> Flasche werfen (lenkt ab)</p>
+            <p><kbd>Klick</kbd> / <kbd>V</kbd> Revolver · <kbd>Q</kbd> Kreuzkette · <kbd>B</kbd> Gebet <i>(Vollversion)</i></p>
             <p><kbd>Tab</kbd> / <kbd>I</kbd> Inventar &amp; Dokumente</p>
             <p><kbd>Esc</kbd> Pause</p>
           </div>
@@ -163,6 +212,7 @@
             <p><b>Rechte Hälfte</b> ziehen: Umsehen</p>
             <p><b>E</b>: Interagieren · <b>Lampe</b> · <b>⤓</b> Ducken · <b>»</b> Rennen</p>
             <p><b>WURF</b> Flasche · <b>+</b> Heilen · <b>BAT</b> Batterie</p>
+            <p><b>⌖</b> Schießen · <b>✝</b> Kreuzkette · <b>🙏</b> Gebet <i>(Vollversion)</i></p>
             <h3>Überleben</h3>
             <p>Das Ding hört Schritte, Türen und Glas. Licht macht dich sichtbar. Ducken macht dich leise.</p>
             <p>Verstecke dich in Spinden – aber nicht, wenn es dir dabei zusieht.</p>

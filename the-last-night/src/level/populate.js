@@ -67,6 +67,19 @@ export function populate(game, batcher) {
   };
   lights.batcher = batcher;
   const L = (type, x, y, z, pre, post, o = {}) => lights.add(type, x, y, z, { pre, post, ...o });
+  const FACE_RY = { '+z': 0, '-z': Math.PI, '+x': Math.PI / 2, '-x': -Math.PI / 2 };
+  const FACE_OFF = { '+z': [0, 0.01], '-z': [0, -0.01], '+x': [0.01, 0], '-x': [-0.01, 0] };
+  const cross = (x, y, z, face, size = 1, o = {}) => {
+    const [ox, oz] = FACE_OFF[face];
+    batcher.add(P.crucifix(x + ox, y, z + oz, FACE_RY[face], size, o).group);
+  };
+  const ghostCross = (x, y, z, face) => wallDecal(DECAL.crossGhost, x, y, z, face, 0.42, 0.63);
+  const paintedCache = new Map();
+  const painted = (text, x, y, z, face, w, h) => {
+    if (!paintedCache.has(text))
+      paintedCache.set(text, makeWritingTexture(text, { painted: true, color: 'rgba(28,22,16,', font: '"Times New Roman", Georgia, serif', weight: 'bold', size: 150 }));
+    return wallDecal(paintedCache.get(text), x, y, z, face, w, h);
+  };
   const pick = (id, item, x, y, z, o = {}) => {
     if (game.pickupById[id]) return;
     const p = new Pickup(game, { id, item, x, y, z, ...o });
@@ -99,6 +112,42 @@ export function populate(game, batcher) {
   for (const v of VENTS) {
     const h = new VentHatch(game, v);
     game.vents[v.id] = h;
+  }
+
+  // ================================================================== KREUZE & SAKRALES
+  for (const x of [10.5, 13.5, 28.5, 38.5, 43.5]) cross(x, x === 28.5 ? 2.4 : 2.15, 20.0, '+z', 1, { tilt: x === 43.5 ? 0.35 : 0 });
+  for (const x of [11, 24, 29.5, 34.5, 39.5]) cross(x, 2.15, 23.0, '-z', 1, { tilt: x === 34.5 ? -0.5 : 0 });
+  ghostCross(6.5, 2.0, 20.0, '+z');
+  ghostCross(21.0, 2.0, 10.0, '+x');
+  cross(21.0, 2.1, 17.5, '+x');
+  cross(24.0, 2.1, 8.0, '-x', 1, { tilt: 0.6 });
+  cross(24.0, 2.1, 16.0, '-x');
+  cross(15.6, 2.2, 15.0, '+z', 0.9);
+  cross(3.5, 2.2, 15.0, '+z', 0.9);
+  cross(8.5, 2.35, 15.0, '+z', 0.9);
+  cross(4.0, 2.1, 25.4, '+x', 1.1, { corpus: true });
+  cross(20.0, 2.6, 4.0, '-x', 1.1, { corpus: true, tilt: 0.25 });
+  cross(25.0, 2.0, 4.6, '+x', 0.9);
+  cross(27.0, 2.0, 9.0, '+z', 1, { tilt: 2.6 });
+  cross(35.0, 2.6, 4.0, '+z', 1.2, { corpus: true });
+  cross(4.0, 1.9, 33.5, '+x', 1, { tilt: 0.8 });
+  cross(55.0, -2.2, 5.5, '-x', 1, { tilt: -0.7 });
+  cross(59.0, -2.0, 13.6, '-x', 0.9, { tilt: 1.1 });
+  cross(56.0, -2.0, 35.0, '+x', 0.9);
+  cross(50.5, 0.6, 23.0, '-z', 0.9);
+  cross(13.0, 2.7, 28.5, '+x', 2.0, { corpus: true });
+  painted('LIBERA NOS A MALO', 14.6, 3.15, 24.0, '+z', 2.6, 0.55);
+  painted('MEMENTO MORI', 49.0, -2.15, 11.0, '+x', 2.0, 0.5);
+  painted('AVE MARIA', 25.0, 2.1, 26.0, '+x', 1.6, 0.42);
+  batcher.add(P.iconFrame(DECAL.icons[1], 10.98, 1.7, 27.5, -Math.PI / 2).group);
+  batcher.add(P.iconFrame(DECAL.icons[2], 23.98, 1.8, 26.5, -Math.PI / 2, 0.55).group);
+  batcher.add(P.iconFrame(DECAL.icons[0], 17.5, 1.75, 15.0 + 0.01, 0, 0.35).group);
+  // Madonna in der Eingangshalle
+  add(P.madonna(22.6, 0, 24.7, -Math.PI / 4, 0.9));
+  {
+    const cs = P.candleStand(21.9, 0, 25.5, -Math.PI / 4, 5);
+    add(cs);
+    L('candle', 21.9, 1.05, 25.5, 'candle', 'candle', { ry: -Math.PI / 4, flames: cs.tops.map(([a, b, c]) => [a, b - 1.05, c]) });
   }
 
   // ================================================================== ERDGESCHOSS
@@ -136,6 +185,7 @@ export function populate(game, batcher) {
     return s;
   };
   signM('NORDFLÜGEL', '↑ OP · ISOLATION · HYDRO', 22.5, 2.55, 22.97, '-z', { w: 512, h: 160, sw: 1.1, sh: 0.34 });
+  signM('KAPELLE', '↓ Versorgungsflur', 45.03, 2.5, 25.0, '+x', { w: 512, h: 160, sw: 0.8, sh: 0.25, bg: '#2a1e12', fg: '#c9b48a' });
   signM('PERSONAL', 'Zutritt verboten', 12.0 + 1.03, 2.5, 21.5, '+x', { w: 512, h: 160, sw: 0.8, sh: 0.25, bg: '#3a1a14' });
   // Hängendes Notausgangsschild (beidseitig)
   for (const f of ['+x', '-x']) signM('AUSGANG ↓', null, 18.5 + (f === '+x' ? 0.01 : -0.01), 2.7, 21.5, f, { w: 512, h: 128, sw: 0.7, sh: 0.18, bg: '#0b3a18', fg: '#9dffb0', emissive: 1.2 });
@@ -193,6 +243,7 @@ export function populate(game, batcher) {
   game.terminalScreen = term.screen;
   pick('note_diary', 'note', 6.9, 0.79, 26.9, { note: 'n_diary', ry: 0.4 });
   pick('med_office', 'medkit', 10.5, 1.31, 24.8);
+  pick('ammo_office', 'ammo', 8.2, 0.785, 27.3, { premiumOnly: true });
   ents.push(
     new Interactable(game, {
       id: 'terminal',
@@ -250,6 +301,7 @@ export function populate(game, batcher) {
   pick('note_shift', 'note', 17.0, 0.79, 17.3, { note: 'n_shift', ry: -0.3 });
   pick('med_nurse', 'medkit', 14.45, 1.61, 15.5);
   pick('bat_nurse', 'battery', 18.2, 0.79, 17.4);
+  pick('ammo_nurse', 'ammo', 16.6, 0.79, 17.15, { premiumOnly: true });
 
   // Nordflur
   for (const [z, pre, post] of [[6.5, 'off', 'on'], [12, 'dying', 'flicker'], [17, 'off', 'on']]) L('tube', 22.5, 2.92, z, pre, post, { ry: Math.PI / 2 });
@@ -348,6 +400,8 @@ export function populate(game, batcher) {
     add(P.sink(r.x0 + 3.5, 0, north ? r.z0 + 0.25 : r.z0 + 4.75, north ? 0 : Math.PI));
     if (r.n % 2 === 0) add(P.chair(r.x0 + 2.7, 0, r.z0 + 2.6, rng() * 6, r.n === 114));
     P.papers(paperGroup, cx, 0, r.z0 + 2.5, 3, r.n);
+    if (r.n === 117) ghostCross(r.x0 + 0.65, 1.8, north ? r.z0 : r.z0 + 5, north ? '+z' : '-z');
+    else cross(r.x0 + 0.65, 1.8, north ? r.z0 : r.z0 + 5, north ? '+z' : '-z', 0.85, { tilt: r.n === 112 || r.n === 118 ? 0.5 : 0, corpus: r.n === 116 });
     if (rng() < 0.6) blood(r.x0 + 1 + rng() * 2, r.z0 + 1 + rng() * 3, 0.6 + rng() * 0.5);
   }
   // Zimmer 116 (Start)
@@ -383,7 +437,7 @@ export function populate(game, batcher) {
   P.papers(paperGroup, 18, 0, 30, 9, 71, 3);
   pick('bat_lobby', 'battery', 17.4, 1.15, 27.45);
   blood(19.5, 32.4, 0.8);
-  signM('ST. ALDRIC', 'PSYCHIATRISCHE ANSTALT', 18.5, 3.62, 23.03, '+z', { w: 1024, h: 256, sw: 3.4, sh: 0.85, bg: '#2a1e12', fg: '#c9b48a' });
+  signM('✝ ST. ALDRIC ✝', 'KATH. HEIL- UND PFLEGEANSTALT', 18.5, 3.62, 23.03, '+z', { w: 1024, h: 256, sw: 3.4, sh: 0.85, bg: '#2a1e12', fg: '#c9b48a' });
   signM('AUSGANG', null, 18.5, 3.55, 33.97, '-z', { w: 512, h: 128, sw: 0.9, sh: 0.22, bg: '#0b3a18', fg: '#9dffb0', emissive: 1.4 });
   L('exit', 18.5, 2.9, 34.4, 'on', 'on');
   // Haupteingang (Doppeltür mit Ketten)
@@ -441,28 +495,48 @@ export function populate(game, batcher) {
   writing('SIE BEOBACHTEN', 38.0, 1.6, 33.0, '-z', 2.4, 0.6, 21);
   blood(45.8, 25.5, 0.7);
 
-  // Aufenthaltsraum
-  for (const [x, z, pre] of [[30.5, 36.5, 'off'], [37.5, 36.5, 'off'], [30.5, 40, 'dying'], [37.5, 40, 'off']]) L('tube', x, 2.92, z, pre, rng() < 0.5 ? 'on' : 'flicker');
-  L('tv', 34.0, 1.2, 35.2, 'static', 'static');
-  L('moon', 34.0, 2.6, 40.6, 'on', 'on', { intensity: 3.0 });
-  for (const x of [30.0, 38.0]) {
-    batcher.add(P.boardedWindow(x, 1.1, 41.94, Math.PI).group);
-    lights.addShaft(x, 2.4, 41.9, Math.PI, 0x6f86c8, 1.2, 4.2, 0.7, 0.05);
+  // Kapelle (früher Aufenthaltsraum)
+  L('bulb', 31.0, 3.85, 37.6, 'off', 'on', { cable: 0.7, floor: 0 });
+  L('bulb', 38.0, 3.85, 37.6, 'off', 'flicker', { cable: 0.7, floor: 0 });
+  const glassMat = (tex) => new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.4, color: 0xa89cc8, side: THREE.DoubleSide });
+  [[29.5, DECAL.glass[0], 0x8a5ad0], [39.5, DECAL.glass[1], 0xc8604a]].forEach(([x, tex, col]) => {
+    const win = new THREE.Mesh(P.G.plane, glassMat(tex));
+    win.scale.set(1.15, 2.3, 1);
+    win.position.set(x, 2.55, 41.985);
+    win.rotation.y = Math.PI;
+    batcher.add(win);
+    lights.addShaft(x, 3.2, 41.9, Math.PI, col, 1.1, 4.8, 0.75, 0.06);
+    L('stained', x, 2.6, 40.6, 'on', 'on', { color: col, intensity: 2.4, range: 8 });
+  });
+  add(P.altar(34.5, 0, 40.95, Math.PI));
+  batcher.add(P.crucifix(34.5, 2.75, 41.96, Math.PI, 2.6, { corpus: true }).group);
+  for (const z of [35.4, 36.7, 38.0, 39.3]) {
+    add(P.pew(31.0, 0, z, 0, 3.4));
+    add(P.pew(38.0, 0, z, 0, 3.4));
   }
-  for (const [x, z, r] of [[30, 37.5, 0.1], [34.5, 38.5, -0.2], [38.5, 37.0, 0.3], [31.5, 40.2, 1.4]]) {
-    add(P.table(x, 0, z, r));
-    add(P.chair(x - 0.4, 0, z + 0.7, r + Math.PI, false));
-    add(P.chair(x + 0.5, 0, z - 0.7, r, rng() < 0.3));
-  }
-  const tvScreen = P.crt(scene, 34.0, 0.75, 34.55, 0, game.makeStaticMaterial(), 1.1);
-  game.tvScreen = tvScreen.screen;
-  add({ group: P.desk(34.0, 0, 34.55, 0, { w: 1.0, d: 0.5 }).group, collider: P.footprint(34, 34.55, 1.0, 0.5, 0) });
-  add(P.bench(28.0, 0, 34.45, 0));
-  pick('bottle_day1', 'bottle', 34.7, 0.76, 38.4);
-  pick('bottle_day2', 'bottle', 38.2, 0.76, 37.2);
-  pick('bat_day', 'battery', 31.2, 0.76, 40.0);
-  pick('med_day', 'medkit', 27.6, 0.0, 41.4);
-  P.papers(paperGroup, 34, 0, 38, 8, 81, 4);
+  add(P.madonna(28.0, 0, 40.95, Math.PI * 0.75, 0.95));
+  const candleAt = (x, z, ry, n) => {
+    const cs = P.candleStand(x, 0, z, ry, n);
+    add(cs);
+    L('candle', x, 1.05, z, 'candle', 'candle', { ry, flames: cs.tops.map(([a, b, c]) => [a, b - 1.05, c]) });
+  };
+  candleAt(28.9, 40.0, Math.PI * 0.75, 5);
+  candleAt(32.7, 41.2, Math.PI, 3);
+  candleAt(36.3, 41.2, Math.PI, 3);
+  add(P.lectern(37.4, 0, 40.2, Math.PI));
+  batcher.add(P.holyWaterFont(29.2, 0, 34.02, 0).group);
+  batcher.add(P.holyWaterFont(37.2, 0, 34.02, 0).group);
+  for (const [z, k] of [[36.4, 0], [38.6, 1]]) batcher.add(P.iconFrame(DECAL.icons[k], 27.02, 1.8, z, Math.PI / 2).group);
+  for (const [z, k] of [[38.6, 2], [40.6, 0]]) batcher.add(P.iconFrame(DECAL.icons[k], 41.98, 1.8, z, -Math.PI / 2).group);
+  painted('ORA PRO NOBIS', 34.5, 3.6, 34.0, '+z', 3.2, 0.7);
+  pick('bottle_day1', 'bottle', 31.4, 0.48, 36.7);
+  pick('bottle_day2', 'bottle', 38.5, 0.48, 38.0);
+  pick('bat_day', 'battery', 35.3, 1.06, 40.9);
+  pick('med_day', 'medkit', 40.9, 0.0, 41.4);
+  pick('ammo_chapel', 'ammo', 31.6, 1.06, 39.05, { premiumOnly: true });
+  pick('note_chapel', 'note', 37.4, 1.215, 40.18, { note: 'n_chapel', ry: Math.PI });
+  P.papers(paperGroup, 34.5, 0, 37.5, 4, 81, 3);
+  blood(34.5, 39.9, 0.9);
 
   // ================================================================== TREPPE & KELLER
   L('bulb', 49.5, 1.9, 21.5, 'dying', 'on', { cable: 0.3, floor: -0.75 });
@@ -521,6 +595,7 @@ export function populate(game, batcher) {
   P.pipeRun(scene, 60, 19.5, 67, 19.5, -1.15, 0.12);
   pick('med_boiler', 'medkit', 60.4, -2.098, 14.2);
   pick('bat_boiler', 'battery', 60.35, -2.098, 15.0);
+  pick('ammo_boiler', 'ammo', 60.4, -2.098, 14.6, { premiumOnly: true });
 
   // Überflutetes Lager B
   L('bulb', 63.2, -1.5, 31, 'dying', 'flicker', { cable: 0.4, floor: -4 });
