@@ -5,7 +5,7 @@ Ein 3D-Survival-Horrorspiel für den Browser (Desktop und iPhone/Android), gebau
 > Katholische Heil- und Pflegeanstalt St. Aldric, 31. Oktober 1987. Du wachst in Zimmer 116 auf und erinnerst dich an nichts.
 > Du musst vor Sonnenaufgang entkommen, während etwas durch die Lüftungsschächte kriecht und dich sucht.
 
-Texturen, Modelle, Animationen, Soundeffekte und Musik werden beim Start prozedural erzeugt. Das Spiel lädt keine externen Assets und braucht keine kostenpflichtigen Dienste.
+Texturen, Modelle, Animationen, Soundeffekte und Musik werden beim Start prozedural erzeugt. Das Spiel lädt keine externen Assets. Nur die optionale Vollversion nutzt Google-Anmeldung und Stripe; Stripe erhebt dabei eine Gebühr pro Zahlung, aber keine Grundgebühr.
 
 ## Starten
 
@@ -44,7 +44,7 @@ Der Ordner `dist/` ist eine statische Website. Zwei Wege:
 
 ## Spielsysteme
 
-- **Welt:** Die Anstalt ist aus einem Raster gebaut: Flure, 8 Patientenzimmer, Schwesternstation, Eingangshalle, Aufenthaltsraum, OP-Saal, Isolationszellen, Hydrotherapie, Personaltrakt (Archiv, Überwachungsraum, Direktorenbüro), ein geheimes Archiv hinter einem Bücherregal, ein Kriechgang, ein echtes Treppenhaus und ein Keller mit Generatorraum, Heizung, überflutetem Lager, Pathologie und Wäscherei.
+- **Welt:** Die Anstalt ist aus einem Raster gebaut: Flure mit Kreuzen und Heiligenbildern, 8 Patientenzimmer, Schwesternstation, Eingangshalle mit Madonna, Kapelle (Altar, Kruzifix, Buntglas, Kerzen, Beichtstuhl als Versteck), OP-Saal, Isolationszellen, Hydrotherapie, Personaltrakt (Archiv, Überwachungsraum, Direktorenbüro), ein geheimes Archiv hinter einem Bücherregal, ein Kriechgang, ein echtes Treppenhaus und ein Keller mit Generatorraum, Heizung, überflutetem Lager, Pathologie und Wäscherei.
 - **Grafik:** PBR-Materialien mit prozeduralen Farb-, Normal- und Rauheitstexturen. Die Taschenlampe wirft dynamische Schatten durch eine Lichtmaske. Dazu kommen ein Pool flackernder Punktlichter, die auf ihren Raum begrenzt sind (kein Licht durch Wände), volumetrische Lichtkegel, Staub im Lichtstrahl, Nebel, Bloom, Filmkorn, chromatische Aberration und Schadenseffekte.
 - **Monster („Subjekt 0“):** Prozedural modelliert und animiert, mit Bein-IK, Gangzyklus, Zuckungen, Kiefer und Stofffetzen. Die KI hat diese Zustände: Patrouille, Bemerken, Untersuchen, Verfolgen, Angriff, Erholung, Suche, Spind-Kontrolle und Lüftungsschacht-Reise. Sie sieht mit Sichtkegel, Sichtlinie und Lichtabhängigkeit, hört mit Verdeckung durch Wände und navigiert mit A* auf dem Raster, über Türen und über Lüftungsschächte. Ein „Director“ steuert das Tempo, ohne das Monster zu teleportieren.
 - **Gameplay:** Schlüssel und Türen, Tastenfeld-Code (über Überwachungskamera 3), drei Sicherungen für den Generator, Geheimregal und Notverriegelung. Außerdem Inventar und Dokumente, Taschenlampen-Batterie, Spinde als Versteck, Leben und Ausdauer, Checkpoints (localStorage), Game Over, Hauptmenü, Pausemenü und Einstellungen.
